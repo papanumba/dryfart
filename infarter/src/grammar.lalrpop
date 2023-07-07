@@ -1,0 +1,94 @@
+use crate::asterix::*;
+use std::str::FromStr;
+
+grammar;
+
+
+//match {
+//    r"'.*" => {}, // comment
+//    _
+//}
+
+pub Prog: Block = {
+    Block
+};
+
+Block: Block = {
+    <mut b:Block> <s:Stmt> => {b.push(s); b},
+    Stmt => vec![<>],
+};
+
+Stmt: Stmt = {
+    <id:Ident> "=" <e:Expr> r"\." =>
+        Stmt::Assign(id.to_string(), *e),
+    <ty:PrimType> <id:Ident> r"\." =>
+        Stmt::Declar(id.to_string(), ty),
+    "[" <cond:Expr> "]" "=>" <b:Block> "[" "]" r"\." =>
+        Stmt::IfStmt(*cond, b, None),
+    "[" <cond:Expr> "]" "=>" <b:Block>  "[" "]" "=>" <e:Block> "[" "]" r"\." =>
+        Stmt::IfStmt(*cond, b, Some(e)),
+    "L" "[" <cond:Expr> "]" <b:Block> "L" r"\." =>
+        Stmt::LoopIf(*cond, b),
+};
+
+Expr: Box<Expr> = {
+    <AddExpr>,
+    <BoolExpr>,
+}
+
+BoolExpr: Box<Expr> = {
+    <l:BoolExpr> <o:r"[&|]"> <r:AtomExpr> =>
+        Box::new(Expr::BinOp(l, BinOpcode::from_str(o), r)),
+    <l:BoolExpr> <o:r"[&|]"> <r:BoolCmp> =>
+        Box::new(Expr::BinOp(l, BinOpcode::from_str(o), r)),
+    <l:AtomExpr> <o:r"[&|]"> <r:AtomExpr> =>
+        Box::new(Expr::BinOp(l, BinOpcode::from_str(o), r)),
+    <BoolCmp>,
+}
+
+BoolCmp: Box<Expr> = {
+    <l:AddExpr> <o:r"(==|/=|<|>|<=|>=)"> <r:AddExpr> =>
+        Box::new(Expr::BinOp(l, BinOpcode::from_str(o), r)),
+}
+
+AddExpr: Box<Expr> = { // FIXME: dunno y [+-] didnt work
+    <l:AddExpr> <o:"+"> <r:MulExpr> => Box::new(Expr::BinOp(
+        l, BinOpcode::from_str(o), r)),
+    <l:AddExpr> <o:"-"> <r:MulExpr> => Box::new(Expr::BinOp(
+        l, BinOpcode::from_str(o), r)),
+    MulExpr,
+};
+
+MulExpr: Box<Expr> = {
+    <l:MulExpr> <o:r"[*/]"> <r:Term> => Box::new(Expr::BinOp(
+        l, BinOpcode::from_str(o), r)),
+    Term,
+};
+
+Term: Box<Expr> = {
+    AtomExpr,
+    "(" "-" <t:Term> ")"  => Box::new(Expr::UniOp(
+        t, UniOpcode::Sub)),
+};
+
+AtomExpr: Box<Expr> = {
+    Const             => Box::new(Expr::Const(<>)),
+    Ident             => Box::new(Expr::Ident(<>.to_string())),
+    PrimType AtomExpr => Box::new(Expr::Tcast(<>)),
+    "(" <Expr> ")",
+}
+
+PrimType: Type = {
+    r"[BCNZR]%" => Type::from_str(<>.get(0..1).unwrap()),
+}
+
+Ident: String = {
+    r"[A-Za-z]\w*" => <>.into()
+}
+
+Const: Val = {
+    "T" => Val::B(true),
+    "F" => Val::B(false),
+    r"[0-9]+"         => Val::N(u32::from_str(<>).unwrap()),
+    r"[0-9]+\.[0-9]+" => Val::R(f32::from_str(<>).unwrap()),
+};
