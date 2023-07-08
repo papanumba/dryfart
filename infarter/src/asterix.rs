@@ -35,6 +35,9 @@ impl SemAnal
             Stmt::Assign(i, e)    => self.do_assign(i, e),
             Stmt::IfStmt(c, b, e) => self.do_ifstmt(c, b, e),
             Stmt::LoopIf(c, b)    => self.do_loopif(c, b),
+            Stmt::FnDecl(f)       => print!("read function"),
+            Stmt::Return(e)       => todo!(),
+            _ => todo!(),
         }
     }
 
@@ -204,16 +207,65 @@ fn do_cast(t: &Type, v: &Val) -> Val
     }
 }
 
+#[derive(Clone)]
+pub struct Func
+{
+    name: String,
+    args: Vec<(Type, String)>,
+    body: Block,
+    rett: Type,
+}
+
+impl Func
+{
+    pub fn new(n: &str, a: &Vec<(Type, String)>, b: &Block, r: &Type) -> Self
+    {
+        return Self {
+            name: String::from(n),
+            args: a.clone(),
+            body: (*b).clone(),
+            rett: *r,
+        };
+    }
+}
+
+#[derive(Clone)]
+pub struct Proc
+{
+    name: String,
+    args: Vec<(Type, String)>,
+    body: Block,
+}
+
+impl Proc
+{
+    pub fn new(n: &str, a: &Vec<(Type, String)>, b: &Block) -> Self
+    {
+        return Self {
+            name: String::from(n),
+            args: a.clone(),
+            body: (*b).clone(),
+        };
+    }
+}
+
 pub type Block = Vec<Stmt>;
 
+#[derive(Clone)]
 pub enum Stmt
 {
     Assign(String, Expr),
     Declar(String, Type),
     IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
     LoopIf(Expr, Block),
+    FnDecl(Func),
+    Return(Expr),
+    PcDecl(Proc),
+    PcExit(),
+    PcCall(String, Vec<Box<Expr>>),
 }
 
+#[derive(Clone)]
 pub enum Expr
 {
     Const(Val),
@@ -221,6 +273,7 @@ pub enum Expr
     Tcast(Type, Box<Expr>),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
+    Funcc(String, Vec<Box<Expr>>),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -356,4 +409,5 @@ impl BinOpcode
     }
 }
 
+#[derive(Clone)]
 pub enum UniOpcode { Sub }

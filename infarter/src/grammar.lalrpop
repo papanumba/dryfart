@@ -19,21 +19,44 @@ Block: Block = {
 };
 
 Stmt: Stmt = {
-    <id:Ident> "=" <e:Expr> r"\." =>
-        Stmt::Assign(id.to_string(), *e),
-    <ty:PrimType> <id:Ident> r"\." =>
+    // variable declaration
+    <ty:PrimType> <id:Ident> "." =>
         Stmt::Declar(id.to_string(), ty),
-    "[" <cond:Expr> "]" "=>" <b:Block> "[" "]" r"\." =>
+    // variable assignation
+    <id:Ident> "=" <e:Expr> "." =>
+        Stmt::Assign(id.to_string(), *e),
+    // simple if
+    "[" <cond:Expr> "]" "=>" <b:Block> "[" "]" "." =>
         Stmt::IfStmt(*cond, b, None),
-    "[" <cond:Expr> "]" "=>" <b:Block>  "[" "]" "=>" <e:Block> "[" "]" r"\." =>
+    // if else
+    "[" <cond:Expr> "]" "=>" <b:Block>  "[" "]" "=>" <e:Block> "[" "]" "." =>
         Stmt::IfStmt(*cond, b, Some(e)),
-    "L" "[" <cond:Expr> "]" <b:Block> "L" r"\." =>
+    // while loop
+    "L" "[" <cond:Expr> "]" <b:Block> "L" "." =>
         Stmt::LoopIf(*cond, b),
+    // function declaration
+    "#" <name:Ident> <rett:PrimType> "#" <args:(<PrimType> <Ident> ",")*> "#"
+    <body:Block> "#" "." =>
+        Stmt::FnDecl(Func::new(&name, &args, &body, &rett)),
+    // return
+    "#" <Expr> "." => Stmt::Return(*<>),
+    // procedure declaration
+    "!" <name:Ident> "!" <args:(<PrimType> <Ident> ",")*> "!"
+    <body:Block> "!" "." =>
+        Stmt::PcDecl(Proc::new(&name, &args, &body)),
+    // "return;" exit proc
+    "!!" "." => Stmt::PcExit(),
+    // procedure call
+    <name:Ident> "!" <args:(<Expr> ",")*> "!" "."
+        => Stmt::PcCall(name, args),
 };
 
 Expr: Box<Expr> = {
     <AddExpr>,
     <BoolExpr>,
+    // function call
+    <name:Ident> "#" <args:(<Expr> ",")*> "#" =>
+        Box::new(Expr::Funcc(name, args)),
 }
 
 BoolExpr: Box<Expr> = {

@@ -1,14 +1,19 @@
-N% num.
-N% s.
-N% i.
-num = 100.
-i   = 1.
-s   = 1.
 
-L [ s < num ]
-    i = i + 1.
-    s = i * i.
-L.
 
-B% isSquare.
-isSquare = (s == num).
+#isSquare B% # N% num, #
+    N% i. N% s.
+    i = 1.
+    s = 1.
+    L [ s < num ]
+        i = i + 1.
+        s = i * i.
+    L.
+    # (s == num) .
+#.
+
+!doSquare! !
+    B% result.
+    result = isSquare#100,#.
+!.
+
+doSquare! !.
