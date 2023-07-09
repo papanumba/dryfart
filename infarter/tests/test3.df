@@ -1,10 +1,4 @@
-!ChangeA!N%w,!
-    !ChangeW!N%d,!
-        w = 12.
-    !.
-    ChangeA!199,!.
-    a = w.
-!.
-
-N% a.
-ChangeA!100,!.
+!A!N%w,! !W!N%d,! w=12. !. a=w.!.
+N% a.A!100,!.
+#g N%# # !r! ! #9. !. r! !. #.
+a = g# #.

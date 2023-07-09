@@ -126,13 +126,13 @@ fn do_stmt(scope: &mut Scope, scref: &mut ScopeRef, s: &Stmt)
         Stmt::IfStmt(c, b, e) => return do_ifstmt(scope, c, b, e),
         Stmt::LoopIf(c, b)    => return do_loopif(scope, c, b),
         Stmt::BreakL          => return Some(BlockAction::BreakL),
-//        Stmt::FnDecl(f)       => print!("read function"),
+        Stmt::FnDecl(f)       => do_fndecl(scope, scref, f),
         Stmt::Return(e)       =>
             return Some(BlockAction::Return(eval_expr(scope, e))),
         Stmt::PcDecl(p)       => do_pcdecl(scope, scref, p),
         Stmt::PcExit          => return Some(BlockAction::PcExit),
         Stmt::PcCall(n, a)    => return do_pccall(scope, n, a),
-        _ => todo!(),
+        //_ => todo!(),
     }
     return None;
 }
@@ -218,17 +218,19 @@ fn do_loopif(scope: &mut Scope, cond: &Expr, b: &Block) -> Option<BlockAction>
     return None;
 }
 
-/*fn do_fndecl(&mut self, f: &Func) -> Option<BlockAction>
+//#[inline]
+fn do_fndecl(scope: &mut Scope, scref: &mut ScopeRef, f: &Func)
 {
     let name: &str = f.name();
-    if !self.funs.contains_key(name) {
-        self.funs.insert(name.to_string(), f.clone());
+    if !scope.funs.contains_key(name) {
+        scope.funs.insert(name.to_string(), f.clone());
+        scref.funs.push(name.to_string());
     } else {
         panic!("function {name} already made");
     }
-}*/
+}
 
-#[inline]
+//#[inline]
 fn do_pcdecl(scope: &mut Scope, scref: &mut ScopeRef, p: &Proc)
 {
     let name: &str = p.name();
@@ -246,7 +248,7 @@ fn do_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>)
     let proc: Proc;
     // check þat þe name exists
     match scope.pros.get(name) {
-        Some(p) => proc = p.clone(),
+         Some(p) => proc = p.clone(),
         None => panic!("unknown proc {name}"),
     }
     // check numba of args
@@ -268,6 +270,33 @@ fn do_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>)
     return proc.exec(scope, &args);
 }
 
+fn eval_fncall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>) -> Val
+{
+    let func: Func;
+    // check þat þe name exists
+    match scope.funs.get(name) {
+        Some(f) => func = f.clone(),
+        None => panic!("unknown func {name}"),
+    }
+    // check numba of args
+    if func.pars().len() != raw_args.len() {
+        panic!("not rite numba ov args, calling {name}#");
+    }
+    // eval every arg
+    let args: Vec<Val> = raw_args
+        .iter()
+        .map(|b| eval_expr(scope, &**b))
+        .collect();
+    // check every arg's type w/ func's decl
+    for (i, par) in func.pars().iter().enumerate() {
+        if par.0 != args[i].as_type() {
+            panic!("argument numba {i} is not of type {}%", par.0.to_string());
+        }
+    }
+    // all ok, let's go
+    return func.eval(scope, &args);
+}
+
 fn eval_expr(scope: &mut Scope, e: &Expr) -> Val
 {
     match e {
@@ -279,13 +308,7 @@ fn eval_expr(scope: &mut Scope, e: &Expr) -> Val
             o,
             &eval_expr(scope, r)
         ),
-        /*Expr::Funcc(n, a) => match self.funs.get(n) {
-            Some(f) => f.eval(&a
-                .into_iter()
-                .map(|b| self.eval_expr(&**b))
-                .collect()),
-            None => panic!("unknown func {n}"),
-        },*/
+        Expr::Funcc(n, a) => eval_fncall(scope, n, a),
         _ => todo!(),
     }
 }
@@ -424,23 +447,43 @@ impl Func
         return &self.name;
     }
 
-    pub fn eval(&self, args: &Vec<Val>) -> Val
+    pub fn pars(&self) -> &[(Type, String)]
     {
-        // self.pars is uniques
-        if args.len() != self.pars.len() {
-            panic!("not rite numbav args");
+        return &self.pars;
+    }
+
+    // IMPORTANT: note it its not &mut Scope: to prevent any state change
+    pub fn eval(&self, scope: &Scope, args: &Vec<Val>)
+        -> Val
+    {
+        // only scope's funcs are visible to self
+        let mut func_scope = Scope::new();
+        func_scope.funs = scope.funs.clone();
+        // decl args as vars
+        let mut func_scref = ScopeRef::new();
+        for (i, par) in self.pars.iter().enumerate() {
+            do_declar(&mut func_scope, &mut func_scref, &par.1, &par.0);
+            do_assign(&mut func_scope, &par.1, &Expr::Const(args[i]));
         }
-        // check args types
-        for (i, a) in args.iter().enumerate() {
-            let p = &self.pars[i];
-            let ta = a.as_type();
-            if p.0 != ta {
-                panic!("error at {}#: par {}%{} isn't {}%",
-                    self.name, p.0.to_string(), p.1, ta.to_string());
-            }
+        // exec body
+        // code similar to do_block
+        match do_block(&mut func_scope, &self.body) {
+            Some(ba) => match ba {
+                BlockAction::Return(v) => {
+                    // func_scope is destroyed
+                    if v.as_type() != self.rett {
+                        panic!("return value is not of type {}",
+                            self.rett.to_string());
+                    } else {
+                        return v;
+                    }
+                },
+                _ => panic!("cannot break or exit from func"),
+            },
+            None => {},
         }
-        // TODO: eval block
-        return self.rett.default_val();
+        // func_scope is destroyed
+        panic!("EOF func w/o a return value");
     }
 }
 
