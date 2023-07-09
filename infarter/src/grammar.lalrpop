@@ -34,18 +34,20 @@ Stmt: Stmt = {
     // while loop
     "L" "[" <cond:Expr> "]" <b:Block> "L" "." =>
         Stmt::LoopIf(*cond, b),
+    // break
+    "L" "[" "]" "." => Stmt::BreakL,
     // function declaration
-    "#" <name:Ident> <rett:PrimType> "#" <args:(<PrimType> <Ident> ",")*> "#"
+    "#" <name:Ident> <rett:PrimType> "#" <pars:(<PrimType> <Ident> ",")*> "#"
     <body:Block> "#" "." =>
-        Stmt::FnDecl(Func::new(&name, &args, &body, &rett)),
+        Stmt::FnDecl(Func::new(&name, &pars, &body, &rett)),
     // return
     "#" <Expr> "." => Stmt::Return(*<>),
     // procedure declaration
-    "!" <name:Ident> "!" <args:(<PrimType> <Ident> ",")*> "!"
+    "!" <name:Ident> "!" <pars:(<PrimType> <Ident> ",")*> "!"
     <body:Block> "!" "." =>
-        Stmt::PcDecl(Proc::new(&name, &args, &body)),
+        Stmt::PcDecl(Proc::new(&name, &pars, &body)),
     // "return;" exit proc
-    "!!" "." => Stmt::PcExit(),
+    "!!" "." => Stmt::PcExit,
     // procedure call
     <name:Ident> "!" <args:(<Expr> ",")*> "!" "."
         => Stmt::PcCall(name, args),

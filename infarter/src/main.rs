@@ -10,7 +10,13 @@ mod asterix;
 
 fn main()
 {
-    parse_file("./tests/is_square.df");
+    let argv: Vec<_> = std::env::args().collect();
+    let argc: usize = argv.len();
+    if argc == 2 {
+        parse_file(&argv[1]);
+    } else {
+        eprintln!("not rite numba of args");
+    }
 }
 
 #[test]
@@ -29,9 +35,9 @@ pub fn parse_file(fname: &str)
 {
     let taco = read_file_to_string(fname);
     let parser = grammar::ProgParser::new();
-    let mut analizer = asterix::SemAnal::new();
+    //let mut analizer = asterix::SemAnal::new();
     let res = parser.parse(&taco).unwrap();
-    analizer.anal_check(&res);
+    asterix::anal_check(&res);
 }
 
 #[inline]
