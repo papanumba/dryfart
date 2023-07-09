@@ -35,10 +35,17 @@ impl Scope
         }
     }
 
-    fn print_vars(&self)
+    fn print(&self)
     {
+        println!("\nScope:");
         for (i, v) in &self.vars {
             println!("{}% {} = {:?}.", v.as_type().to_string(), i, v);
+        }
+        for (i, f) in &self.funs {
+            println!("{}#", i);
+        }
+        for (i, p) in &self.pros {
+            println!("{}!", i);
         }
     }
 }
@@ -60,6 +67,20 @@ impl ScopeRef
             pros: Vec::new(),
         };
     }
+
+    fn print(&self)
+    {
+        println!("ScopeRef: ");
+        for v in &self.vars {
+            println!("{}", v);
+        }
+        for f in &self.funs {
+            println!("{}#", f);
+        }
+        for p in &self.pros {
+            println!("{}!", p);
+        }
+    }
 }
 
 /* MAIN FUNCTION to execute all þe programm */
@@ -71,7 +92,7 @@ pub fn anal_check(prog: &Block)
         Some(ba) => panic!("ERROR: at main script: cannot return or break"),
         None => {},
     };
-    root_scope.print_vars();
+    root_scope.print();
 }
 
 fn do_block(scope: &mut Scope, b: &Block) -> Option<BlockAction>
@@ -81,9 +102,13 @@ fn do_block(scope: &mut Scope, b: &Block) -> Option<BlockAction>
     // do statements
     for s in b {
         match do_stmt(scope, &mut blocks_scope, s) {
-            Some(ba) => return Some(ba),
+            Some(ba) => {
+                scope.clean(&blocks_scope);
+                return Some(ba);
+            },
             None => {},
         };
+        scope.print();
     }
     // "free" þis block's vars, funs & pros from þe outer scope
     scope.clean(&blocks_scope);
@@ -95,8 +120,6 @@ fn do_block(scope: &mut Scope, b: &Block) -> Option<BlockAction>
 fn do_stmt(scope: &mut Scope, scref: &mut ScopeRef, s: &Stmt)
     -> Option<BlockAction>
 {
-    println!("\nvars: ");
-    scope.print_vars();
     match s {
         Stmt::Declar(i, t)    => do_declar(scope, scref, i, t),
         Stmt::Assign(i, e)    => do_assign(scope, i, e),
@@ -106,6 +129,9 @@ fn do_stmt(scope: &mut Scope, scref: &mut ScopeRef, s: &Stmt)
 //        Stmt::FnDecl(f)       => print!("read function"),
         Stmt::Return(e)       =>
             return Some(BlockAction::Return(eval_expr(scope, e))),
+        Stmt::PcDecl(p)       => do_pcdecl(scope, scref, p),
+        Stmt::PcExit          => return Some(BlockAction::PcExit),
+        Stmt::PcCall(n, a)    => return do_pccall(scope, n, a),
         _ => todo!(),
     }
     return None;
@@ -202,6 +228,46 @@ fn do_loopif(scope: &mut Scope, cond: &Expr, b: &Block) -> Option<BlockAction>
     }
 }*/
 
+#[inline]
+fn do_pcdecl(scope: &mut Scope, scref: &mut ScopeRef, p: &Proc)
+{
+    let name: &str = p.name();
+    if !scope.pros.contains_key(name) {
+        scope.pros.insert(name.to_string(), p.clone());
+        scref.pros.push(name.to_string());
+    } else {
+        panic!("procedure {name} already made");
+    }
+}
+
+fn do_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>)
+    -> Option<BlockAction>
+{
+    let proc: Proc;
+    // check þat þe name exists
+    match scope.pros.get(name) {
+        Some(p) => proc = p.clone(),
+        None => panic!("unknown proc {name}"),
+    }
+    // check numba of args
+    if proc.pars().len() != raw_args.len() {
+        panic!("not rite numba ov args, calling {name}!");
+    }
+    // eval every arg
+    let args: Vec<Val> = raw_args
+        .iter()
+        .map(|b| eval_expr(scope, &**b))
+        .collect();
+    // check every arg's type w/ proc's decl
+    for (i, par) in proc.pars().iter().enumerate() {
+        if par.0 != args[i].as_type() {
+            panic!("argument numba {i} is not of type {}%", par.0.to_string());
+        }
+    }
+    // all ok, let's go
+    return proc.exec(scope, &args);
+}
+
 fn eval_expr(scope: &mut Scope, e: &Expr) -> Val
 {
     match e {
@@ -228,7 +294,6 @@ fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
 {
     let lt = l.as_type();
     let rt = r.as_type();
-
     if lt != rt {
         panic!("operating different types");
     }
@@ -383,19 +448,54 @@ impl Func
 pub struct Proc
 {
     name: String,
-    args: Vec<(Type, String)>,
+    pars: Vec<(Type, String)>,
     body: Block,
 }
 
 impl Proc
 {
-    pub fn new(n: &str, a: &Vec<(Type, String)>, b: &Block) -> Self
+    pub fn new(n: &str, p: &Vec<(Type, String)>, b: &Block) -> Self
     {
         return Self {
             name: String::from(n),
-            args: a.clone(),
+            pars: p.clone(),
             body: (*b).clone(),
         };
+    }
+
+    pub fn name(&self) -> &str
+    {
+        return &self.name;
+    }
+
+    pub fn pars(&self) -> &[(Type, String)]
+    {
+        return &self.pars;
+    }
+
+    pub fn exec(&self, scope: &mut Scope, args: &Vec<Val>)
+        -> Option<BlockAction>
+    {
+        // decl args as vars
+        let mut proc_scref = ScopeRef::new();
+        for (i, par) in self.pars.iter().enumerate() {
+            do_declar(scope, &mut proc_scref, &par.1, &par.0);
+            do_assign(scope, &par.1, &Expr::Const(args[i]));
+        }
+        // exec body
+        // code similar to do_block
+        match do_block(scope, &self.body) {
+            Some(ba) => match ba {
+                BlockAction::PcExit => {
+                    scope.clean(&proc_scref);
+                    return None;
+                },
+                _ => return Some(ba), // break or return
+            },
+            None => {},
+        }
+        scope.clean(&proc_scref);
+        return None;
     }
 }
 
