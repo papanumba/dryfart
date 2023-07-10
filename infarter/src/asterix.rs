@@ -117,13 +117,14 @@ fn do_block(scope: &mut Scope, b: &Block) -> Option<BlockAction>
     return None;
 }
 
-#[inline]
+//#[inline]
 fn do_stmt(scope: &mut Scope, scref: &mut ScopeRef, s: &Stmt)
     -> Option<BlockAction>
 {
     match s {
         Stmt::Declar(i, t)    => do_declar(scope, scref, i, t),
         Stmt::Assign(i, e)    => do_assign(scope, i, e),
+        Stmt::DecAss(i, t, e) => do_decass(scope, scref, i, t, e),
         Stmt::OperOn(i, o, e) => do_operon(scope, i, o, e),
         Stmt::IfStmt(c, b, e) => return do_ifstmt(scope, c, b, e),
         Stmt::LoopIf(c, b)    => return do_loopif(scope, c, b),
@@ -134,7 +135,7 @@ fn do_stmt(scope: &mut Scope, scref: &mut ScopeRef, s: &Stmt)
         Stmt::PcDecl(p)       => do_pcdecl(scope, scref, p),
         Stmt::PcExit          => return Some(BlockAction::PcExit),
         Stmt::PcCall(n, a)    => return do_pccall(scope, n, a),
-        //_ => todo!(),
+//        _ => todo!(),
     }
     return None;
 }
@@ -150,6 +151,7 @@ fn do_declar(scope: &mut Scope, scref: &mut ScopeRef, id: &str, ty: &Type)
     }
 }
 
+#[inline]
 fn do_assign(scope: &mut Scope, id: &str, value: &Expr)
 {
     // check for declared var
@@ -163,6 +165,18 @@ fn do_assign(scope: &mut Scope, id: &str, value: &Expr)
     } else {
         panic!("assigning different types");
     }
+}
+
+#[inline]
+fn do_decass(
+    scope: &mut Scope,
+    scref: &mut ScopeRef,
+    id: &str,
+    ty: &Type,
+    ex: &Expr)
+{
+    do_declar(scope, scref, id, ty);
+    do_assign(scope, id, ex);
 }
 
 fn do_operon(scope: &mut Scope, id: &str, op: &BinOpcode, ex: &Expr)
@@ -580,6 +594,7 @@ pub enum Stmt
 {
     Assign(String, Expr),
     Declar(String, Type),
+    DecAss(String, Type, Expr),
     OperOn(String, BinOpcode, Expr),
     IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
     LoopIf(Expr, Block),

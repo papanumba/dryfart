@@ -22,9 +22,12 @@ Stmt: Stmt = {
     // variable declaration
     <ty:PrimType> <id:Ident> "." =>
         Stmt::Declar(id.to_string(), ty),
-    // variable assignation
+    // variable assignement
     <id:Ident> "=" <e:Expr> "." =>
         Stmt::Assign(id.to_string(), *e),
+    // variable declaration and assignement
+    <ty:PrimType> <id:Ident> "=" <e:Expr> "." =>
+        Stmt::DecAss(id.to_string(), ty, *e),
     // "operation on" assignements
     <id:Ident> <op:r"[+\-*/&|]{2}"> <ex:Expr> "." =>
         Stmt::OperOn(id.to_string(), BinOpcode::from_str(&op[0..1]), *ex),
