@@ -25,6 +25,9 @@ Stmt: Stmt = {
     // variable assignation
     <id:Ident> "=" <e:Expr> "." =>
         Stmt::Assign(id.to_string(), *e),
+    // "operation on" assignements
+    <id:Ident> <op:r"[+\-*/&|]{2}"> <ex:Expr> "." =>
+        Stmt::OperOn(id.to_string(), BinOpcode::from_str(&op[0..1]), *ex),
     // simple if
     "[" <cond:Expr> "]" "=>" <b:Block> "[" "]" "." =>
         Stmt::IfStmt(*cond, b, None),
@@ -56,9 +59,6 @@ Stmt: Stmt = {
 Expr: Box<Expr> = {
     <AddExpr>,
     <BoolExpr>,
-    // function call
-    <name:Ident> "#" <args:(<Expr> ",")*> "#" =>
-        Box::new(Expr::Funcc(name, args)),
 }
 
 BoolExpr: Box<Expr> = {
@@ -101,6 +101,9 @@ AtomExpr: Box<Expr> = {
     Ident             => Box::new(Expr::Ident(<>.to_string())),
     PrimType AtomExpr => Box::new(Expr::Tcast(<>)),
     "(" <Expr> ")",
+    // function call
+    <name:Ident> "#" <args:(<Expr> ",")*> "#" =>
+        Box::new(Expr::Funcc(name, args)),
 }
 
 PrimType: Type = {
@@ -116,4 +119,5 @@ Const: Val = {
     "F" => Val::B(false),
     r"[0-9]+"         => Val::N(u32::from_str(<>).unwrap()),
     r"[0-9]+\.[0-9]+" => Val::R(f32::from_str(<>).unwrap()),
+    r#"C%".""# => Val::from_str_to_c(<>),
 };

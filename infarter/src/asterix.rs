@@ -1,7 +1,8 @@
 /* ASTerix */
 
 use std::collections::HashMap;
-
+use crate::lib_procs::do_lib_pccall;
+//use crate::util::Vec16;
 
 pub struct Scope
 {
@@ -24,14 +25,14 @@ impl Scope
     #[inline]
     pub fn clean(&mut self, scref: &ScopeRef)
     {
-        for v in &scref.vars {
-            self.vars.remove(v);
+        for i in 0..scref.vars.len() {
+            self.vars.remove(&scref.vars[i]);
         }
-        for f in &scref.funs {
-            self.funs.remove(f);
+        for i in 0..scref.funs.len() {
+            self.funs.remove(&scref.funs[i]);
         }
-        for p in &scref.pros {
-            self.pros.remove(p);
+        for i in 0..scref.pros.len() {
+            self.pros.remove(&scref.pros[i]);
         }
     }
 
@@ -71,7 +72,7 @@ impl ScopeRef
     fn print(&self)
     {
         println!("ScopeRef: ");
-        for v in &self.vars {
+/*        for v in &self.vars {
             println!("{}", v);
         }
         for f in &self.funs {
@@ -79,7 +80,7 @@ impl ScopeRef
         }
         for p in &self.pros {
             println!("{}!", p);
-        }
+        }*/
     }
 }
 
@@ -108,7 +109,7 @@ fn do_block(scope: &mut Scope, b: &Block) -> Option<BlockAction>
             },
             None => {},
         };
-        scope.print();
+//        scope.print();
     }
     // "free" þis block's vars, funs & pros from þe outer scope
     scope.clean(&blocks_scope);
@@ -123,6 +124,7 @@ fn do_stmt(scope: &mut Scope, scref: &mut ScopeRef, s: &Stmt)
     match s {
         Stmt::Declar(i, t)    => do_declar(scope, scref, i, t),
         Stmt::Assign(i, e)    => do_assign(scope, i, e),
+        Stmt::OperOn(i, o, e) => do_operon(scope, i, o, e),
         Stmt::IfStmt(c, b, e) => return do_ifstmt(scope, c, b, e),
         Stmt::LoopIf(c, b)    => return do_loopif(scope, c, b),
         Stmt::BreakL          => return Some(BlockAction::BreakL),
@@ -163,6 +165,17 @@ fn do_assign(scope: &mut Scope, id: &str, value: &Expr)
     }
 }
 
+fn do_operon(scope: &mut Scope, id: &str, op: &BinOpcode, ex: &Expr)
+{
+    // check for declared var
+    if !scope.vars.contains_key(id) {
+        panic!("aaa dunno what is {id} variable");
+    }
+    let val = eval_expr(scope, ex);
+    let val = eval_binop(scope.vars.get(id).unwrap(), op, &val);
+    do_assign(scope, id, &Expr::Const(val));
+}
+
 fn do_ifstmt(
     scope: &mut Scope, cond: &Expr, bloq: &Block, else_b: &Option<Block>)
     -> Option<BlockAction>
@@ -201,7 +214,17 @@ fn do_loopif(scope: &mut Scope, cond: &Expr, b: &Block) -> Option<BlockAction>
         }
         // do_block inside þe loop
         for s in b {
-            match do_stmt(scope, &mut blocks_scope, s) {
+            match s {
+                Stmt::Declar(id, ty) =>
+                // kinda do_declar
+                if !scope.vars.contains_key(id) {
+                    scope.vars.insert(id.to_string(), (*ty).default_val());
+                    blocks_scope.vars.push(id.to_string());
+                    continue;
+                } else {
+                    // do not panic since þis is a loop
+                }
+                _ => match do_stmt(scope, &mut blocks_scope, s) {
                 Some(ba) => return match ba {
                     // only break þis loop
                     BlockAction::BreakL => None,
@@ -209,6 +232,7 @@ fn do_loopif(scope: &mut Scope, cond: &Expr, b: &Block) -> Option<BlockAction>
                     _ => Some(ba),
                 },
                 None => {},
+                },
             };
         }
     }
@@ -248,8 +272,8 @@ fn do_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>)
     let proc: Proc;
     // check þat þe name exists
     match scope.pros.get(name) {
-         Some(p) => proc = p.clone(),
-        None => panic!("unknown proc {name}"),
+        Some(p) => proc = p.clone(),
+        None => {do_lib_pccall(scope, name, raw_args); return None;},
     }
     // check numba of args
     if proc.pars().len() != raw_args.len() {
@@ -399,6 +423,13 @@ fn do_cast(t: &Type, v: &Val) -> Val
     return match (v, t) {
         (Val::N(n), Type::Z) => Val::Z(*n as i32),
         (Val::Z(z), Type::R) => Val::R(*z as f32),
+        // dangerous casts
+        (Val::Z(z), Type::N) =>
+            if *z < 0 {
+                panic!("converting negative Z% to N%")
+            } else {
+                Val::N(*z as u32)
+            },
         _ => panic!("converting types"),
     }
 }
@@ -549,6 +580,7 @@ pub enum Stmt
 {
     Assign(String, Expr),
     Declar(String, Type),
+    OperOn(String, BinOpcode, Expr),
     IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
     LoopIf(Expr, Block),
     BreakL,
@@ -642,6 +674,14 @@ impl Val
             Self::Z(_) => Type::Z,
             Self::R(_) => Type::R,
         };
+    }
+
+    pub fn from_str_to_c(s: &str) -> Self
+    {
+        match s.chars().nth(3) {
+            Some(c) => return Self::C(c),
+            None => panic!("not valid char"),
+        }
     }
 }
 
