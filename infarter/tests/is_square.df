@@ -1,7 +1,6 @@
 
 
 #isSquare B% # N% num, #
-    N% i. N% s.
     i = 1.
     s = 1.
     L [ s < num ]
@@ -12,7 +11,6 @@
 #.
 
 !doSquare! !
-    B% result.
     result = isSquare#100,#.
 !.
 

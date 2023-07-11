@@ -1,39 +1,25 @@
 /* ASTerix */
 
 use std::collections::HashMap;
-use crate::lib_procs::do_lib_pccall;
+//use crate::lib_procs::do_lib_pccall;
 //use crate::util::Vec16;
 
-pub struct Scope
+pub struct Scope<'a>
 {
-    pub vars: HashMap<String, Val>,
-    pub funs: HashMap<String, Func>,
-    pub pros: HashMap<String, Proc>,
+    pub vars: HashMap<&'a str, Val>,
+    pub funs: HashMap<&'a str, &'a Func>,
+    pub pros: HashMap<&'a str, &'a Proc>,
 }
 
-impl Scope
+impl<'a> Scope<'a>
 {
     fn new() -> Self
     {
         return Self {
-            vars: HashMap::<String, Val> ::new(),
-            funs: HashMap::<String, Func>::new(),
-            pros: HashMap::<String, Proc>::new(),
+            vars: HashMap::new(),
+            funs: HashMap::new(),
+            pros: HashMap::new(),
         };
-    }
-
-    #[inline]
-    pub fn clean(&mut self, scref: &ScopeRef)
-    {
-        for i in 0..scref.vars.len() {
-            self.vars.remove(&scref.vars[i]);
-        }
-        for i in 0..scref.funs.len() {
-            self.funs.remove(&scref.funs[i]);
-        }
-        for i in 0..scref.pros.len() {
-            self.pros.remove(&scref.pros[i]);
-        }
     }
 
     fn print(&self)
@@ -51,14 +37,14 @@ impl Scope
     }
 }
 
-pub struct ScopeRef
+pub struct ScopeRef<'a>
 {
-    pub vars: Vec<String>,
-    pub funs: Vec<String>,
-    pub pros: Vec<String>,
+    pub vars: Vec<&'a str>,
+    pub funs: Vec<&'a str>,
+    pub pros: Vec<&'a str>,
 }
 
-impl ScopeRef
+impl<'a> ScopeRef<'a>
 {
     pub fn new() -> Self
     {
@@ -84,11 +70,42 @@ impl ScopeRef
     }
 }
 
+pub struct BlockScope<'a, 's>
+{
+    pub outer: &'s mut Scope::<'a>, // inherited variables
+    pub inner: ScopeRef::<'a>,   // new created variables
+}
+
+impl<'a, 's> BlockScope<'a, 's>
+{
+    pub fn from_scope(scope: &'s mut Scope::<'a>) -> Self
+    {
+        return Self {
+            outer: scope,
+            inner: ScopeRef::<'a>::new(),
+        };
+    }
+
+    #[inline]
+    pub fn clean(&mut self)
+    {
+        for v in &self.inner.vars {
+            self.outer.vars.remove(v);
+        }
+        for f in &self.inner.funs {
+            self.outer.funs.remove(f);
+        }
+        for p in &self.inner.pros {
+            self.outer.pros.remove(p);
+        }
+    }
+}
+
 /* MAIN FUNCTION to execute all þe programm */
 // semantic analysis check
-pub fn anal_check(prog: &Block)
+pub fn anal_check<'a>(prog: &'a Block)
 {
-    let mut root_scope = Scope::new();
+    let mut root_scope = Scope::<'a>::new();
     match do_block(&mut root_scope, prog) {
         Some(ba) => panic!("ERROR: at main script: cannot return or break"),
         None => {},
@@ -96,15 +113,18 @@ pub fn anal_check(prog: &Block)
     root_scope.print();
 }
 
-fn do_block(scope: &mut Scope, b: &Block) -> Option<BlockAction>
+fn do_block<'a, 's>(
+    scope: &'s mut Scope::<'a>,
+    block: &'a Block)
+ -> Option<BlockAction>
 {
     // keep track of þis block's new scope
-    let mut blocks_scope = ScopeRef::new();
+    let mut blocks_scope = BlockScope::<'a, 's>::from_scope(scope);
     // do statements
-    for s in b {
-        match do_stmt(scope, &mut blocks_scope, s) {
+    for s in block {
+        match do_stmt(&mut blocks_scope, s) {
             Some(ba) => {
-                scope.clean(&blocks_scope);
+                blocks_scope.clean();
                 return Some(ba);
             },
             None => {},
@@ -112,150 +132,126 @@ fn do_block(scope: &mut Scope, b: &Block) -> Option<BlockAction>
 //        scope.print();
     }
     // "free" þis block's vars, funs & pros from þe outer scope
-    scope.clean(&blocks_scope);
+    blocks_scope.clean();
     // noþing to do outside
     return None;
 }
 
-//#[inline]
-fn do_stmt(scope: &mut Scope, scref: &mut ScopeRef, s: &Stmt)
-    -> Option<BlockAction>
+fn do_stmt<'a, 's>(
+    bs: &mut BlockScope<'a, 's>,
+    s: &'a Stmt)
+ -> Option<BlockAction>
 {
+    let sc = &mut bs.outer;
     match s {
-        Stmt::Declar(i, t)    => do_declar(scope, scref, i, t),
-        Stmt::Assign(i, e)    => do_assign(scope, i, e),
-        Stmt::DecAss(i, t, e) => do_decass(scope, scref, i, t, e),
-        Stmt::OperOn(i, o, e) => do_operon(scope, i, o, e),
-        Stmt::IfStmt(c, b, e) => return do_ifstmt(scope, c, b, e),
-        Stmt::LoopIf(c, b)    => return do_loopif(scope, c, b),
+        Stmt::Assign(i, e)    => do_assign(bs, i, e),
+        Stmt::OperOn(i, o, e) => do_operon(sc, i, o, e),
+        Stmt::IfStmt(c, b, e) => return do_ifstmt(sc, c, b, e),
+        Stmt::LoopIf(c, b)    => return do_loopif(sc, c, b),
         Stmt::BreakL          => return Some(BlockAction::BreakL),
-        Stmt::FnDecl(f)       => do_fndecl(scope, scref, f),
+        /*Stmt::FnDecl(f)       => do_fndecl(bs, f),
         Stmt::Return(e)       =>
-            return Some(BlockAction::Return(eval_expr(scope, e))),
-        Stmt::PcDecl(p)       => do_pcdecl(scope, scref, p),
+            return Some(BlockAction::Return(eval_expr(sc, e))),
+        Stmt::PcDecl(p)       => do_pcdecl(bs, p),
         Stmt::PcExit          => return Some(BlockAction::PcExit),
-        Stmt::PcCall(n, a)    => return do_pccall(scope, n, a),
-//        _ => todo!(),
+        Stmt::PcCall(n, a)    => return do_pccall(sc, n, a),*/
+        _ => todo!(),
     }
     return None;
 }
 
 #[inline]
-fn do_declar(scope: &mut Scope, scref: &mut ScopeRef, id: &str, ty: &Type)
-{
-    if !scope.vars.contains_key(id) {
-        scope.vars.insert(id.to_string(), (*ty).default_val());
-        scref.vars.push(id.to_string());
-    } else {
-        panic!("variable {id} already made");
-    }
-}
-
-#[inline]
-fn do_assign(scope: &mut Scope, id: &str, value: &Expr)
-{
-    // check for declared var
-    if !scope.vars.contains_key(id) {
-        panic!("aaa dunno what is {id} variable");
-    }
-    // check for static type
-    let new_val: Val = eval_expr(scope, value);
-    if  new_val.as_type() == scope.vars.get(id).unwrap().as_type() {
-        scope.vars.insert(id.to_string(), new_val);
-    } else {
-        panic!("assigning different types");
-    }
-}
-
-#[inline]
-fn do_decass(
-    scope: &mut Scope,
-    scref: &mut ScopeRef,
-    id: &str,
-    ty: &Type,
+fn do_assign<'a, 's>(
+    bs: &mut BlockScope::<'a, 's>,
+    id: &'a str,
     ex: &Expr)
 {
-    do_declar(scope, scref, id, ty);
-    do_assign(scope, id, ex);
+    let val: Val = eval_expr(bs.outer, ex);
+    match bs.outer.vars.insert(id,  val) {
+        None => bs.inner.vars.push(id), // new id in þe HashMap
+        _ => {},
+    }
 }
 
-fn do_operon(scope: &mut Scope, id: &str, op: &BinOpcode, ex: &Expr)
+#[inline]
+fn do_operon<'a>(
+    sc: &mut Scope::<'a>,
+    id: &'a str,
+    op: &BinOpcode,
+    ex: &Expr)
 {
     // check for declared var
-    if !scope.vars.contains_key(id) {
-        panic!("aaa dunno what is {id} variable");
+    let idval: Val;
+    match sc.vars.get(id) {
+        Some(v) => idval = *v,
+        None => panic!("aaa dunno what is {id} variable"),
     }
-    let val = eval_expr(scope, ex);
-    let val = eval_binop(scope.vars.get(id).unwrap(), op, &val);
-    do_assign(scope, id, &Expr::Const(val));
+    // calculate new value
+    let value: Val = eval_expr(sc, ex);
+    let value: Val = eval_binop(&idval, op, &value);
+    sc.vars.insert(id, value); // id exists
 }
 
-fn do_ifstmt(
-    scope: &mut Scope, cond: &Expr, bloq: &Block, else_b: &Option<Block>)
-    -> Option<BlockAction>
+fn do_ifstmt<'a>(
+    sc: &mut Scope::<'a>,
+    cd: &Expr,
+    bl: &'a Block,
+    eb: &'a Option<Block>)
+ -> Option<BlockAction>
 {
-    // eval cond
-    let cond_bool = match eval_expr(scope, cond) {
-        Val::B(b) => b,
-        _ => panic!("condition is not B%"),
-    };
-    return if cond_bool {
+    return if eval_cond(sc, cd) {
         // report if any Returnable BlockAction found
-        do_block(scope, bloq)
+        do_block(sc, bl)
     } else {
         // if þere's an else block, return it's result
-        match else_b {
-            Some(eb) => do_block(scope, eb),
+        match eb {
+            Some(b) => do_block(sc, b),
             None => None,
         }
-    }
+    };
 }
 
-fn do_loopif(scope: &mut Scope, cond: &Expr, b: &Block) -> Option<BlockAction>
+// helper for do_ifstmt & do_loopif
+#[inline]
+fn eval_cond(sc: &mut Scope, cd: &Expr) -> bool
 {
-    /* code adapted from do_block */
-    // keep track of þis block's new scope
-    let mut blocks_scope = ScopeRef::new();
-    // start looping
+    match eval_expr(sc, cd) {
+        Val::B(b) => return b,
+        _ => panic!("condition is not B%"),
+    };
+}
+
+fn do_loopif<'a>(
+    sc: &mut Scope::<'a>,
+    cd: &Expr,
+    bl: &'a Block)
+ -> Option<BlockAction>
+{
+    // code adapted from do_block, so as not to alloc a blockScope every loop
+    let mut loop_bs = BlockScope::from_scope(sc);
     loop {
-        // check condition
-        let eval_cond = match eval_expr(scope, cond) {
-            Val::B(b) => b,
-            _ => panic!("condition is not B%"),
-        };
-        if ! eval_cond {
+        if !eval_cond(loop_bs.outer, cd) {
             break;
         }
-        // do_block inside þe loop
-        for s in b {
-            match s {
-                Stmt::Declar(id, ty) =>
-                // kinda do_declar
-                if !scope.vars.contains_key(id) {
-                    scope.vars.insert(id.to_string(), (*ty).default_val());
-                    blocks_scope.vars.push(id.to_string());
-                    continue;
-                } else {
-                    // do not panic since þis is a loop
-                }
-                _ => match do_stmt(scope, &mut blocks_scope, s) {
-                Some(ba) => return match ba {
-                    // only break þis loop
-                    BlockAction::BreakL => None,
-                    // return different action, for an outer func or proc
-                    _ => Some(ba),
+        for st in bl {
+            // TODO: clean þis nested mess
+            match do_stmt(&mut loop_bs, st) {
+                Some(ba) => {
+                    loop_bs.clean();
+                    return match ba {
+                        BlockAction::BreakL => None,
+                        _ => Some(ba),
+                    };
                 },
                 None => {},
-                },
             };
         }
     }
-    // "free" þis block's vars, funs & pros from þe outer scope
-    scope.clean(&blocks_scope);
-    // noþing to do outside
+    loop_bs.clean();
     return None;
 }
 
+/*
 //#[inline]
 fn do_fndecl(scope: &mut Scope, scref: &mut ScopeRef, f: &Func)
 {
@@ -334,19 +330,20 @@ fn eval_fncall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>) -> Val
     // all ok, let's go
     return func.eval(scope, &args);
 }
+*/
 
 fn eval_expr(scope: &mut Scope, e: &Expr) -> Val
 {
     match e {
         Expr::Const(c) => *c,
-        Expr::Ident(i) => *scope.vars.get(i).unwrap(),
+        Expr::Ident(i) => *scope.vars.get(i.as_str()).unwrap(),
         Expr::Tcast(t, e) => do_cast(t, &eval_expr(scope, e)),
         Expr::BinOp(l, o, r) => eval_binop(
             &eval_expr(scope, l),
             o,
             &eval_expr(scope, r)
         ),
-        Expr::Funcc(n, a) => eval_fncall(scope, n, a),
+//        Expr::Funcc(n, a) => eval_fncall(scope, n, a),
         _ => todo!(),
     }
 }
@@ -501,7 +498,7 @@ impl Func
     pub fn eval(&self, scope: &Scope, args: &Vec<Val>)
         -> Val
     {
-        // only scope's funcs are visible to self
+/*        // only scope's funcs are visible to self
         let mut func_scope = Scope::new();
         func_scope.funs = scope.funs.clone();
         // decl args as vars
@@ -526,7 +523,7 @@ impl Func
                 _ => panic!("cannot break or exit from func"),
             },
             None => {},
-        }
+        }*/
         // func_scope is destroyed
         panic!("EOF func w/o a return value");
     }
@@ -564,7 +561,7 @@ impl Proc
     pub fn exec(&self, scope: &mut Scope, args: &Vec<Val>)
         -> Option<BlockAction>
     {
-        // decl args as vars
+/*        // decl args as vars
         let mut proc_scref = ScopeRef::new();
         for (i, par) in self.pars.iter().enumerate() {
             do_declar(scope, &mut proc_scref, &par.1, &par.0);
@@ -582,7 +579,7 @@ impl Proc
             },
             None => {},
         }
-        scope.clean(&proc_scref);
+        scope.clean(&proc_scref);*/
         return None;
     }
 }
