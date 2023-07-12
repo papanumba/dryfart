@@ -7,7 +7,6 @@ use std::collections::HashMap;
 pub struct Scope<'a>
 {
     pub vars: HashMap<&'a str, Val>,
-    pub funs: HashMap<&'a str, &'a Func>,
     pub pros: HashMap<&'a str, &'a Proc>,
 }
 
@@ -17,7 +16,6 @@ impl<'a> Scope<'a>
     {
         return Self {
             vars: HashMap::new(),
-            funs: HashMap::new(),
             pros: HashMap::new(),
         };
     }
@@ -28,9 +26,6 @@ impl<'a> Scope<'a>
         for (i, v) in &self.vars {
             println!("{}% {} = {:?}.", v.as_type().to_string(), i, v);
         }
-        for (i, f) in &self.funs {
-            println!("{}#", i);
-        }
         for (i, p) in &self.pros {
             println!("{}!", i);
         }
@@ -40,7 +35,6 @@ impl<'a> Scope<'a>
 pub struct ScopeRef<'a>
 {
     pub vars: Vec<&'a str>,
-    pub funs: Vec<&'a str>,
     pub pros: Vec<&'a str>,
 }
 
@@ -50,23 +44,8 @@ impl<'a> ScopeRef<'a>
     {
         return Self {
             vars: Vec::new(),
-            funs: Vec::new(),
             pros: Vec::new(),
         };
-    }
-
-    fn print(&self)
-    {
-        println!("ScopeRef: ");
-/*        for v in &self.vars {
-            println!("{}", v);
-        }
-        for f in &self.funs {
-            println!("{}#", f);
-        }
-        for p in &self.pros {
-            println!("{}!", p);
-        }*/
     }
 }
 
@@ -91,9 +70,6 @@ impl<'a, 's> BlockScope<'a, 's>
     {
         for v in &self.inner.vars {
             self.outer.vars.remove(v);
-        }
-        for f in &self.inner.funs {
-            self.outer.funs.remove(f);
         }
         for p in &self.inner.pros {
             self.outer.pros.remove(p);
@@ -122,14 +98,10 @@ fn do_block<'a, 's>(
     let mut blocks_scope = BlockScope::<'a, 's>::from_scope(scope);
     // do statements
     for s in block {
-        match do_stmt(&mut blocks_scope, s) {
-            Some(ba) => {
-                blocks_scope.clean();
-                return Some(ba);
-            },
-            None => {},
-        };
-//        scope.print();
+        if let Some(ba) = do_stmt(&mut blocks_scope, s) {
+            blocks_scope.clean();
+            return Some(ba);
+        }
     }
     // "free" þis block's vars, funs & pros from þe outer scope
     blocks_scope.clean();
@@ -149,10 +121,9 @@ fn do_stmt<'a, 's>(
         Stmt::IfStmt(c, b, e) => return do_ifstmt(sc, c, b, e),
         Stmt::LoopIf(c, b)    => return do_loopif(sc, c, b),
         Stmt::BreakL          => return Some(BlockAction::BreakL),
-        /*Stmt::FnDecl(f)       => do_fndecl(bs, f),
         Stmt::Return(e)       =>
             return Some(BlockAction::Return(eval_expr(sc, e))),
-        Stmt::PcDecl(p)       => do_pcdecl(bs, p),
+        /*Stmt::PcDecl(p)       => do_pcdecl(bs, p),
         Stmt::PcExit          => return Some(BlockAction::PcExit),
         Stmt::PcCall(n, a)    => return do_pccall(sc, n, a),*/
         _ => todo!(),
@@ -167,6 +138,7 @@ fn do_assign<'a, 's>(
     ex: &Expr)
 {
     let val: Val = eval_expr(bs.outer, ex);
+    println!("assigning {id} = {:?}", val);
     match bs.outer.vars.insert(id,  val) {
         None => bs.inner.vars.push(id), // new id in þe HashMap
         _ => {},
@@ -183,7 +155,7 @@ fn do_operon<'a>(
     // check for declared var
     let idval: Val;
     match sc.vars.get(id) {
-        Some(v) => idval = *v,
+        Some(v) => idval = (*v).clone(),
         None => panic!("aaa dunno what is {id} variable"),
     }
     // calculate new value
@@ -235,16 +207,13 @@ fn do_loopif<'a>(
         }
         for st in bl {
             // TODO: clean þis nested mess
-            match do_stmt(&mut loop_bs, st) {
-                Some(ba) => {
-                    loop_bs.clean();
-                    return match ba {
-                        BlockAction::BreakL => None,
-                        _ => Some(ba),
-                    };
-                },
-                None => {},
-            };
+            if let Some(ba) = do_stmt(&mut loop_bs, st) {
+                loop_bs.clean();
+                return match ba {
+                    BlockAction::BreakL => None,
+                    _ => Some(ba),
+                };
+            }
         }
     }
     loop_bs.clean();
@@ -303,47 +272,53 @@ fn do_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>)
     // all ok, let's go
     return proc.exec(scope, &args);
 }
+*/
 
-fn eval_fncall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>) -> Val
+fn eval_fncall(
+    scope:&Scope,
+    call: &Expr,
+    raw_args: &Vec<Expr>)
+ -> Val
 {
     let func: Func;
-    // check þat þe name exists
-    match scope.funs.get(name) {
-        Some(f) => func = f.clone(),
-        None => panic!("unknown func {name}"),
+    // eval caller
+    if let Val::F(f) = eval_expr(scope, call) {
+        func = f.clone();
+    } else {
+        panic!("call expr is not a func")
     }
     // check numba of args
-    if func.pars().len() != raw_args.len() {
-        panic!("not rite numba ov args, calling {name}#");
+    if func.parc() != raw_args.len() {
+        panic!("not rite numba ov args, calling func");
     }
     // eval every arg
     let args: Vec<Val> = raw_args
         .iter()
-        .map(|b| eval_expr(scope, &**b))
+        .map(|b| eval_expr(scope, b))
         .collect();
     // check every arg's type w/ func's decl
-    for (i, par) in func.pars().iter().enumerate() {
-        if par.0 != args[i].as_type() {
-            panic!("argument numba {i} is not of type {}%", par.0.to_string());
+    for (i, t) in func.part().iter().enumerate() {
+        if *t != args[i].as_type() {
+            panic!("argument numba {i} is not of type {}%", t.to_string());
         }
     }
     // all ok, let's go
-    return func.eval(scope, &args);
+    return func.eval(&args);
 }
-*/
 
-fn eval_expr(scope: &mut Scope, e: &Expr) -> Val
+fn eval_expr(scope: &Scope, e: &Expr) -> Val
 {
     match e {
-        Expr::Const(c) => *c,
-        Expr::Ident(i) => *scope.vars.get(i.as_str()).unwrap(),
+        Expr::Const(c) => (*c).clone(),
+        Expr::Ident(i) => (*scope.vars.get(i.as_str()).unwrap()).clone(),
         Expr::Tcast(t, e) => do_cast(t, &eval_expr(scope, e)),
         Expr::BinOp(l, o, r) => eval_binop(
             &eval_expr(scope, l),
             o,
             &eval_expr(scope, r)
         ),
-//        Expr::Funcc(n, a) => eval_fncall(scope, n, a),
+        Expr::Fdefn(f) => Val::F((*f).clone()),
+        Expr::Fcall(c, a) => eval_fncall(scope, &**c, a),
         _ => todo!(),
     }
 }
@@ -429,8 +404,8 @@ fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
 fn do_cast(t: &Type, v: &Val) -> Val
 {
     if v.as_type() == *t {
-        return *v;
-    }
+        return (*v).clone();
+     }
     return match (v, t) {
         (Val::N(n), Type::Z) => Val::Z(*n as i32),
         (Val::Z(z), Type::R) => Val::R(*z as f32),
@@ -456,7 +431,6 @@ pub enum BlockAction
 #[derive(Clone)]
 pub struct Func
 {
-    name: String,
     pars: Vec<(Type, String)>,
     body: Block,
     rett: Type,
@@ -464,68 +438,97 @@ pub struct Func
 
 impl Func
 {
-    pub fn new(n: &str, p: &Vec<(Type, String)>, b: &Block, r: &Type) -> Self
+    pub fn new(
+        p: &Vec<(Type, String)>,
+        b: &Block,
+        r: &Type)
+     -> Self
     {
         // check uniques in p
         let mut p2: Vec<&str> = p
             .iter()
             .map(|pair| (pair.1).as_str())
-            .collect::<Vec<&str>>();
+            .collect();
         p2.sort();
         p2.dedup();
         if p2.len() != p.len() {
-            panic!("duplicate parameters in decl of {n}#");
+            panic!("duplicate parameters in decl of a func");
         }
         return Self {
-            name: String::from(n),
             pars: (*p).clone(),
             body: (*b).clone(),
-            rett: *r,
+            rett: (*r).clone(),
         };
     }
 
-    pub fn name(&self) -> &str
+    pub fn parc(&self) -> usize
     {
-        return &self.name;
+        return self.pars.len();
     }
 
-    pub fn pars(&self) -> &[(Type, String)]
+    pub fn part(&self) -> Vec<Type>
     {
-        return &self.pars;
+        return self.pars
+            .iter()
+            .map(|arg| (*arg).0.clone())
+            .collect();
     }
 
-    // IMPORTANT: note it its not &mut Scope: to prevent any state change
-    pub fn eval(&self, scope: &Scope, args: &Vec<Val>)
-        -> Val
+    pub fn get_type(&self) -> Type
     {
-/*        // only scope's funcs are visible to self
-        let mut func_scope = Scope::new();
-        func_scope.funs = scope.funs.clone();
+        return Type::F(
+            Box::new(self.rett.clone()),
+            self.pars
+                .iter()
+                .map(|pair| pair.0.clone())
+                .collect(),
+        );
+    }
+
+    pub fn eval<'a>(&'a self, args: &'a Vec<Val>) -> Val
+    {
+        println!("you called me");
+        let mut func_sc = Scope::<'a>::new();
         // decl args as vars
-        let mut func_scref = ScopeRef::new();
         for (i, par) in self.pars.iter().enumerate() {
-            do_declar(&mut func_scope, &mut func_scref, &par.1, &par.0);
-            do_assign(&mut func_scope, &par.1, &Expr::Const(args[i]));
+            func_sc.vars.insert(&par.1, args[i].clone());
+            //do_assign(&mut func_bs, &par.1, &Expr::Const(args[i]));
         }
         // exec body
         // code similar to do_block
-        match do_block(&mut func_scope, &self.body) {
-            Some(ba) => match ba {
+        if let Some(ba) = do_block(&mut func_sc, &self.body) {
+            match ba {
                 BlockAction::Return(v) => {
                     // func_scope is destroyed
                     if v.as_type() != self.rett {
                         panic!("return value is not of type {}",
                             self.rett.to_string());
                     } else {
-                        return v;
+                        return v.clone();
                     }
                 },
                 _ => panic!("cannot break or exit from func"),
-            },
-            None => {},
-        }*/
+            }
+        }
         // func_scope is destroyed
         panic!("EOF func w/o a return value");
+    }
+}
+
+impl PartialEq for Func
+{
+    // Required method
+    fn eq(&self, other: &Self) -> bool
+    {
+        return false;
+    }
+}
+
+impl std::fmt::Debug for Func
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
+    {
+        write!(f, "{}#...", self.rett.to_string())
     }
 }
 
@@ -590,13 +593,10 @@ pub type Block = Vec<Stmt>;
 pub enum Stmt
 {
     Assign(String, Expr),
-    Declar(String, Type),
-    DecAss(String, Type, Expr),
     OperOn(String, BinOpcode, Expr),
     IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
     LoopIf(Expr, Block),
     BreakL,
-    FnDecl(Func),
     Return(Expr),
     PcDecl(Proc),
     PcExit,
@@ -611,11 +611,21 @@ pub enum Expr
     Tcast(Type, Box<Expr>),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
-    Funcc(String, Vec<Box<Expr>>),
+    Fdefn(Func),
+    Fcall(Box<Expr>, Vec<Expr>),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum Type { B, C, N, Z, R }
+#[derive(Clone, Eq, PartialEq)]
+pub enum Type
+{
+    B,  // bool
+    C,  // char
+    N,  // natural
+    Z,  // zahl
+    R,  // real
+    A(Box<Type>),  // array
+    F(Box<Type>, Vec<Type>), // func
+}
 
 impl Type
 {
@@ -647,6 +657,7 @@ impl Type
             Self::N => Val::N(0),
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
+            _ => todo!(),
         }
     }
 }
@@ -661,11 +672,14 @@ impl std::string::ToString for Type
             Self::N => "N",
             Self::Z => "Z",
             Self::R => "R",
+            Self::A(_) => "A",
+            Self::F(..) => "F",
+            //_ => todo!(),
         });
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Val
 {
     B(bool),
@@ -673,6 +687,8 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f32),
+//    A(Vec<Val>),
+    F(Func),
 }
 
 impl Val
@@ -685,6 +701,9 @@ impl Val
             Self::N(_) => Type::N,
             Self::Z(_) => Type::Z,
             Self::R(_) => Type::R,
+//            Self::A(a) => Type::A(Box::new(a.as_type())),
+            Self::F(f) => f.get_type(),
+            //_ => todo!(),
         };
     }
 

@@ -1,6 +1,6 @@
 /* src/lib_procs.rs */
 
-use crate::asterix::{Scope, Proc, Expr};
+use crate::asterix::{Scope, Expr};
 
 pub fn do_lib_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>)
 {

@@ -11,45 +11,33 @@ grammar;
 
 pub Prog: Block = {
     Block
-};
+}
 
 Block: Block = {
     <mut b:Block> <s:Stmt> => {b.push(s); b},
     Stmt => vec![<>],
-};
+}
 
 Stmt: Stmt = {
-    // variable declaration
-    <ty:PrimType> <id:Ident> "." =>
-        Stmt::Declar(id.to_string(), ty),
     // variable assignement
     <id:Ident> "=" <e:Expr> "." =>
         Stmt::Assign(id.to_string(), *e),
-    // variable declaration and assignement
-    <ty:PrimType> <id:Ident> "=" <e:Expr> "." =>
-        Stmt::DecAss(id.to_string(), ty, *e),
     // "operation on" assignements
     <id:Ident> <op:r"[+\-*/&|]{2}"> <ex:Expr> "." =>
         Stmt::OperOn(id.to_string(), BinOpcode::from_str(&op[0..1]), *ex),
-    // simple if
-    "[" <cond:Expr> "]" "=>" <b:Block> "[" "]" "." =>
-        Stmt::IfStmt(*cond, b, None),
     // if else
-    "[" <cond:Expr> "]" "=>" <b:Block>  "[" "]" "=>" <e:Block> "[" "]" "." =>
-        Stmt::IfStmt(*cond, b, Some(e)),
+    "(" <cond:Expr> ")" "=>" <b:Block>  <e:("(" ")" "=>" <Block>)?>
+        "(" ")" "." =>
+        Stmt::IfStmt(*cond, b, e),
     // while loop
-    "L" "[" <cond:Expr> "]" <b:Block> "L" "." =>
+    "@" "(" <cond:Expr> ")" <b:Block> "@" "." =>
         Stmt::LoopIf(*cond, b),
     // break
-    "L" "[" "]" "." => Stmt::BreakL,
-    // function declaration
-    "#" <name:Ident> <rett:PrimType> "#" <pars:(<PrimType> <Ident> ",")*> "#"
-    <body:Block> "#" "." =>
-        Stmt::FnDecl(Func::new(&name, &pars, &body, &rett)),
+    "@" "(" ")" "." => Stmt::BreakL,
     // return
-    "#" <Expr> "." => Stmt::Return(*<>),
+    "##" <Expr> "." => Stmt::Return(*<>),
     // procedure declaration
-    "!" <name:Ident> "!" <pars:(<PrimType> <Ident> ",")*> "!"
+    "!" <name:Ident> "!" <pars:(<Type> <Ident> ",")*> "!"
     <body:Block> "!" "." =>
         Stmt::PcDecl(Proc::new(&name, &pars, &body)),
     // "return;" exit proc
@@ -57,7 +45,7 @@ Stmt: Stmt = {
     // procedure call
     <name:Ident> "!" <args:(<Expr> ",")*> "!" "."
         => Stmt::PcCall(name, args),
-};
+}
 
 Expr: Box<Expr> = {
     <AddExpr>,
@@ -85,28 +73,45 @@ AddExpr: Box<Expr> = { // FIXME: dunno y [+-] didnt work
     <l:AddExpr> <o:"-"> <r:MulExpr> => Box::new(Expr::BinOp(
         l, BinOpcode::from_str(o), r)),
     MulExpr,
-};
+}
 
 MulExpr: Box<Expr> = {
     <l:MulExpr> <o:r"[*/]"> <r:Term> => Box::new(Expr::BinOp(
         l, BinOpcode::from_str(o), r)),
     Term,
-};
+}
 
 Term: Box<Expr> = {
     AtomExpr,
     "(" "-" <t:Term> ")"  => Box::new(Expr::UniOp(
         t, UniOpcode::Sub)),
+    PrimType AtomExpr => Box::new(Expr::Tcast(<>)),
 };
 
 AtomExpr: Box<Expr> = {
-    Const             => Box::new(Expr::Const(<>)),
-    Ident             => Box::new(Expr::Ident(<>.to_string())),
-    PrimType AtomExpr => Box::new(Expr::Tcast(<>)),
+    Const => Box::new(Expr::Const(<>)),
+    Ident => Box::new(Expr::Ident(<>.to_string())),
     "(" <Expr> ")",
+    // anonymous function
+    <rett:Type> "#" "{" <pars:(<Type> <Ident> ",")*> "}"
+        <body:Block> "#" "." =>
+            Box::new(Expr::Fdefn(Func::new(&pars, &body, &rett))),
     // function call
-    <name:Ident> "#" <args:(<Expr> ",")*> "#" =>
-        Box::new(Expr::Funcc(name, args)),
+    <call:AtomExpr> "#" "{" <args:(<Expr> ",")*> "}" =>
+        Box::new(Expr::Fcall(call,
+            args.iter().map(|b| (**b).clone()).collect())),
+    // explicit array
+//    "{" <arr:(<Expr> ",")*> "}" => Box::new(Expr::Const(Val::B(false))),
+}
+
+
+Type: Type = {
+    // funcs
+    <r:Type> "#" "{" <a:(<Type> ",")*> "}" => Type::F(Box::new(r), a),
+    // arrays
+    "{" <Type> "}" => Type::A(Box::new(<>)),
+    // BCNZR
+    PrimType,
 }
 
 PrimType: Type = {
@@ -114,7 +119,8 @@ PrimType: Type = {
 }
 
 Ident: String = {
-    r"[A-Za-z]\w*" => <>.into()
+//    <i:ArrAccess> "_" AtomExpr => i,
+    r"[A-Za-z][A-Za-z0-9]*" => <>.into(),
 }
 
 Const: Val = {
@@ -123,4 +129,4 @@ Const: Val = {
     r"[0-9]+"         => Val::N(u32::from_str(<>).unwrap()),
     r"[0-9]+\.[0-9]+" => Val::R(f32::from_str(<>).unwrap()),
     r#"C%".""# => Val::from_str_to_c(<>),
-};
+}
