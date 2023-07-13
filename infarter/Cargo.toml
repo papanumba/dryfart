@@ -14,3 +14,7 @@ regex = "1.8.4"
 
 [build-dependencies]
 lalrpop = "0.20"
+
+[profile.release]
+lto = true
+strip = true

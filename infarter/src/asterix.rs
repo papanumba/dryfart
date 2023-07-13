@@ -68,6 +68,7 @@ impl<'a, 's> BlockScope<'a, 's>
     #[inline]
     pub fn clean(&mut self)
     {
+//        self.outer.print();
         for v in &self.inner.vars {
             self.outer.vars.remove(v);
         }
@@ -376,27 +377,27 @@ fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
         (Val::N(vl), Val::N(vr)) => match o {
             BinOpcode::Add => Val::N(vl + vr),
             BinOpcode::Mul => Val::N(vl * vr),
-            _ => panic!("not valid operation"),
+            _ => panic!("not valid operation btwin N%"),
         },
         (Val::Z(vl), Val::Z(vr)) => match o {
             BinOpcode::Add => Val::Z(vl + vr),
             BinOpcode::Sub => Val::Z(vl - vr),
             BinOpcode::Mul => Val::Z(vl * vr),
-            _ => panic!("not valid operation"),
+            _ => panic!("not valid operation btwin Z%"),
         },
         (Val::R(vl), Val::R(vr)) => match o {
             BinOpcode::Add => Val::R(vl + vr),
             BinOpcode::Sub => Val::R(vl - vr),
             BinOpcode::Mul => Val::R(vl * vr),
             BinOpcode::Div => Val::R(vl / vr),
-            _ => panic!("not valid operation"),
+            _ => panic!("not valid operation btwin R%"),
         },
         (Val::B(vl), Val::B(vr)) => match o {
             BinOpcode::And => Val::B(*vl && *vr),
             BinOpcode::Or  => Val::B(*vl || *vr),
             _ => panic!("unknown op btwin B%"),
         },
-        _ => panic!("not valid operation"),
+        _ => panic!("not valid operation btwin {:?} and {:?}", l, r),
     }
 }
 
@@ -409,6 +410,7 @@ fn do_cast(t: &Type, v: &Val) -> Val
     return match (v, t) {
         (Val::N(n), Type::Z) => Val::Z(*n as i32),
         (Val::Z(z), Type::R) => Val::R(*z as f32),
+        (Val::N(n), Type::R) => Val::R(*n as f32),
         // dangerous casts
         (Val::Z(z), Type::N) =>
             if *z < 0 {
@@ -487,7 +489,7 @@ impl Func
 
     pub fn eval<'a>(&'a self, args: &'a Vec<Val>) -> Val
     {
-        println!("you called me");
+//        println!("you called me");
         let mut func_sc = Scope::<'a>::new();
         // decl args as vars
         for (i, par) in self.pars.iter().enumerate() {
@@ -600,7 +602,7 @@ pub enum Stmt
     Return(Expr),
     PcDecl(Proc),
     PcExit,
-    PcCall(String, Vec<Box<Expr>>),
+    PcCall(String, Vec<Expr>),
 }
 
 #[derive(Clone)]
