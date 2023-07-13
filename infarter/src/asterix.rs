@@ -1,8 +1,8 @@
 /* ASTerix */
 
 use std::collections::HashMap;
-//use crate::lib_procs::do_lib_pccall;
-//use crate::util::Vec16;
+use crate::lib_procs::do_lib_pccall;
+use crate::util;
 
 pub struct Scope<'a>
 {
@@ -34,8 +34,8 @@ impl<'a> Scope<'a>
 
 pub struct ScopeRef<'a>
 {
-    pub vars: Vec<&'a str>,
-    pub pros: Vec<&'a str>,
+    pub vars: util::Vec16<&'a str>,
+    pub pros: util::Vec16<&'a str>,
 }
 
 impl<'a> ScopeRef<'a>
@@ -43,8 +43,8 @@ impl<'a> ScopeRef<'a>
     pub fn new() -> Self
     {
         return Self {
-            vars: Vec::new(),
-            pros: Vec::new(),
+            vars: util::Vec16::new(),
+            pros: util::Vec16::new(),
         };
     }
 }
@@ -69,10 +69,10 @@ impl<'a, 's> BlockScope<'a, 's>
     pub fn clean(&mut self)
     {
 //        self.outer.print();
-        for v in &self.inner.vars {
+        for v in self.inner.vars.as_slice() {
             self.outer.vars.remove(v);
         }
-        for p in &self.inner.pros {
+        for p in self.inner.pros.as_slice() {
             self.outer.pros.remove(p);
         }
     }
@@ -87,7 +87,7 @@ pub fn anal_check<'a>(prog: &'a Block)
         Some(ba) => panic!("ERROR: at main script: cannot return or break"),
         None => {},
     };
-    root_scope.print();
+//    root_scope.print();
 }
 
 fn do_block<'a, 's>(
@@ -124,10 +124,10 @@ fn do_stmt<'a, 's>(
         Stmt::BreakL          => return Some(BlockAction::BreakL),
         Stmt::Return(e)       =>
             return Some(BlockAction::Return(eval_expr(sc, e))),
-        /*Stmt::PcDecl(p)       => do_pcdecl(bs, p),
+        Stmt::PcDecl(p)       => do_pcdecl(bs, p),
         Stmt::PcExit          => return Some(BlockAction::PcExit),
-        Stmt::PcCall(n, a)    => return do_pccall(sc, n, a),*/
-        _ => todo!(),
+        Stmt::PcCall(n, a)    => return do_pccall(sc, n, a),
+//        _ => todo!(),
     }
     return None;
 }
@@ -141,7 +141,7 @@ fn do_assign<'a, 's>(
     let val: Val = eval_expr(bs.outer, ex);
     println!("assigning {id} = {:?}", val);
     match bs.outer.vars.insert(id,  val) {
-        None => bs.inner.vars.push(id), // new id in þe HashMap
+        None => bs.inner.vars.push(&id), // new id in þe HashMap
         _ => {},
     }
 }
@@ -221,59 +221,53 @@ fn do_loopif<'a>(
     return None;
 }
 
-/*
-//#[inline]
-fn do_fndecl(scope: &mut Scope, scref: &mut ScopeRef, f: &Func)
+#[inline]
+fn do_pcdecl<'a, 's>(
+    bs: &mut BlockScope::<'a, 's>,
+    pc: &'a Proc)
 {
-    let name: &str = f.name();
-    if !scope.funs.contains_key(name) {
-        scope.funs.insert(name.to_string(), f.clone());
-        scref.funs.push(name.to_string());
-    } else {
-        panic!("function {name} already made");
-    }
-}
-
-//#[inline]
-fn do_pcdecl(scope: &mut Scope, scref: &mut ScopeRef, p: &Proc)
-{
-    let name: &str = p.name();
-    if !scope.pros.contains_key(name) {
-        scope.pros.insert(name.to_string(), p.clone());
-        scref.pros.push(name.to_string());
+    let name: &str = pc.name();
+    if !bs.outer.pros.contains_key(name) {
+        bs.outer.pros.insert(name, pc);
+        bs.inner.pros.push(&name);
     } else {
         panic!("procedure {name} already made");
     }
 }
 
-fn do_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Box<Expr>>)
-    -> Option<BlockAction>
+fn do_pccall<'a>(
+    scope: &mut Scope::<'a>,
+    name: &'a str,
+    raw_args: &Vec<Expr>)
+ -> Option<BlockAction>
 {
-    let proc: Proc;
-    // check þat þe name exists
-    match scope.pros.get(name) {
-        Some(p) => proc = p.clone(),
-        None => {do_lib_pccall(scope, name, raw_args); return None;},
-    }
-    // check numba of args
-    if proc.pars().len() != raw_args.len() {
-        panic!("not rite numba ov args, calling {name}!");
-    }
+    let proc: &Proc;
     // eval every arg
     let args: Vec<Val> = raw_args
         .iter()
-        .map(|b| eval_expr(scope, &**b))
+        .map(|b| eval_expr(scope, b))
         .collect();
+    // check þat þe name exists
+    match scope.pros.get(name) {
+        Some(p) => proc = p,
+        None => {
+            do_lib_pccall(scope, name, &args);
+            return None;
+        },
+    }
+    // check numba of args
+    if proc.parc() != raw_args.len() {
+        panic!("not rite numba ov args, calling {name}!");
+    }
     // check every arg's type w/ proc's decl
-    for (i, par) in proc.pars().iter().enumerate() {
-        if par.0 != args[i].as_type() {
-            panic!("argument numba {i} is not of type {}%", par.0.to_string());
+    for (i, t) in proc.part().iter().enumerate() {
+        if *t != args[i].as_type() {
+            panic!("argument numba {i} is not of type {}%", t.to_string());
         }
     }
     // all ok, let's go
     return proc.exec(scope, &args);
 }
-*/
 
 fn eval_fncall(
     scope:&Scope,
@@ -558,33 +552,50 @@ impl Proc
         return &self.name;
     }
 
-    pub fn pars(&self) -> &[(Type, String)]
+    pub fn parc(&self) -> usize
     {
-        return &self.pars;
+        return self.pars.len();
     }
 
-    pub fn exec(&self, scope: &mut Scope, args: &Vec<Val>)
-        -> Option<BlockAction>
+    pub fn part(&self) -> Vec<Type>
     {
-/*        // decl args as vars
-        let mut proc_scref = ScopeRef::new();
+        return self.pars
+            .iter()
+            .map(|arg| (*arg).0.clone())
+            .collect();
+    }
+
+    pub fn exec<'a, 's>(
+        &'a self,
+        sc: &'s mut Scope::<'a>,
+        args: &Vec<Val>)
+     -> Option<BlockAction>
+    {
+        // number and types of args already checked
+        // proc scope = new BlockScope
+        let mut ps = BlockScope::<'a, 's>::from_scope(sc);
+        // decl args as vars
         for (i, par) in self.pars.iter().enumerate() {
-            do_declar(scope, &mut proc_scref, &par.1, &par.0);
-            do_assign(scope, &par.1, &Expr::Const(args[i]));
+            let name = par.1.as_str();
+            if !ps.outer.vars.contains_key(name) {
+                ps.outer.vars.insert(name, args[i].clone());
+                ps.inner.vars.push(&name);
+            } else {
+                panic!("arg {name} already made");
+            }
         }
         // exec body
-        // code similar to do_block
-        match do_block(scope, &self.body) {
-            Some(ba) => match ba {
-                BlockAction::PcExit => {
-                    scope.clean(&proc_scref);
-                    return None;
-                },
-                _ => return Some(ba), // break or return
-            },
-            None => {},
+        // code similar to do_loopif
+        for st in &self.body {
+            if let Some(ba) = do_stmt(&mut ps, st) {
+                ps.clean();
+                return match ba {
+                    BlockAction::PcExit => None,
+                    _ => Some(ba),
+                };
+            }
         }
-        scope.clean(&proc_scref);*/
+        ps.clean();
         return None;
     }
 }

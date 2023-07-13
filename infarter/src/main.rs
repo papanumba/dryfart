@@ -6,9 +6,9 @@
 extern crate lalrpop_util;
 lalrpop_mod!(pub grammar);
 
-mod asterix;
-mod lib_procs;
-//mod util;
+pub mod asterix;
+pub mod lib_procs;
+pub mod util;
 
 fn main()
 {

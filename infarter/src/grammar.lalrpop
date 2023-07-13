@@ -43,7 +43,7 @@ Stmt: Stmt = {
     // "return;" exit proc
     "!!" "." => Stmt::PcExit,
     // procedure call
-    <name:Ident> "!" <args:(<Expr> ",")*> "!" "."
+    <name:Ident> "!" <args:(<Expr> ",")*> "."
         => Stmt::PcCall(name, args),
 }
 

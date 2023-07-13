@@ -2,14 +2,14 @@
 
 #[derive(Debug, Copy, Clone)]
 pub struct Vec16<T>
-where T: Sized /*+ Copy*/ + Clone + Default
+where T: Sized + Copy + Clone + Default
 {
     vec: [T; 16],
     len: usize,
 }
 
 impl<T> Vec16<T>
-where T: Sized /*+ Copy*/ + Clone + Default
+where T: Sized + Copy + Clone + Default
 {
     pub fn new() -> Self
     {
@@ -68,7 +68,7 @@ where T: Sized /*+ Copy*/ + Clone + Default
 }
 
 impl<T> std::ops::Index<usize> for Vec16<T>
-where T: Sized /*+ Copy*/ + Clone + Default
+where T: Sized + Copy + Clone + Default
 {
     type Output = T;
     fn index(&self, i: usize) -> &T
@@ -76,11 +76,3 @@ where T: Sized /*+ Copy*/ + Clone + Default
         return self.get(i);
     }
 }
-/*
-impl<T> Iterator for Vec16<T>
-where T: Sized + Copy + Clone + Default
-{
-    type Item = usize;
-    fn next(&mut self) -> Option<Self::Item>
-}
-*/
