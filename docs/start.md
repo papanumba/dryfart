@@ -6,7 +6,7 @@ Wellcome to the docs of the DryFart language.
 
 Features:
 * Lazy evaluation of blocks
-* Imperative: procedural & a bit of functional (HOFs)
+* Imperative: procedural & a bit of functional
 * Strong typing in expressions
 * Dynamic typing in variables
 * Static typing in func/proc parameters

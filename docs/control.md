@@ -38,3 +38,5 @@ a = 0.
     a = a + 1.
 @.
 ```
+
+[Next ch.](funcs_n_procs.md)
