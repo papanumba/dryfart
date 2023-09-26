@@ -1,0 +1,5 @@
+zeroFunFun = N%#{}#{}##N%#{}##0.#..#..
+zeroFun = zeroFunFun#{}.
+zero = zeroFun#{}.
+put!zero,.
+put!.

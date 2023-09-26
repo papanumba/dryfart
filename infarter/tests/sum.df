@@ -1,0 +1,21 @@
+
+el=R%#{R%i,}
+  ## 1.0/(i*i) .
+#..
+
+sum=0.0.
+i=1.
+
+@(i<1000)
+  sum++el#{R%i,}.
+  i++1.
+@.
+
+put!C%"s",.
+put!C%"u",.
+put!C%"m",.
+put!C%" ",.
+put!C%"=",.
+put!C%" ",.
+put!sum,.
+put!.

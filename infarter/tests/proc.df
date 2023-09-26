@@ -1,0 +1,7 @@
+!setAto!R%newval,!
+    a = newval.
+    !!.
+!.  
+a = 0. 
+setAto!20.0,.
+put!a,.

@@ -1,10 +1,10 @@
-a = R%#{{R%} arrr,} show! !. #. .
-twice = R%#{R%,}#{R%#{R%,}f,} show! !. #. .
-ultra = R%#{R%,}#{R%#{R%,}#{R%#{R%,},}tw,} show! !. #. .
+a = R%#{{R%} arrr,} put!. #. .
+twice = R%#{R%,}#{R%#{R%,}f,} put!. #. .
+ultra = R%#{R%,}#{R%#{R%,}#{R%#{R%,},}tw,} put!. #. .
 result = R%#{}##twice#{a,}#{other,}.#..
 
 (B%F)=>
-    show!B%#{} ##T. #. #{},!.
+    put!B%#{} ##T. #. #{},.
 ()=>
     i=0.
     @(i<100)

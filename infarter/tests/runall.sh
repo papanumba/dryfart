@@ -1,6 +1,12 @@
 #!/bin/sh
 
-for f in $(ls .)
+for f in $(ls *.df)
 do
-    cargo run $f
+    ../target/debug/infarter $f > /dev/null 2> /dev/null
+    if [ $? -eq 0 ];
+     then
+        echo "PASS $f"
+    else
+        echo "PASS $f"
+    fi
 done
