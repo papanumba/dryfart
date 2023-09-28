@@ -5,6 +5,7 @@
 #[macro_use]
 extern crate lalrpop_util;
 lalrpop_mod!(pub grammar);
+use regex;
 
 pub mod asterix;
 pub mod lib_procs;
@@ -35,11 +36,21 @@ fn test2()
 
 pub fn parse_file(fname: &str)
 {
-    let taco = read_file_to_string(fname);
+    let mut taco: String = read_file_to_string(fname);
+    // clear comments, bcoz i'm stupid
+    // or þe parser can't handle comments
+    clear_comments(&mut taco);
+    // continue parsing
     let parser = grammar::ProgParser::new();
-    //let mut analizer = asterix::SemAnal::new();
     let res = parser.parse(&taco).unwrap();
     asterix::anal_check(&res);
+}
+
+fn clear_comments(s: &mut String)
+{
+    let com_re = regex::Regex::new(r"'.*\n").unwrap();
+    let result = com_re.replace_all(s, "\n");
+    *s = result.to_string();
 }
 
 #[inline]
