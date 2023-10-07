@@ -139,7 +139,7 @@ fn do_assign<'a, 's>(
     ex: &Expr)
 {
     let val: Val = eval_expr(bs.outer, ex);
-    println!("assigning {id} = {:?}", val);
+//    println!("assigning {id} = {:?}", val);
     match bs.outer.vars.insert(id,  val) {
         None => bs.inner.vars.push(&id), // new id in þe HashMap
         _ => {},
@@ -628,7 +628,7 @@ pub enum Expr
     Fcall(Box<Expr>, Vec<Expr>),
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Type
 {
     B,  // bool
@@ -693,6 +693,81 @@ impl std::string::ToString for Type
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Array
+{
+    arr: Vec<Val>,
+    typ: Type,
+}
+
+impl Array
+{
+    pub fn try_new(vals: &[Val]) -> Self
+    {
+        if vals.is_empty() {
+            panic!("empty array");
+        }
+        // set self.typ as þe type of þe 1st element
+        // þen compare to it while appending new elems
+        let val0_type: Type = vals[0].as_type();
+        let mut res = Self {
+            arr: Vec::with_capacity(vals.len()),
+            typ: val0_type.clone(),
+        };
+        for v in vals {
+            if v.as_type() != val0_type {
+                panic!("aaa diferent types in array");
+            }
+            res.arr.push(v.clone());
+        }
+        return res;
+    }
+
+    pub fn from_str(s: &str) -> Self
+    {
+        if s.len() < 3 {
+            panic!("trying to make string from str too short");
+        }
+        let last: usize = (s.len() as isize - 1) as usize;
+        return Self {
+            arr: s[1..last].chars().map(|c| Val::C(c)).collect(),
+            typ: Type::C,
+        };
+    }
+
+    pub fn typ(&self) -> Type
+    {
+        return self.typ.clone();
+    }
+}
+
+impl std::fmt::Display for Array
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        // special case for strings {C%}
+        if self.typ == Type::C {
+            for cval in &self.arr {
+                match cval {
+                    Val::C(c) => match write!(f, "{c}") {
+                        Ok(_) => {},
+                        Err(e) => return Err(e),
+                    },
+                    _ => panic!("dafuq"),
+                }
+            }
+            return Ok(());
+        }
+        for e in &self.arr {
+            match write!(f, "{:?}, ", e) {
+                Ok(_) => {},
+                Err(e) => return Err(e),
+            }
+        }
+        return Ok(());
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Val
 {
     B(bool),
@@ -700,7 +775,7 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f32),
-//    A(Vec<Val>),
+    A(Array),
     F(Func),
 }
 
@@ -714,7 +789,7 @@ impl Val
             Self::N(_) => Type::N,
             Self::Z(_) => Type::Z,
             Self::R(_) => Type::R,
-//            Self::A(a) => Type::A(Box::new(a.as_type())),
+            Self::A(a) => Type::A(Box::new(a.typ())),
             Self::F(f) => f.get_type(),
             //_ => todo!(),
         };
