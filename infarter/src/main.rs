@@ -18,7 +18,7 @@ fn main()
     if argc == 2 {
         parse_file(&argv[1]);
     } else {
-        eprintln!("not rite numba of args");
+        eprintln!("not rite numba ({argc}) of args, must be 2, {}", argv[0]);
     }
 }
 

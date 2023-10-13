@@ -729,9 +729,24 @@ impl Array
         }
         let last: usize = (s.len() as isize - 1) as usize;
         return Self {
-            arr: s[1..last].chars().map(|c| Val::C(c)).collect(),
+            arr: Self::replace_esc_seq(&s[1..last])
+                .as_str()
+                .chars()
+                .map(|c| Val::C(c))
+                .collect(),
             typ: Type::C,
         };
+    }
+
+    // replace escape sequences: N$, T$, $$, "$
+    // TODO: is þere some way of not allocating new Strings?
+    fn replace_esc_seq(s: &str) -> String
+    {
+        return s
+            .replace("N$",  "\n")
+            .replace("T$",  "\t")
+            .replace("\"$", "\"")
+            .replace("$$",  "$");
     }
 
     pub fn typ(&self) -> Type
