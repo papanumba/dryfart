@@ -1,4 +1,9 @@
-x = {4,5,}.
+x = {4,9,}.
 string = "henlo".
+' string_0 = C%"H".
+
+
+put!x,.
+put!"N$",.
 put!string,.
-put!.
+put!"N$",.
