@@ -65,6 +65,7 @@ BoolCmp: Expr = {
 AddExpr: Expr = { // FIXME: dunno y [+-] didnt work
     <l:AddExpr> <o:r"[+\-]"> <r:MulExpr> => Expr::BinOp(
         Box::new(l), BinOpcode::from_str(o), Box::new(r)),
+    "-" <t:MulExpr>  => Expr::UniOp(Box::new(t), UniOpcode::Sub),
     MulExpr,
 }
 
@@ -76,31 +77,59 @@ MulExpr: Expr = {
 
 Term: Expr = {
     AtomExpr,
-    "(" "-" <t:Term> ")"  => Expr::UniOp(Box::new(t), UniOpcode::Sub),
     <t:PrimType> <e:AtomExpr> => Expr::Tcast(t, Box::new(e)),
 };
 
 AtomExpr: Expr = {
     Const => Expr::Const(<>),
-    Ident => Expr::Ident(<>.to_string()),
-    "(" <Expr> ")",
-    // anonymous function
-    <rett:Type> "#" "{" <pars:(<Type> <Ident> ",")*> "}"
-        <body:Block> "#" "." =>
-            Expr::Fdefn(Func::new(&pars, &body, &rett)),
-    // function call
-    <call:AtomExpr> "#" "{" <args:(<Expr> ",")*> "}" =>
-        Expr::Fcall(Box::new(call), args),
+    AnonFn,
+    Idxable,
     // explicit array
 //    "{" <arr:(<Expr> ",")*> "}" => Box::new(Expr::Const(Val::B(false))),
 }
 
+Idxable: Expr = {
+    Ident => Expr::Ident(<>.to_string()),
+    "(" <Expr> ")",
+    FnCall,
+    // ArrayElement access
+    <a:Idxable> "_" <i:Index> => Expr::ArrEl(Box::new(a), Box::new(i)),
+}
+
+Index: Expr = {
+    Const => Expr::Const(<>),
+    Ident => Expr::Ident(<>.to_string()),
+    "(" <Expr> ")",
+    FnCall,
+}
+
+// in order to get precedance of a_f#{} == a_(f#{}),
+// to call a function from an array acces, one must (a_i)#{}
+Callable: Expr = {
+    Ident => Expr::Ident(<>.to_string()),
+    "(" <Expr> ")",
+    AnonFn,
+    FnCall,
+}
+
+// anonymous function
+AnonFn: Expr = {
+    <rett:Type> "#" "{" <pars:(<Type> <Ident> ",")*> "}"
+        <body:Block> "#" "." =>
+            Expr::Fdefn(Func::new(&pars, &body, &rett)),
+}
+
+// function call
+FnCall: Expr = {
+    <call:Callable> "#" "{" <args:(<Expr> ",")*> "}" =>
+        Expr::Fcall(Box::new(call), args),
+}
 
 Type: Type = {
     // funcs
     <r:Type> "#" "{" <a:(<Type> ",")*> "}" => Type::F(Box::new(r), a),
     // arrays
-    "{" <Type> "}" => Type::A(Box::new(<>)),
+    "{" <PrimType> "}" => Type::A(Box::new(<>)),
     // BCNZR
     PrimType,
 }

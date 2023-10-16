@@ -312,9 +312,29 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
             o,
             &eval_expr(scope, r)
         ),
+        Expr::UniOp(t, o) => eval_uniop(&eval_expr(scope, t), o),
         Expr::Fdefn(f) => Val::F((*f).clone()),
         Expr::Fcall(c, a) => eval_fncall(scope, &**c, a),
-        _ => todo!(),
+        Expr::ArrEl(a, i) => try_arr_el(
+            &eval_expr(scope, a),
+            &eval_expr(scope, i)
+        ),
+//        _ => todo!(),
+    }
+}
+
+fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
+{
+    match o {
+        UniOpcode::Sub => match t {
+            Val::Z(z) => return Val::Z(-(*z)),
+            Val::R(r) => return Val::R(-(*r)),
+            _ => panic!("can only sub (-) a Z% or R% value"),
+        }
+        UniOpcode::Neg => match t {
+            Val::B(b) => return Val::B(!(*b)),
+            _ => panic!("cannot negate a non B% value"),
+        }
     }
 }
 
@@ -626,6 +646,7 @@ pub enum Expr
     UniOp(Box<Expr>, UniOpcode),
     Fdefn(Func),
     Fcall(Box<Expr>, Vec<Expr>),
+    ArrEl(Box<Expr>, Box<Expr>),
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -693,10 +714,13 @@ impl std::string::ToString for Type
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Array
+pub enum Array
 {
-    arr: Vec<Val>,
-    typ: Type,
+    B(Vec<bool>),
+    C(Vec<char>),
+    N(Vec<u32>),
+    Z(Vec<i32>),
+    R(Vec<f32>),
 }
 
 impl Array
@@ -709,17 +733,31 @@ impl Array
         // set self.typ as þe type of þe 1st element
         // þen compare to it while appending new elems
         let val0_type: Type = vals[0].as_type();
-        let mut res = Self {
-            arr: Vec::with_capacity(vals.len()),
-            typ: val0_type.clone(),
+        let vals_len = vals.len();
+        let mut res = match val0_type {
+            Type::B => Self::B(Vec::<bool>::with_capacity(vals_len)),
+            Type::C => Self::C(Vec::<char>::with_capacity(vals_len)),
+            Type::N => Self::N(Vec::<u32>::with_capacity(vals_len)),
+            Type::Z => Self::Z(Vec::<i32>::with_capacity(vals_len)),
+            Type::R => Self::R(Vec::<f32>::with_capacity(vals_len)),
+            _ => todo!(),
         };
         for v in vals {
-            if v.as_type() != val0_type {
-                panic!("aaa diferent types in array");
-            }
-            res.arr.push(v.clone());
+            res.try_push(&v);
         }
         return res;
+    }
+
+    fn try_push(&mut self, v: &Val)
+    {
+        match (self, v) {
+            (Self::B(a), Val::B(b)) => a.push(*b),
+            (Self::C(a), Val::C(c)) => a.push(*c),
+            (Self::N(a), Val::N(n)) => a.push(*n),
+            (Self::Z(a), Val::Z(n)) => a.push(*n),
+            (Self::R(a), Val::R(n)) => a.push(*n),
+            _ => todo!(),
+        }
     }
 
     pub fn from_str(s: &str) -> Self
@@ -728,14 +766,12 @@ impl Array
             panic!("trying to make string from str too short");
         }
         let last: usize = (s.len() as isize - 1) as usize;
-        return Self {
-            arr: Self::replace_esc_seq(&s[1..last])
+        return Self::C(
+            Self::replace_esc_seq(&s[1..last])
                 .as_str()
                 .chars()
-                .map(|c| Val::C(c))
                 .collect(),
-            typ: Type::C,
-        };
+        );
     }
 
     // replace escape sequences: N$, T$, $$, "$
@@ -749,9 +785,26 @@ impl Array
             .replace("$$",  "$");
     }
 
-    pub fn typ(&self) -> Type
+    pub fn get_type(&self) -> Type
     {
-        return self.typ.clone();
+        return match self {
+            Self::B(_) => Type::B,
+            Self::C(_) => Type::C,
+            Self::N(_) => Type::N,
+            Self::Z(_) => Type::Z,
+            Self::R(_) => Type::R,
+        };
+    }
+
+    pub fn get(&self, i: u32) -> Val
+    {
+        return match self {
+            Self::B(a) => Val::B(a[i as usize]),
+            Self::C(a) => Val::C(a[i as usize]),
+            Self::N(a) => Val::N(a[i as usize]),
+            Self::Z(a) => Val::Z(a[i as usize]),
+            Self::R(a) => Val::R(a[i as usize]),
+        };
     }
 }
 
@@ -760,26 +813,35 @@ impl std::fmt::Display for Array
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
         // special case for strings {C%}
-        if self.typ == Type::C {
-            for cval in &self.arr {
-                match cval {
-                    Val::C(c) => match write!(f, "{c}") {
-                        Ok(_) => {},
-                        Err(e) => return Err(e),
-                    },
-                    _ => panic!("dafuq"),
-                }
-            }
-            return Ok(());
+        match self {
+            Self::C(a) => {
+                for c in a { write!(f, "{c}")?; }; return Ok(());},
+            _ => {},
         }
-        for e in &self.arr {
-            match write!(f, "{:?}, ", e) {
-                Ok(_) => {},
-                Err(e) => return Err(e),
-            }
+        write!(f, "{{")?;
+        match self {
+            Self::B(a) => for b in a { write!(f, "{}, ", *b)?; },
+            Self::N(a) => for n in a { write!(f, "{n}, ")?; },
+            Self::Z(a) => for z in a { write!(f, "{z}, ")?; },
+            Self::R(a) => for r in a { write!(f, "{r}, ")?; },
+            Self::C(_) => {}, // done
         }
+        write!(f, "}}")?;
         return Ok(());
     }
+}
+
+fn try_arr_el(a: &Val, i: &Val) -> Val
+{
+    let arr: &Array = match a {
+        Val::A(arr_val) => arr_val,
+        _ => panic!("not indexable"),
+    };
+    let idx: u32 = match i {
+        Val::N(idx_val) => *idx_val,
+        _ => panic!("not an index"),
+    };
+    return arr.get(idx);
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -804,9 +866,8 @@ impl Val
             Self::N(_) => Type::N,
             Self::Z(_) => Type::Z,
             Self::R(_) => Type::R,
-            Self::A(a) => Type::A(Box::new(a.typ())),
+            Self::A(a) => Type::A(Box::new(a.get_type())),
             Self::F(f) => f.get_type(),
-            //_ => todo!(),
         };
     }
 
@@ -877,5 +938,5 @@ impl BinOpcode
     }
 }
 
-#[derive(Clone)]
-pub enum UniOpcode { Sub }
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum UniOpcode { Sub, Neg }

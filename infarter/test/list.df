@@ -3,7 +3,7 @@ string = "henlo".
 ' string_0 = C%"H".
 
 
-put!x,.
+put!x_0,.
 put!"N$",.
-put!string,.
+put!string_3,.
 put!"N$",.
