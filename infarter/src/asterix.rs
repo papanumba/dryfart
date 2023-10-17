@@ -512,13 +512,15 @@ impl Func
 
     pub fn eval<'a>(&'a self, args: &'a Vec<Val>) -> Val
     {
-//        println!("you called me");
         let mut func_sc = Scope::<'a>::new();
         // decl args as vars
         for (i, par) in self.pars.iter().enumerate() {
             func_sc.vars.insert(&par.1, args[i].clone());
             //do_assign(&mut func_bs, &par.1, &Expr::Const(args[i]));
         }
+        // add idself to be recursive
+        func_sc.vars.insert("@", Val::F(self.clone()));
+        // --------------------------------
         // exec body
         // code similar to do_block
         if let Some(ba) = do_block(&mut func_sc, &self.body) {

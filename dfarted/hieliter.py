@@ -70,7 +70,9 @@ class DFHieliter(QSyntaxHighlighter):
             # loop
             (r'\.?@', 0, STYLES['control']),
             # function call 'word#'
-            (r'(\b|_)[A-Za-z][0-9A-Za-z]*#', 0, STYLES['func']),
+            (r'[A-Za-z][0-9A-Za-z]*#', 0, STYLES['func']),
+            # recursive fn call '@#'
+            (r'@#', 0, STYLES['func']),
             # function types contain '#'
             (r'#', 0, STYLES['func']),
             # procedure decl !word!

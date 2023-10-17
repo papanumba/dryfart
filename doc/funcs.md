@@ -77,3 +77,21 @@ in `zeroFun`, which is a function that takes no arguments and returns a `N%`.
 
 All this can be extended to a madness of dry functional expressions, but that's
 up to you & your willingness to get head-aches.
+
+## Recursion
+
+In order to call a function from inside itself, call it by `@#` followed by the
+arguments `{...}` as usual. See [Fibonnacci example](../infarter/test/fib.df):
+
+```
+fib = Z%#{Z%n,}
+    (n == Z%0 | n == Z%1) => ##n. ().
+    ## @#{n - Z%1,} + @#{n - Z%2,} .
+#..
+```
+
+The `@` syntax has 2 reasons:
+1. Also used in the loop, which is kinda related to recursion.
+2. One could think of using the name of the function itself (e.g. `fib#`).
+The problem is that every function is first anonymous then assigned to a name,
+so while defining them they cannot be referred by a name.

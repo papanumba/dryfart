@@ -128,7 +128,8 @@ Index: Expr = {
 // in order to get precedance of a_f#{} == a_(f#{}),
 // to call a function from an array acces, one must (a_i)#{}
 Callable: Expr = {
-    Ident => Expr::Ident(<>.to_string()),
+    Ident => Expr::Ident(<> .to_string()),
+    "@"   => Expr::Ident("@".to_string()),
     "(" <Expr> ")",
     AnonFn,
     FnCall,
