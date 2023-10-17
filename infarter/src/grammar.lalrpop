@@ -43,47 +43,68 @@ Stmt: Stmt = {
 }
 
 Expr: Expr = {
-    <AddExpr>,
-    <BoolExpr>,
+    OrExpr,
 }
 
-BoolExpr: Expr = {
-    <l:BoolExpr> <o:r"[&|]"> <r:AtomExpr> =>
-        Expr::BinOp(Box::new(l), BinOpcode::from_str(o), Box::new(r)),
-    <l:BoolExpr> <o:r"[&|]"> <r:BoolCmp> =>
-        Expr::BinOp(Box::new(l), BinOpcode::from_str(o), Box::new(r)),
-    <l:AtomExpr> <o:r"[&|]"> <r:AtomExpr> =>
-        Expr::BinOp(Box::new(l), BinOpcode::from_str(o), Box::new(r)),
-    <BoolCmp>,
+// þis one is þe highest level Bool Expr
+OrExpr: Expr = {
+    <l:OrExpr> "|" <r:AndExpr> =>
+        Expr::BinOp(Box::new(l), BinOpcode::Or, Box::new(r)),
+    AndExpr,
 }
 
-BoolCmp: Expr = {
-    <l:AddExpr> <o:r"(==|/=|<|>|<=|>=)"> <r:AddExpr> =>
+AndExpr: Expr = {
+    <l:AndExpr> "&" <r:AndTerm> =>
+        Expr::BinOp(Box::new(l), BinOpcode::And, Box::new(r)),
+    AndTerm,
+}
+
+AndTerm: Expr = {
+    AddExpr,
+    NegExpr,
+    // comparison
+    <l:AddExpr> <o:r"(==|~=|<|>|<=|>=)"> <r:AddExpr> =>
         Expr::BinOp(Box::new(l), BinOpcode::from_str(o), Box::new(r)),
 }
 
-AddExpr: Expr = { // FIXME: dunno y [+-] didnt work
-    <l:AddExpr> <o:r"[+\-]"> <r:MulExpr> => Expr::BinOp(
-        Box::new(l), BinOpcode::from_str(o), Box::new(r)),
+NegExpr: Expr = {
+    "~" <AtomExpr> => Expr::UniOp(Box::new(<>), UniOpcode::Neg),
+    "~" <NegExpr>  => Expr::UniOp(Box::new(<>), UniOpcode::Neg),
+}
+
+AddExpr: Expr = {
+    <l:AddExpr> <o:"+"> <r:MulExpr> => Expr::BinOp(
+        Box::new(l), BinOpcode::Add, Box::new(r)),
+    <l:AddExpr> <o:"-"> <r:MulExpr> => Expr::BinOp(
+        Box::new(l), BinOpcode::Sub, Box::new(r)),
+    AddTerm,
+}
+
+AddTerm: Expr = {
     "-" <t:MulExpr>  => Expr::UniOp(Box::new(t), UniOpcode::Sub),
     MulExpr,
 }
 
 MulExpr: Expr = {
-    <l:MulExpr> <o:r"[*/]"> <r:Term> => Expr::BinOp(
-        Box::new(l), BinOpcode::from_str(o), Box::new(r)),
-    Term,
+    <l:MulExpr> <o:"*"> <r:MulTerm> => Expr::BinOp(
+        Box::new(l), BinOpcode::Mul, Box::new(r)),
+    <l:MulExpr> <o:"/"> <r:MulTerm> => Expr::BinOp(
+        Box::new(l), BinOpcode::Div, Box::new(r)),
+    MulTerm,
 }
 
-Term: Expr = {
+MulTerm: Expr = {
+    "/" <MulTerm> => Expr::UniOp(Box::new(<>), UniOpcode::Inv),
     AtomExpr,
-    <t:PrimType> <e:AtomExpr> => Expr::Tcast(t, Box::new(e)),
-};
+}
 
 AtomExpr: Expr = {
     Const => Expr::Const(<>),
     AnonFn,
     Idxable,
+    // type cast of AtomExpr,
+    // non function type, since functions cannot be casted
+    <t:NonFnType> <e:AtomExpr> => Expr::Tcast(t, Box::new(e)),
     // explicit array
 //    "{" <arr:(<Expr> ",")*> "}" => Box::new(Expr::Const(Val::B(false))),
 }
@@ -91,6 +112,7 @@ AtomExpr: Expr = {
 Idxable: Expr = {
     Ident => Expr::Ident(<>.to_string()),
     "(" <Expr> ")",
+    "{" <a:(<Expr> ",")*> "}" => Expr::Array(a),
     FnCall,
     // ArrayElement access
     <a:Idxable> "_" <i:Index> => Expr::ArrEl(Box::new(a), Box::new(i)),
@@ -129,9 +151,21 @@ Type: Type = {
     // funcs
     <r:Type> "#" "{" <a:(<Type> ",")*> "}" => Type::F(Box::new(r), a),
     // arrays
-    "{" <PrimType> "}" => Type::A(Box::new(<>)),
+    ArrType,
     // BCNZR
     PrimType,
+}
+
+NonFnType: Type = {
+    ArrType,
+    PrimType,
+}
+
+ArrType: Type = {
+    // ND array {{{R%}}}
+    "{" <ArrType>  "}" => Type::A(Box::new(<>)),
+    // 1D array   {R%}
+    "{" <PrimType> "}" => Type::A(Box::new(<>)),
 }
 
 PrimType: Type = {
@@ -150,5 +184,4 @@ Const: Val = {
     r"[0-9]+\.[0-9]+" => Val::R(f32::from_str(<>).unwrap()),
     r#"C%".""# => Val::from_str_to_c(<>),
     r#""[^"]+""# => Val::A(Array::from_str(<>)),
-    "{" <a:(<Const> ",")*> "}" => Val::A(Array::try_new(&a)),
 }

@@ -5,5 +5,9 @@ string = "henlo".
 
 put!x_0,.
 put!"N$",.
+
+put!{4,9,}_0,.
+put!"N$",.
+
 put!string_3,.
 put!"N$",.

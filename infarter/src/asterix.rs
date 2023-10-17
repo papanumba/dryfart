@@ -319,7 +319,12 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
             &eval_expr(scope, a),
             &eval_expr(scope, i)
         ),
-//        _ => todo!(),
+        Expr::Array(a) => Val::A(Array::try_new(&a
+            .iter()
+            .map(|e| eval_expr(scope, e))
+            .collect::<Vec<Val>>()
+        )),
+        //_ => todo!(),
     }
 }
 
@@ -330,6 +335,10 @@ fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
             Val::Z(z) => return Val::Z(-(*z)),
             Val::R(r) => return Val::R(-(*r)),
             _ => panic!("can only sub (-) a Z% or R% value"),
+        }
+        UniOpcode::Inv => match t {
+            Val::R(r) => return Val::R(1.0/(*r)),
+            _ => panic!("can only invert (-) a R% value"),
         }
         UniOpcode::Neg => match t {
             Val::B(b) => return Val::B(!(*b)),
@@ -647,6 +656,7 @@ pub enum Expr
     Fdefn(Func),
     Fcall(Box<Expr>, Vec<Expr>),
     ArrEl(Box<Expr>, Box<Expr>),
+    Array(Vec<Expr>),
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -893,7 +903,7 @@ impl BinOpcode
             "*" => Self::Mul,
             "/" => Self::Div,
             "==" => Self::Eq,
-            "/=" => Self::Ne,
+            "~=" => Self::Ne,
             "<"  => Self::Lt,
             ">"  => Self::Gt,
             "<=" => Self::Le,
@@ -939,4 +949,4 @@ impl BinOpcode
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub enum UniOpcode { Sub, Neg }
+pub enum UniOpcode { Sub, Inv, Neg }

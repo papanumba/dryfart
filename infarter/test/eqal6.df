@@ -1,14 +1,19 @@
 mod = Z%#{Z%a,Z%n,}
-    (n < Z%0) => put!C%"e",. ().
-    @(a > n | a == n) a -- n. @.
+    (n < Z%0) =>
+        put!C%"e",.
+    ().
+    @(a > n | a == n)
+        a -- n.
+    @.
     ## a .
-#..
-n = Z%2.
+#.. 
+n = Z%10.
 f = Z%#{Z%x,} ##x*x*x + x + Z%1. #..
 
 x = Z%0.
 @ (x < n)
     put!mod#{f#{x,},n,},.
+    put!" wazA",.
     put!.
     x ++ Z%1.
 @.
