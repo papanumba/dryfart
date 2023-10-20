@@ -9,6 +9,7 @@ use regex;
 
 pub mod asterix;
 pub mod lib_procs;
+pub mod lib_funcs;
 pub mod util;
 
 fn main()

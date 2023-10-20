@@ -12,6 +12,8 @@ from PyQt5.QtWidgets import *
 import hieliter
 
 
+INFARTER_PATH_STR = "../infarter/target/release/infarter"
+
 def get_name(f):
     if f is None:
         return "New File"
@@ -107,7 +109,7 @@ class Main(QMainWindow):
         tempfile.write(self.editor.toPlainText())
         tempfile.close()
         result = subprocess.run(
-            ["../infarter/target/debug/infarter", self.temp_file],
+            [INFARTER_PATH_STR, self.temp_file],
             capture_output=True
         )
         if result.stderr == b'':

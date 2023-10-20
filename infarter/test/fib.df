@@ -3,10 +3,5 @@ fib = Z%#{Z%n,}
     ## @#{n - Z%1,} + @#{n - Z%2,} .
 #..
 
-put!"Da frst 10 Fibonnaci numbersN$",.
-i = Z%0.
-ten = Z%10.
-@(i < ten)
-    put!fib#{Z%10,},.
-    put!.
-@.
+put!fib#{Z%26,},.
+put!.

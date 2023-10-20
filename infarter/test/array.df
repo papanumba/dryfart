@@ -3,11 +3,22 @@ string = "henlo".
 ' string_0 = C%"H".
 
 
-put!x_0,.
+mean = R%#{{R%}x, N%n,}
+  i = 0.
+  s = 0.0.
+  
+  @(i < n)
+    s ++ x_i.
+    i ++ 1.
+  @.
+  ## s / R%n .
+#..
+
+'put!x_0,.
 put!"N$",.
 
-put!{4,9,}_0,.
+put!mean#{{1.5,2.0,3.0,},3,},.
 put!"N$",.
 
-put!string_3,.
+'put!string_3,.
 put!"N$",.

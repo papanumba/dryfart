@@ -1,7 +1,8 @@
 /* ASTerix */
 
 use std::collections::HashMap;
-use crate::lib_procs::do_lib_pccall;
+use crate::lib_procs::*;
+use crate::lib_funcs::*;
 use crate::util;
 
 pub struct Scope<'a>
@@ -34,8 +35,8 @@ impl<'a> Scope<'a>
 
 pub struct ScopeRef<'a>
 {
-    pub vars: util::Vec16<&'a str>,
-    pub pros: util::Vec16<&'a str>,
+    pub vars: util::StaVec<8, &'a str>,
+    pub pros: util::StaVec<8, &'a str>,
 }
 
 impl<'a> ScopeRef<'a>
@@ -43,8 +44,8 @@ impl<'a> ScopeRef<'a>
     pub fn new() -> Self
     {
         return Self {
-            vars: util::Vec16::new(),
-            pros: util::Vec16::new(),
+            vars: util::StaVec::new(),
+            pros: util::StaVec::new(),
         };
     }
 }
@@ -243,10 +244,7 @@ fn do_pccall<'a>(
 {
     let proc: &Proc;
     // eval every arg
-    let args: Vec<Val> = raw_args
-        .iter()
-        .map(|b| eval_expr(scope, b))
-        .collect();
+    let args: Vec<Val> = eval_args(scope, raw_args);
     // check þat þe name exists
     match scope.pros.get(name) {
         Some(p) => proc = p,
@@ -272,33 +270,47 @@ fn do_pccall<'a>(
 fn eval_fncall(
     scope:&Scope,
     call: &Expr,
-    raw_args: &Vec<Expr>)
+    args: &Vec<Expr>)
  -> Val
 {
-    let func: Func;
-    // eval caller
-    if let Val::F(f) = eval_expr(scope, call) {
-        func = f.clone();
+    // check if call is simply an Ident(&str)
+    return if let Expr::Ident(i) = call {
+        eval_named_fncall(scope, i, args)
     } else {
-        panic!("call expr is not a func")
+        // eval þe more complex call Expr
+        if let Val::F(f) = eval_expr(scope, call) {
+            f.eval(scope, &args)
+        } else {
+            panic!("call expr is not a func")
+        }
     }
-    // check numba of args
-    if func.parc() != raw_args.len() {
-        panic!("not rite numba ov args, calling func");
-    }
-    // eval every arg
-    let args: Vec<Val> = raw_args
+
+}
+
+fn eval_named_fncall(
+    scope:&Scope,
+    name: &str,
+    args: &Vec<Expr>)
+ -> Val
+{
+    return if let Some(v) = scope.vars.get(name) {
+        if let Val::F(f) = v {
+            f.eval(scope, args)
+        } else {
+            panic!("{name}# is not a function")
+        }
+    } else { // couldn't find a local variable, þen try from the lib
+        do_lib_fncall(name, &eval_args(scope, &args))
+    };
+}
+
+#[inline]
+fn eval_args(scope: &Scope, a: &Vec<Expr>) -> Vec<Val>
+{
+    return a
         .iter()
         .map(|b| eval_expr(scope, b))
         .collect();
-    // check every arg's type w/ func's decl
-    for (i, t) in func.part().iter().enumerate() {
-        if *t != args[i].as_type() {
-            panic!("argument numba {i} is not of type {}%", t.to_string());
-        }
-    }
-    // all ok, let's go
-    return func.eval(&args);
 }
 
 fn eval_expr(scope: &Scope, e: &Expr) -> Val
@@ -429,7 +441,7 @@ fn do_cast(t: &Type, v: &Val) -> Val
 {
     if v.as_type() == *t {
         return (*v).clone();
-     }
+    }
     return match (v, t) {
         (Val::N(n), Type::Z) => Val::Z(*n as i32),
         (Val::Z(z), Type::R) => Val::R(*z as f32),
@@ -510,7 +522,25 @@ impl Func
         );
     }
 
-    pub fn eval<'a>(&'a self, args: &'a Vec<Val>) -> Val
+    pub fn eval(&self, scope: &Scope, raw_args: &Vec<Expr>) -> Val
+    {
+        // check numba'v args
+        if self.parc() != raw_args.len() {
+            panic!("not rite numba ov args, calling func");
+        }
+        // eval every arg
+        let args: Vec<Val> = eval_args(scope, raw_args);
+        // check every arg's type w/ func's decl
+        for (i, t) in self.part().iter().enumerate() {
+            if *t != args[i].as_type() {
+                panic!("argument numba {i} is not of type {}%", t.to_string());
+            }
+        }
+        // all checked ok, let's go
+        return self.eval_ok(&args);
+    }
+
+    fn eval_ok<'a>(&'a self, args: &'a Vec<Val>) -> Val
     {
         let mut func_sc = Scope::<'a>::new();
         // decl args as vars
@@ -816,6 +846,17 @@ impl Array
             Self::N(a) => Val::N(a[i as usize]),
             Self::Z(a) => Val::Z(a[i as usize]),
             Self::R(a) => Val::R(a[i as usize]),
+        };
+    }
+
+    pub fn len(&self) -> Val
+    {
+        return match self {
+            Self::B(a) => Val::N(a.len() as u32),
+            Self::C(a) => Val::N(a.len() as u32),
+            Self::N(a) => Val::N(a.len() as u32),
+            Self::Z(a) => Val::N(a.len() as u32),
+            Self::R(a) => Val::N(a.len() as u32),
         };
     }
 }

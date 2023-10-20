@@ -5,16 +5,16 @@ use crate::asterix::{Scope, Val};
 pub fn do_lib_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Val>)
 {
     match name {
-        "put" => crate::lib_procs::tp::put(scope, raw_args),
+        "put" => tp::put(raw_args),
         _ => panic!("unknown proc"),
     };
 }
 
 mod tp
 {
-    use crate::asterix::{Scope, Val};
+    use crate::asterix::Val;
 
-    pub fn put(scope: &mut Scope, args: &Vec<Val>)
+    pub fn put(args: &Vec<Val>)
     {
         match args.len() {
             0 => println!(""),
