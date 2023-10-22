@@ -1,5 +1,7 @@
 /* ASTerix */
 
+#![allow(unused_parens)]
+
 use std::collections::HashMap;
 use crate::lib_procs::*;
 use crate::lib_funcs::*;
@@ -69,7 +71,6 @@ impl<'a, 's> BlockScope<'a, 's>
     #[inline]
     pub fn clean(&mut self)
     {
-//        self.outer.print();
         for v in self.inner.vars.as_slice() {
             self.outer.vars.remove(v);
         }
@@ -84,11 +85,9 @@ impl<'a, 's> BlockScope<'a, 's>
 pub fn anal_check<'a>(prog: &'a Block)
 {
     let mut root_scope = Scope::<'a>::new();
-    match do_block(&mut root_scope, prog) {
-        Some(ba) => panic!("ERROR: at main script: cannot return or break"),
-        None => {},
-    };
-//    root_scope.print();
+    if let Some(ba) = do_block(&mut root_scope, prog) {
+        panic!("ERROR: at main script: cannot return or break");
+    }
 }
 
 fn do_block<'a, 's>(
@@ -140,10 +139,8 @@ fn do_assign<'a, 's>(
     ex: &Expr)
 {
     let val: Val = eval_expr(bs.outer, ex);
-//    println!("assigning {id} = {:?}", val);
-    match bs.outer.vars.insert(id,  val) {
-        None => bs.inner.vars.push(&id), // new id in þe HashMap
-        _ => {},
+    if (bs.outer.vars.insert(id,  val).is_none()) {
+        bs.inner.vars.push(&id); // new id in þe HashMap
     }
 }
 
@@ -155,14 +152,14 @@ fn do_operon<'a>(
     ex: &Expr)
 {
     // check for declared var
-    let idval: Val;
+    let idval: &Val;
     match sc.vars.get(id) {
-        Some(v) => idval = (*v).clone(),
+        Some(v) => idval = v,
         None => panic!("aaa dunno what is {id} variable"),
     }
     // calculate new value
     let value: Val = eval_expr(sc, ex);
-    let value: Val = eval_binop(&idval, op, &value);
+    let value: Val = eval_binop(idval, op, &value);
     sc.vars.insert(id, value); // id exists
 }
 
@@ -331,12 +328,8 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
             &eval_expr(scope, a),
             &eval_expr(scope, i)
         ),
-        Expr::Array(a) => Val::A(Array::try_new(&a
-            .iter()
-            .map(|e| eval_expr(scope, e))
-            .collect::<Vec<Val>>()
-        )),
-        //_ => todo!(),
+        Expr::Array(a) => Val::A(Array::try_new(&eval_args(scope, a))),
+        //todo!(),
     }
 }
 
@@ -554,17 +547,16 @@ impl Func
         // exec body
         // code similar to do_block
         if let Some(ba) = do_block(&mut func_sc, &self.body) {
-            match ba {
-                BlockAction::Return(v) => {
-                    // func_scope is destroyed
-                    if v.as_type() != self.rett {
-                        panic!("return value is not of type {}",
-                            self.rett.to_string());
-                    } else {
-                        return v.clone();
-                    }
-                },
-                _ => panic!("cannot break or exit from func"),
+            if let BlockAction::Return(v) = ba {
+                // func_scope is destroyed
+                if v.as_type() != self.rett {
+                    panic!("return value is not of type {}",
+                        self.rett.to_string());
+                } else {
+                    return v.clone();
+                }
+            } else {
+                panic!("cannot break or exit from func");
             }
         }
         // func_scope is destroyed
@@ -866,10 +858,11 @@ impl std::fmt::Display for Array
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
         // special case for strings {C%}
-        match self {
-            Self::C(a) => {
-                for c in a { write!(f, "{c}")?; }; return Ok(());},
-            _ => {},
+        if let Self::C(a) = self {
+            for c in a {
+                write!(f, "{c}")?;
+            };
+            return Ok(());
         }
         write!(f, "{{")?;
         match self {
