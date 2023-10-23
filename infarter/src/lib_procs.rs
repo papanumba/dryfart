@@ -1,6 +1,7 @@
 /* src/lib_procs.rs */
 
-use crate::asterix::{Scope, Val};
+use crate::asterix::Val;
+use crate::twalker::Scope;
 
 pub fn do_lib_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Val>)
 {

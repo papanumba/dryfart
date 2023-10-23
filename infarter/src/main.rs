@@ -8,6 +8,7 @@ lalrpop_mod!(pub grammar);
 use regex;
 
 pub mod asterix;
+pub mod twalker;
 pub mod lib_procs;
 pub mod lib_funcs;
 pub mod util;
@@ -44,7 +45,7 @@ pub fn parse_file(fname: &str)
     // continue parsing
     let parser = grammar::ProgParser::new();
     let res = parser.parse(&taco).unwrap();
-    asterix::anal_check(&res);
+    twalker::anal_check(&res);
 }
 
 fn clear_comments(s: &mut String)
