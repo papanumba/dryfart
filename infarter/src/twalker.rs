@@ -3,10 +3,11 @@
 #![allow(unused_parens)]
 
 use std::collections::HashMap;
-use crate::asterix::*;
-use crate::lib_procs::*;
-use crate::lib_funcs::*;
-use crate::util;
+use crate::{
+    asterix::*,
+    util,
+    dflib,
+};
 
 pub struct Scope<'a>
 {
@@ -28,7 +29,7 @@ impl<'a> Scope<'a>
     {
         println!("\nScope:");
         for (i, v) in &self.vars {
-            println!("{}% {} = {:?}.", v.as_type().to_string(), i, v);
+            println!("{} {} = {:?}.", v.as_type().to_string(), i, v);
         }
         for (i, p) in &self.pros {
             println!("{}!", i);
@@ -72,6 +73,7 @@ impl<'a, 's> BlockScope<'a, 's>
     #[inline]
     pub fn clean(&mut self)
     {
+        //self.outer.print();
         for v in self.inner.vars.as_slice() {
             self.outer.vars.remove(v);
         }
@@ -247,7 +249,7 @@ fn do_pccall<'a>(
     match scope.pros.get(name) {
         Some(p) => proc = p,
         None => {
-            do_lib_pccall(scope, name, &args);
+            dflib::do_pccall(scope, name, &args);
             return None;
         },
     }
@@ -285,6 +287,7 @@ fn eval_fncall(
 
 }
 
+#[inline]
 fn eval_named_fncall(
     scope:&Scope,
     name: &str,
@@ -298,7 +301,7 @@ fn eval_named_fncall(
             panic!("{name}# is not a function")
         }
     } else { // couldn't find a local variable, þen try from the lib
-        do_lib_fncall(name, &eval_args(scope, &args))
+        dflib::do_fncall(name, &eval_args(scope, &args))
     };
 }
 
@@ -578,7 +581,7 @@ impl std::fmt::Debug for Func
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
     {
-        write!(f, "{}#...", self.rett.to_string())
+        write!(f, "...")
     }
 }
 

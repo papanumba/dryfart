@@ -9,8 +9,7 @@ use regex;
 
 pub mod asterix;
 pub mod twalker;
-pub mod lib_procs;
-pub mod lib_funcs;
+pub mod dflib;
 pub mod util;
 
 fn main()
@@ -22,18 +21,6 @@ fn main()
     } else {
         eprintln!("not rite numba ({argc}) of args, must be 2, {}", argv[0]);
     }
-}
-
-#[test]
-fn test1()
-{
-    parse_file("./tests/test1.df");
-}
-
-#[test]
-fn test2()
-{
-    parse_file("./tests/test2.df");
 }
 
 pub fn parse_file(fname: &str)

@@ -1,4 +1,4 @@
-# Funcs & procs
+# Subroutines: Funcs & procs
 
 As a structured imperative language, DryFart has subroutines. They are split in
 2 groups: functions & procedures.

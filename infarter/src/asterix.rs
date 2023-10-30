@@ -49,20 +49,26 @@ impl Type
     }
 }
 
-impl std::string::ToString for Type
+impl std::fmt::Display for Type
 {
-    fn to_string(&self) -> String
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
-        return String::from(match self {
-            Self::B => "B",
-            Self::C => "C",
-            Self::N => "N",
-            Self::Z => "Z",
-            Self::R => "R",
-            Self::A(_) => "A",
-            Self::F(..) => "F",
-            //_ => todo!(),
-        });
+        match self {
+            Self::B => write!(f, "B%"),
+            Self::C => write!(f, "C%"),
+            Self::N => write!(f, "N%"),
+            Self::Z => write!(f, "Z%"),
+            Self::R => write!(f, "R%"),
+            Self::A(e) => write!(f, "{{{}}}", e.to_string()),
+            Self::F(r, a) => {
+                write!(f, "{r}#{{")?;
+                for arg in a {
+                    write!(f, "{arg},")?;
+                }
+                write!(f, "}}")?;
+                Ok(())
+            },
+        }
     }
 }
 
@@ -83,22 +89,30 @@ impl Array
         if vals.is_empty() {
             panic!("empty array");
         }
-        // set self.typ as þe type of þe 1st element
-        // þen compare to it while appending new elems
-        let val0_type: Type = vals[0].as_type();
-        let vals_len = vals.len();
-        let mut res = match val0_type {
-            Type::B => Self::B(Vec::<bool>::with_capacity(vals_len)),
-            Type::C => Self::C(Vec::<char>::with_capacity(vals_len)),
-            Type::N => Self::N(Vec::<u32>::with_capacity(vals_len)),
-            Type::Z => Self::Z(Vec::<i32>::with_capacity(vals_len)),
-            Type::R => Self::R(Vec::<f32>::with_capacity(vals_len)),
-            _ => todo!(),
-        };
+        // set self.typ as þe type of þe 1st element, þen try to push þe oþers
+        let mut res = Self::with_capacity(&vals[0].as_type(), vals.len());
         for v in vals {
             res.try_push(&v);
         }
         return res;
+    }
+
+    pub fn new(t: &Type) -> Self
+    {
+        return Self::with_capacity(t, 0);
+    }
+
+    #[inline]
+    fn with_capacity(t: &Type, c: usize) -> Self
+    {
+        return match t {
+            Type::B => Self::B(Vec::<bool>::with_capacity(c)),
+            Type::C => Self::C(Vec::<char>::with_capacity(c)),
+            Type::N => Self::N(Vec::<u32> ::with_capacity(c)),
+            Type::Z => Self::Z(Vec::<i32> ::with_capacity(c)),
+            Type::R => Self::R(Vec::<f32> ::with_capacity(c)),
+            _ => todo!(),
+        };
     }
 
     fn try_push(&mut self, v: &Val)

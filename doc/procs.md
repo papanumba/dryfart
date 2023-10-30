@@ -1,8 +1,7 @@
 ## Procs
 
-While functions are the pure part of DryFart, procedures are impure, nasty,
-sodomic one. They are almost a macro.
-Dirty example:
+While functions are the pure part of DryFart, procedures are nasty one.
+They are almost a macro. Here's an example:
 
 ```
 !setAto!R%newval,!
@@ -34,3 +33,4 @@ without the expr.
 3. End: `!.`
 
 ### references: TODO
+

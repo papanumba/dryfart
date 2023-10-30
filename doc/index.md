@@ -79,4 +79,8 @@ equivalence work with all 5 types except R%. A comparison gives a B%.
 
 The logical operators are `&` for "and", `|` for "or" and `~` for "not".
 
-[Next ch.](control.md)
+## Chapters
+
+[Control flow](control.md)
+[Subroutines](funcs_n_procs.md)
+[Arrays](arrays.md)
