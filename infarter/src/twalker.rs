@@ -29,7 +29,7 @@ impl<'a> Scope<'a>
     {
         println!("\nScope:");
         for (i, v) in &self.vars {
-            println!("{} {} = {:?}.", v.as_type().to_string(), i, v);
+            println!("{} {} = {:?}.", Type::from(v).to_string(), i, v);
         }
         for (i, p) in &self.pros {
             println!("{}!", i);
@@ -259,7 +259,7 @@ fn do_pccall<'a>(
     }
     // check every arg's type w/ proc's decl
     for (i, t) in proc.part().iter().enumerate() {
-        if *t != args[i].as_type() {
+        if *t != Type::from(&args[i]) {
             panic!("argument numba {i} is not of type {}%", t.to_string());
         }
     }
@@ -332,7 +332,10 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
             &eval_expr(scope, a),
             &eval_expr(scope, i)
         ),
-        Expr::Array(a) => Val::A(Array::try_new(&eval_args(scope, a))),
+        Expr::Array(a) => Val::A(eval_args(scope, a)
+                                    .as_slice()
+                                    .try_into()
+                                    .unwrap()),
         //todo!(),
     }
 }
@@ -358,8 +361,8 @@ fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
 
 fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
 {
-    let lt = l.as_type();
-    let rt = r.as_type();
+    let lt: Type = l.into();
+    let rt: Type = r.into();
     if lt != rt {
         panic!("operating different types");
     }
@@ -436,7 +439,7 @@ fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
 // return v casted into t
 fn do_cast(t: &Type, v: &Val) -> Val
 {
-    if v.as_type() == *t {
+    if *t == Type::from(v) {
         return (*v).clone();
     }
     return match (v, t) {
@@ -529,7 +532,7 @@ impl Func
         let args: Vec<Val> = eval_args(scope, raw_args);
         // check every arg's type w/ func's decl
         for (i, t) in self.part().iter().enumerate() {
-            if *t != args[i].as_type() {
+            if *t != Type::from(&args[i]) {
                 panic!("argument numba {i} is not of type {}%", t.to_string());
             }
         }
@@ -553,7 +556,7 @@ impl Func
         if let Some(ba) = do_block(&mut func_sc, &self.body) {
             if let BlockAction::Return(v) = ba {
                 // func_scope is destroyed
-                if v.as_type() != self.rett {
+                if self.rett != Type::from(&v) {
                     panic!("return value is not of type {}",
                         self.rett.to_string());
                 } else {

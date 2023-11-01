@@ -16,18 +16,6 @@ pub enum Type
 
 impl Type
 {
-    pub fn from_str(s: &str) -> Self
-    {
-        return match s {
-            "B" => Self::B,
-            "C" => Self::C,
-            "N" => Self::N,
-            "Z" => Self::Z,
-            "R" => Self::R,
-            _ => panic!("unknown type"),
-        };
-    }
-
     pub fn is_num(&self) -> bool
     {
         return match self {
@@ -46,6 +34,39 @@ impl Type
             Self::R => Val::R(0.0),
             _ => todo!(),
         }
+    }
+}
+
+impl std::convert::From<&Val> for Type
+{
+    fn from(v: &Val) -> Self
+    {
+        return match v {
+            Val::B(_) => Type::B,
+            Val::C(_) => Type::C,
+            Val::N(_) => Type::N,
+            Val::Z(_) => Type::Z,
+            Val::R(_) => Type::R,
+            Val::A(a) => Type::A(Box::new(a.get_type())),
+            Val::F(f) => f.get_type(),
+        };
+    }
+}
+
+// TryInto is automatically implemented
+impl std::convert::TryFrom<&str> for Type
+{
+    type Error = &'static str;
+    fn try_from(s: &str) -> Result<Self, Self::Error>
+    {
+        return match s {
+            "B%" => Ok(Self::B),
+            "C%" => Ok(Self::C),
+            "N%" => Ok(Self::N),
+            "Z%" => Ok(Self::Z),
+            "R%" => Ok(Self::R),
+            _ => Err("unknown df type {value}"),
+        };
     }
 }
 
@@ -84,19 +105,6 @@ pub enum Array
 
 impl Array
 {
-    pub fn try_new(vals: &[Val]) -> Self
-    {
-        if vals.is_empty() {
-            panic!("empty array");
-        }
-        // set self.typ as þe type of þe 1st element, þen try to push þe oþers
-        let mut res = Self::with_capacity(&vals[0].as_type(), vals.len());
-        for v in vals {
-            res.try_push(&v);
-        }
-        return res;
-    }
-
     pub fn new(t: &Type) -> Self
     {
         return Self::with_capacity(t, 0);
@@ -127,20 +135,7 @@ impl Array
         }
     }
 
-    pub fn from_str(s: &str) -> Self
-    {
-        if s.len() < 3 {
-            panic!("trying to make string from str too short");
-        }
-        let last: usize = (s.len() as isize - 1) as usize;
-        return Self::C(
-            Self::replace_esc_seq(&s[1..last])
-                .as_str()
-                .chars()
-                .collect(),
-        );
-    }
-
+    // helper for Self::from<&str> kinda
     // replace escape sequences: N$, T$, $$, "$
     // TODO: is þere some way of not allocating new Strings?
     fn replace_esc_seq(s: &str) -> String
@@ -183,6 +178,43 @@ impl Array
             Self::Z(a) => Val::N(a.len() as u32),
             Self::R(a) => Val::N(a.len() as u32),
         };
+    }
+}
+
+// TryInto is automatically implemented
+impl std::convert::TryFrom<&[Val]> for Array
+{
+    type Error = &'static str;
+    fn try_from(vals: &[Val]) -> Result<Self, Self::Error>
+    {
+        if vals.is_empty() {
+            return Err("empty array");
+        }
+        // set self.typ as þe type of þe 1st element, þen try to push þe oþers
+        let mut res = Self::with_capacity(&Type::from(&vals[0]), vals.len());
+        for v in vals {
+            res.try_push(&v);
+        }
+        return Ok(res);
+    }
+}
+
+// TryInto is automatically implemented
+impl std::convert::TryFrom<&str> for Array
+{
+    type Error = &'static str;
+    fn try_from(s: &str) -> Result<Self, Self::Error>
+    {
+        if s.len() < 3 {
+            return Err("trying to make string {s} from too short");
+        }
+        let last: usize = (s.len() as isize - 1) as usize;
+        return Ok(Self::C(
+            Self::replace_esc_seq(&s[1..last])
+                .as_str()
+                .chars()
+                .collect(),
+        ));
     }
 }
 
@@ -237,18 +269,6 @@ pub enum Val
 
 impl Val
 {
-    pub fn as_type(&self) -> Type
-    {
-        return match self {
-            Self::B(_) => Type::B,
-            Self::C(_) => Type::C,
-            Self::N(_) => Type::N,
-            Self::Z(_) => Type::Z,
-            Self::R(_) => Type::R,
-            Self::A(a) => Type::A(Box::new(a.get_type())),
-            Self::F(f) => f.get_type(),
-        };
-    }
 
     pub fn from_str_to_c(s: &str) -> Self
     {
@@ -258,6 +278,8 @@ impl Val
         }
     }
 }
+
+
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum BinOpcode { Add, Sub, Mul, Div, Eq, Ne, Lt, Gt, Le, Ge, And, Or }

@@ -171,7 +171,7 @@ ArrType: Type = {
 }
 
 PrimType: Type = {
-    r"[BCNZR]%" => Type::from_str(<>.get(0..1).unwrap()),
+    r"[BCNZR]%" => Type::try_from(<>).unwrap(),
 }
 
 Ident: String = {
@@ -185,5 +185,5 @@ Const: Val = {
     r"[0-9]+"         => Val::N(u32::from_str(<>).unwrap()),
     r"[0-9]+\.[0-9]+" => Val::R(f32::from_str(<>).unwrap()),
     r#"C%".""# => Val::from_str_to_c(<>),
-    r#""[^"]+""# => Val::A(Array::from_str(<>)),
+    r#""[^"]+""# => Val::A(Array::try_from(<>).unwrap()),
 }
