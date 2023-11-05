@@ -67,3 +67,16 @@ pub fn atan2(args: &Vec<Val>) -> Val
         _ => panic!("ERROR atan2#: not rite typ'arg: expected {{R%,R%,}}"),
     };
 }
+
+// R%#{R%,}
+pub fn exp(args: &Vec<Val>) -> Val
+{
+    let x = match args.len() {
+        1 => &args[0],
+        _ => panic!("not rite numbav args to exp#, must be 1"),
+    };
+    return match x {
+        Val::R(r) => Val::R(f32::exp(*r)),
+        _ => panic!("ERROR exp#: not rite typ'arg: expected R%"),
+    };
+}
