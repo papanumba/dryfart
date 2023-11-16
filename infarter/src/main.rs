@@ -4,7 +4,6 @@
 
 //use regex;
 
-pub mod luthor;
 pub mod parsnip;
 pub mod asterix;
 pub mod twalker;
@@ -25,13 +24,8 @@ fn main()
 pub fn parse_file(fname: &str)
 {
     let mut taco: String = read_file_to_string(fname);
-    // clear comments, bcoz i'm stupid
-    // or þe parser can't handle comments
     clear_comments(&mut taco);
-    // continue parsing
-    let mut lex = luthor::Lexer::new(&taco);
-    let res = parsnip::parse(&lex.tokenize().unwrap());
-    match res {
+    match parsnip::parse(&taco) {
         Ok(s) => twalker::anal_check(&vec![s]),
         Err(e) => println!("{e}"),
     }

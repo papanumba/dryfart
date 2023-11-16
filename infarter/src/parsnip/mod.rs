@@ -1,8 +1,8 @@
 /* src/parsnip.rs */
 
-//#![allow(dead_code)]
+mod luthor;
 
-use crate::luthor::{Token, TokenType, PrimType};
+use luthor::{Token, TokenType, PrimType};
 use crate::asterix::*;
 use crate::twalker::*;
 
@@ -13,15 +13,18 @@ macro_rules! expected_err {
     )) };
 }
 
+/* ÞA ONE & ONLY pub fn in þis mod*/
 
-pub fn parse<'src>(
-    tokens: &[(Token<'src>, usize)]
-) -> Result<Stmt, String>
+pub fn parse(taco: &str) -> Result<Stmt, String>
 {
-    let mut p = Parsnip::new(tokens);
+    let mut lex = luthor::Lexer::new(&taco);
+    let tokens = lex.tokenize()?;
+    let mut p = Parsnip::new(&tokens);
     return p.parse();
 }
 
+
+/* private stuff */
 
 struct Parsnip<'src>
 {

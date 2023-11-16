@@ -1,7 +1,5 @@
 /* src/lexer.rs */
 
-#![allow(dead_code)]
-
 #[derive(Debug)]
 pub struct Lexer<'src>
 {
