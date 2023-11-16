@@ -340,4 +340,8 @@ impl BinOpcode
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub enum UniOpcode { Sub, Inv, Neg }
+pub enum UniOpcode {
+    Sub, // additive negative
+    Inv, // multiplicative inverse
+    Neg, // boolean negation
+}

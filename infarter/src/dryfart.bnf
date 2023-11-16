@@ -1,0 +1,84 @@
+use https://bnfplayground.pauliankline.com/;
+
+<Block>   ::= <Stmt>+
+<Stmt>    ::= <Assign>
+            | <IfElse>
+            | <Loop>
+            | <Break>
+            | <Return>
+            | <PcCall> # beware: lookahead bcoz of assign
+            | <EndProc>
+
+<Assign>  ::= <Ident> ("_" <Index>)* "=" <Expr> "."
+
+<IfElse>  ::= "[" <Expr> "=>" <Block>    # if
+            ( "|" <Expr> "=>" <Block> )* # else if
+            ( "|"        "=>" <Block> )? # else
+              "]"
+
+<Loop>    ::= "@"    (               <Block>  # inf-loop
+                      "(" <Expr> ")" <Block>  # while
+            | <Block> "(" <Expr> ")"          # do while
+            | <Block> "(" <Expr> ")" <Block>) # while(true) if _ break
+            "."
+<Break>   ::= "@@" <N> "." # break Nth level loop, normal = 0
+
+<Return>  ::= "##" <Expr> "."
+
+<PcCall>  ::= <Ident> "!" <CommaEx>? "."
+<EndProc> ::= "!!" <N> "." # end Nth level proc call
+
+<Expr>    ::= <OrExpr>
+<OrExpr>  ::= <AndExpr> ("|" <AndExpr>)*
+<AndExpr> ::= <AndTerm> ("&" <AndTerm>)*
+<AndTerm> ::= "~"* <CmpExpr> # yes: ~ neg has weaker precedence than ==
+
+<CmpExpr> ::= <AddExpr> (("[=~]=" | "[<>]=?") <AddExpr>)?
+
+<AddExpr> ::= <AddTerm> (("+" | "-") <AddTerm>)*
+<AddTerm> ::= "-"* <MulExpr>
+
+<MulExpr> ::= <MulTerm> (("*" | "/") <MulTerm>)*
+<MulTerm> ::= "/"* <AtomExpr>
+
+<AtomExpr> ::= <PrimLit>
+            | <PrimType> <AtomExpr>
+            | <AnonFn>
+            | # first-first conflict when putting <IdxExpr>
+
+### Indexed or FnCall expr
+<IdxExpr> ::= <Idxable> ("_" <Index>)*
+<Idxable> ::= <ArrLit>
+            | <IdxTerm>
+<Index>   ::= <N>
+            | <IdxTerm>
+<ArrLit>  ::= "{" <CommaEx>? "}"
+            | <String>
+<IdxTerm> ::= <AnonFn> <Args>  # called anonfn
+            | <Nucle> <Args>?  # nucle or nucle's return
+<Args>    ::= "#" <CommaEx>? ";"
+<CommaEx> ::= <Expr> ("," <Expr>)*
+
+### AnonFn
+<AnonFn>  ::= "#" <Params>? ">" <Type> ";" <Block> "#" "."
+<Params>  ::= <Param> ("," <Param>)*
+<Param>   ::= <Type> <Ident>
+
+### Nucle
+<Nucle>   ::= <Ident> | <Parented>
+<Ident>   ::= "[A-Za-z][A-Za-z0-9]*"
+<Parented> ::= "(" <Expr> ")"
+
+### Type
+<Type>    ::= <FuncType> | <ArrType> | <PrimType>
+<FuncType> ::= "#" <TypeList>? ">" <Type> ";"
+<TypeList> ::= <Type> ("," <Type>)*
+<ArrType> ::= "{" <Type> "}"
+<PrimType> ::= "[BCNZR]%"
+
+### Literals
+<String>  ::= "check implementation"
+<PrimLit> ::= <B> | <N> | <R>
+<B> ::= "[TF]"
+<N> ::= "[0-9]+"
+<R> ::= "[0-9]+\.[0-9]+"

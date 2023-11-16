@@ -1,0 +1,72 @@
+'cAbs =  R% #{{R%}z,} ## sqrt#{z_0*z_0 + z_1*z_1,} . #..
+'cAb2 =  R% #{{R%}z,} ## z_0*z_0 + z_1*z_1 . #..
+'cArg =  R% #{{R%}z,} ## atan2#{z_1, z_0,} . #..
+'cCjg = {R%}#{{R%}z,} ## {z_0, -z_1,} . #..
+myF = {R%}#{{R%}z,}
+    cInv = {R%}#{{R%}z,}
+        s = /(z_0*z_0 + z_1*z_1).
+        ## {z_0 * s, -z_0 * s,} .
+    #..
+    cAdd = {R%}#{{R%}z,{R%}w,} ## {z_0+w_0, z_1+w_1,} . #..
+    cSub = {R%}#{{R%}z,{R%}w,} ## {z_0-w_0, z_1-w_1,} . #..
+    cMul = {R%}#{{R%}z,{R%}w,}
+        ## {
+            z_0*w_0 - z_1*w_1,
+            z_0*w_1 + z_1*w_0,
+        } .
+    #..
+    'cDiv = {R%}#{{R%}z,{R%}w,}
+    '  s = /(z_0*z_0 + z_1*z_1).
+    '  ## {
+    '    (z_0*w_0 + z_1*w_1) * s,
+    '    (z_1*w_0 - z_0*w_1) * s,
+    '  } .
+    '#..
+
+    n = 0.
+    fz = {0.0, 0.0,}.
+    zn = {1.0, 0.0,}.
+    @(n < 20)
+        ' fz += 1.0 / (z^n - n)
+        fz = cAdd#{fz,cInv#{{zn_0 - R%n,zn_1,},},}.
+        zn = cMul#{zn,z,}.
+        n ++ 1.
+    @.
+    ## fz .
+#..
+
+complexToColor = {N%}#{{R%}z,}
+    abs = sqrt#{z_0*z_0 + z_1*z_1,}.
+    col = absz#{round#{-255.0 / (abs + 1.0) + 1.0,},}. ' from 0 to 255
+    ## {col, col, col,} .
+#..
+
+!putSquare!{R%}#{{R%},}f, N%size,!
+    put!"P3N$",.
+    put!size,.
+    put!" ",.
+    put!size,.
+    put!"N$255N$",.
+    aux = /R%size.
+    i = 0.
+    @(i < size)
+        j = 0.
+        @(j < size)
+            z = {
+                -2.0 + 4.0 * R%i * aux,
+                -2.0 + 4.0 * R%j * aux,
+            }.
+            r = complexToColor#{f#{z,},}.
+            put!r_0,.
+            put!" ",.
+            put!r_1,.
+            put!" ",.
+            put!r_2,.
+            put!" N$",.
+            j ++ 1.
+        @.
+        i ++ 1.
+    @.
+!.
+
+putSquare!myF, 8,.

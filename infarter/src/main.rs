@@ -2,11 +2,10 @@
 
 #![allow(dead_code, unused_variables)]
 
-#[macro_use]
-extern crate lalrpop_util;
-lalrpop_mod!(pub grammar);
-use regex;
+//use regex;
 
+pub mod luthor;
+pub mod parsnip;
 pub mod asterix;
 pub mod twalker;
 pub mod dflib;
@@ -30,16 +29,19 @@ pub fn parse_file(fname: &str)
     // or þe parser can't handle comments
     clear_comments(&mut taco);
     // continue parsing
-    let parser = grammar::ProgParser::new();
-    let res = parser.parse(&taco).unwrap();
-    twalker::anal_check(&res);
+    let mut lex = luthor::Lexer::new(&taco);
+    let res = parsnip::parse(&lex.tokenize().unwrap());
+    match res {
+        Ok(s) => twalker::anal_check(&vec![s]),
+        Err(e) => println!("{e}"),
+    }
 }
 
 fn clear_comments(s: &mut String)
 {
-    let com_re = regex::Regex::new(r"'.*\n").unwrap();
-    let result = com_re.replace_all(s, "\n");
-    *s = result.to_string();
+//    let com_re = regex::Regex::new(r"'.*\n").unwrap();
+//    let result = com_re.replace_all(s, "\n");
+//    *s = result.to_string();
 }
 
 #[inline]
