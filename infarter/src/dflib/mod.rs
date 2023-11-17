@@ -1,10 +1,10 @@
-/* src/dflib.rs */
-
-use crate::asterix::Val;
-use crate::twalker::Scope;
+/* src/dflib/mod.rs */
 
 mod funcs;
 mod procs;
+
+use crate::asterix::Val;
+use crate::twalker::Scope;
 
 pub fn do_fncall(name: &str, raw_args: &Vec<Val>) -> Val
 {
