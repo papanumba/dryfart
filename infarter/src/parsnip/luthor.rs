@@ -1,4 +1,4 @@
-/* src/lexer.rs */
+/* src/parsnip/luthor.rs */
 
 #[derive(Debug)]
 pub struct Lexer<'src>
