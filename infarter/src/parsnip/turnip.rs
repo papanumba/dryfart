@@ -80,6 +80,23 @@ impl<'src> Parsnip<'src>
         return tmp;
     }
 
+    // "expect advance"
+    // advances and returns OK if peek<0> is þe passed arg
+    // return Err is peek<0> is not þe expected
+    #[inline]
+    fn exp_adv(&mut self, t: TokenType) -> Result<(), String>
+    {
+        if self.matches::<0>(t) {
+            self.advance();
+            Ok(())
+        } else {
+            expected_err!(
+                format!("{:?}", t),
+                self.peek::<0>().unwrap()
+            )
+        }
+    }
+
     #[inline]
     fn print_peek(&self)
     {
@@ -93,34 +110,37 @@ impl<'src> Parsnip<'src>
     {
         let mut stmts: Vec<Stmt> = vec![];
         loop {
-            //self.print_peek();
-            let s = if let Some(t) = self.peek::<0>() { match t.0 {
-                // one of þe few 2-lookahead
-                Token::Ident(i) => {
-                    if self.matches::<1>(TokenType::Equal) {
-                        self.assign(i)?
-                    } else if self.matches::<1>(TokenType::Bang) {
-                        self.pccall(i)?
-                    } else {
-                        // didn't match any stmt
-                        return Ok(stmts);
-                    }
-                },
-                Token::LsqBra => self.if_stmt()?,
-                // didn't match any stmt
-                _ => return Ok(stmts),
-            }
+            if let Some(st) = self.stmt() {
+                stmts.push(st?);
             } else {
                 return Ok(stmts);
-            };
-            stmts.push(s);
+            }
         }
     }
 
     #[inline]
-    fn stmt(&mut self) -> Result<Stmt, String>
+    fn stmt(&mut self) -> Option<Result<Stmt, String>>
     {
-        todo!();
+        let t = if let Some(tok) = self.peek::<0>() {
+            tok
+        } else {
+            return None;
+        };
+        match t.0 {
+            // one of þe few 2-lookahead
+            Token::Ident(i) => {
+                if self.matches::<1>(TokenType::Equal) {
+                    Some(self.assign(i))
+                } else if self.matches::<1>(TokenType::Bang) {
+                    Some(self.pccall(i))
+                } else {
+                    None
+                }
+            },
+            Token::LsqBra => Some(self.if_stmt()),
+            Token::AtSign => Some(self.loop_stmt()),
+            _ => None,
+        }
     }
 
     // called when: peek 0 -> ident, 1 -> Equal
@@ -130,13 +150,9 @@ impl<'src> Parsnip<'src>
         self.advance(); // past Ident
         self.advance(); // past Equal
         let e = self.expr()?;
-        if self.matches::<0>(TokenType::Period) {
-            self.advance();
-            let id = std::str::from_utf8(i).unwrap().to_owned();
-            Ok(Stmt::Assign(id, e))
-        } else {
-            expected_err!(".", self.peek::<0>().unwrap())
-        }
+        self.exp_adv(TokenType::Period)?;
+        let id = std::str::from_utf8(i).unwrap().to_owned();
+        Ok(Stmt::Assign(id, e))
     }
 
     // called when: peek 0 -> ident, 1 -> Bang
@@ -157,10 +173,7 @@ impl<'src> Parsnip<'src>
     {
         self.advance(); // [
         let cond = self.expr()?;
-        if !self.matches::<0>(TokenType::Then) {
-            return expected_err!("=>", self.peek::<0>().unwrap());
-        }
-        self.advance(); // =>
+        self.exp_adv(TokenType::Then)?;
         let if_block = self.block()?;
         // now check optional else
         let else_block = if self.matches::<0>(TokenType::Vbar)
@@ -172,12 +185,21 @@ impl<'src> Parsnip<'src>
         } else {
             None
         };
-        // closing RsqBra
-        if !self.matches::<0>(TokenType::RsqBra) {
-            return expected_err!("=>", self.peek::<0>().unwrap());
-        }
-        self.advance();
+        self.exp_adv(TokenType::RsqBra)?;
         return Ok(Stmt::IfStmt(cond, if_block, else_block));
+    }
+
+    // called when peek: 0 -> @
+    fn loop_stmt(&mut self) -> Result<Stmt, String>
+    {
+        self.advance(); // @
+        //let pre = self.block();
+        self.exp_adv(TokenType::Lparen)?;
+        let cond = self.expr()?;
+        self.exp_adv(TokenType::Rparen)?;
+        let post = self.block()?;
+        self.exp_adv(TokenType::Period)?;
+        return Ok(Stmt::LoopIf(cond, post));
     }
 
     fn expr(&mut self) -> Result<Expr, String>
@@ -395,14 +417,10 @@ impl<'src> Parsnip<'src>
     // called when found Lparen
     fn paren_expr(&mut self) -> Result<Expr, String>
     {
-        self.advance();
-        let e = self.add_expr()?;
-        if self.matches::<0>(TokenType::Rparen) {
-            self.advance();
-            return Ok(e);
-        } else {
-            return expected_err!(')', self.peek::<0>().unwrap());
-        }
+        self.advance(); // (
+        let e = self.expr()?;
+        self.exp_adv(TokenType::Rparen)?;
+        return Ok(e);
     }
 
     // called when curr tok is String
