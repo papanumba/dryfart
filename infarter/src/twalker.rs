@@ -318,7 +318,7 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
 {
     match e {
         Expr::Const(c) => (*c).clone(),
-        Expr::Ident(i) => (*scope.vars.get(i.as_str()).unwrap()).clone(),
+        Expr::Ident(i) => eval_ident(scope, i),
         Expr::Tcast(t, e) => do_cast(t, &eval_expr(scope, e)),
         Expr::BinOp(l, o, r) => eval_binop(
             &eval_expr(scope, l),
@@ -337,6 +337,16 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
                                     .try_into()
                                     .unwrap()),
         //todo!(),
+    }
+}
+
+#[inline]
+fn eval_ident(scope: &Scope, i: &str) -> Val
+{
+    if let Some(v) = scope.vars.get(i) {
+        return v.clone();
+    } else {
+        panic!("cannot find {i} in scope");
     }
 }
 

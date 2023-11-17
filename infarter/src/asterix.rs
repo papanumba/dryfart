@@ -203,14 +203,11 @@ impl std::convert::TryFrom<&[Val]> for Array
 impl std::convert::TryFrom<&str> for Array
 {
     type Error = &'static str;
+    // s is already stript, ie it has no `"` arround
     fn try_from(s: &str) -> Result<Self, Self::Error>
     {
-        if s.len() < 3 {
-            return Err("trying to make string {s} from too short");
-        }
-        let last: usize = (s.len() as isize - 1) as usize;
         return Ok(Self::C(
-            Self::replace_esc_seq(&s[1..last])
+            Self::replace_esc_seq(s)
                 .as_str()
                 .chars()
                 .collect(),

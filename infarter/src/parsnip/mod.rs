@@ -3,11 +3,11 @@
 mod luthor;
 mod turnip;
 
-use crate::twalker::Stmt;
+use crate::twalker::Block;
 
 /* ÞA ONE & ONLY pub fn in þis mod*/
 
-pub fn parse(taco: &str) -> Result<Stmt, String>
+pub fn parse(taco: &str) -> Result<Block, String>
 {
     let mut lex = luthor::Lexer::new(&taco);
     let toke = lex.tokenize()?;

@@ -11,15 +11,17 @@ macro_rules! expected_err {
     )) };
 }
 
+type LnToken<'a> = (Token<'a>, usize);
+
 pub struct Parsnip<'src>
 {
     cursor: usize,
-    tokens: Vec<(Token<'src>, usize)>,
+    tokens: Vec<LnToken<'src>>,
 }
 
 impl<'src> Parsnip<'src>
 {
-    pub fn new(tl: &[(Token<'src>, usize)]) -> Self
+    pub fn new(tl: &[LnToken<'src>]) -> Self
     {
         return Self {
             cursor: 0,
@@ -27,18 +29,18 @@ impl<'src> Parsnip<'src>
         };
     }
 
-    pub fn parse(&mut self) -> Result<Stmt, String>
+    pub fn parse(&mut self) -> Result<Block, String>
     {
-        let res = self.stmt();
+        let res = self.block()?;
         return if self.is_at_end() {
-            res
+            Ok(res)
         } else {
             expected_err!("EOF", self.peek::<0>().unwrap())
         };
     }
 
     #[inline]
-    fn peek<const LA: usize>(&self) -> Option<&(Token<'src>, usize)>
+    fn peek<const LA: usize>(&self) -> Option<&LnToken<'src>>
     {
         return self.tokens.get(self.cursor + LA);
     }
@@ -66,7 +68,7 @@ impl<'src> Parsnip<'src>
         }
     }
 
-    fn read_token(&mut self) -> Option<&(Token<'src>, usize)>
+    fn read_token(&mut self) -> Option<&LnToken<'src>>
     {
         let tmp = self.tokens.get(self.cursor);
         // should be self.advance(),
@@ -78,29 +80,53 @@ impl<'src> Parsnip<'src>
         return tmp;
     }
 
+    #[inline]
+    fn print_peek(&self)
+    {
+        println!("{:?}", self.peek::<0>());
+    }
+
 
     /******** G R A M M A R ********/
 
+    fn block(&mut self) -> Result<Block, String>
+    {
+        let mut stmts: Vec<Stmt> = vec![];
+        loop {
+            //self.print_peek();
+            let s = if let Some(t) = self.peek::<0>() { match t.0 {
+                // one of þe few 2-lookahead
+                Token::Ident(i) => {
+                    if self.matches::<1>(TokenType::Equal) {
+                        self.assign(i)?
+                    } else if self.matches::<1>(TokenType::Bang) {
+                        self.pccall(i)?
+                    } else {
+                        // didn't match any stmt
+                        return Ok(stmts);
+                    }
+                },
+                Token::LsqBra => self.if_stmt()?,
+                // didn't match any stmt
+                _ => return Ok(stmts),
+            }
+            } else {
+                return Ok(stmts);
+            };
+            stmts.push(s);
+        }
+    }
+
+    #[inline]
     fn stmt(&mut self) -> Result<Stmt, String>
     {
-        if self.matches::<0>(TokenType::Ident) {
-            // one of þe few 2-lookaheads
-            if self.matches::<1>(TokenType::Equal) {
-                return self.assign();
-            } else if self.matches::<1>(TokenType::Bang) {
-                return self.pccall();
-            }
-        }
         todo!();
     }
 
     // called when: peek 0 -> ident, 1 -> Equal
-    fn assign(&mut self) -> Result<Stmt, String>
+    #[inline]
+    fn assign(&mut self, i: &[u8]) -> Result<Stmt, String>
     {
-        let i = match self.peek::<0>().unwrap().0 {
-            Token::Ident(ii) => ii,
-            _ => unreachable!(),
-        };
         self.advance(); // past Ident
         self.advance(); // past Equal
         let e = self.expr()?;
@@ -114,12 +140,9 @@ impl<'src> Parsnip<'src>
     }
 
     // called when: peek 0 -> ident, 1 -> Bang
-    fn pccall(&mut self) -> Result<Stmt, String>
+    #[inline]
+    fn pccall(&mut self, i: &[u8]) -> Result<Stmt, String>
     {
-        let i = match self.peek::<0>().unwrap().0 {
-            Token::Ident(ii) => ii,
-            _ => unreachable!(),
-        };
         self.advance(); // Ident
         self.advance(); // !
         let commas = self.comma_ex(TokenType::Period)?;
@@ -127,6 +150,34 @@ impl<'src> Parsnip<'src>
             String::from(std::str::from_utf8(i).unwrap()),
             commas
         ));
+    }
+
+    // called when: peek 0 -> LsqBra
+    fn if_stmt(&mut self) -> Result<Stmt, String>
+    {
+        self.advance(); // [
+        let cond = self.expr()?;
+        if !self.matches::<0>(TokenType::Then) {
+            return expected_err!("=>", self.peek::<0>().unwrap());
+        }
+        self.advance(); // =>
+        let if_block = self.block()?;
+        // now check optional else
+        let else_block = if self.matches::<0>(TokenType::Vbar)
+                         && self.matches::<1>(TokenType::Then) {
+            self.advance(); // |
+            self.advance(); // =>
+            let eb = self.block()?;
+            Some(eb)
+        } else {
+            None
+        };
+        // closing RsqBra
+        if !self.matches::<0>(TokenType::RsqBra) {
+            return expected_err!("=>", self.peek::<0>().unwrap());
+        }
+        self.advance();
+        return Ok(Stmt::IfStmt(cond, if_block, else_block));
     }
 
     fn expr(&mut self) -> Result<Expr, String>
@@ -298,9 +349,12 @@ impl<'src> Parsnip<'src>
                     let casted = self.atom_expr()?;
                     return Ok(Expr::Tcast(pt.into(), Box::new(casted)));
                 },
-                Token::Ident(id) =>
+                Token::Ident(id) => {
+                    self.advance();
                     return Ok(Expr::Ident(std::str::from_utf8(id)
-                        .unwrap().to_owned())),
+                        .unwrap().to_owned()));
+                },
+                Token::String(s) => self.string(s),
                 Token::Lparen => self.paren_expr(),
                 _ => expected_err!("ValN", t),
             }
@@ -350,6 +404,16 @@ impl<'src> Parsnip<'src>
             return expected_err!(')', self.peek::<0>().unwrap());
         }
     }
+
+    // called when curr tok is String
+    fn string(&mut self, b: &[u8]) -> Result<Expr, String>
+    {
+        let s = std::str::from_utf8(b)
+            .expect("sunþiŋ rroŋ when parsing string to utf8");
+        let a = Array::try_from(s)?;
+        self.advance();
+        return Ok(Expr::Const(Val::A(a)));
+    }
 }
 
 impl From<PrimType> for Type
@@ -370,7 +434,7 @@ fn cmp_tok_to_binop(t: &Token) -> BinOpcode
 {
     match t {
         Token::Equal2 => BinOpcode::Eq,
-        Token::Ne     => BinOpcode::Eq,
+        Token::Ne     => BinOpcode::Ne,
         Token::Langle => BinOpcode::Lt,
         Token::Le     => BinOpcode::Le,
         Token::Rangle => BinOpcode::Gt,

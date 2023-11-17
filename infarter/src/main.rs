@@ -26,7 +26,7 @@ pub fn parse_file(fname: &str)
     let mut taco: String = read_file_to_string(fname);
     clear_comments(&mut taco);
     match parsnip::parse(&taco) {
-        Ok(s) => twalker::anal_check(&vec![s]),
+        Ok(b) => twalker::anal_check(&b),
         Err(e) => println!("{e}"),
     }
 }
