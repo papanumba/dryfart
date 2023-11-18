@@ -1,7 +1,5 @@
 /* src/asterix.rs */
 
-use crate::twalker::Func;
-
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Type
 {
@@ -266,7 +264,6 @@ pub enum Val
 
 impl Val
 {
-
     pub fn from_str_to_c(s: &str) -> Self
     {
         match s.chars().nth(3) {
@@ -275,8 +272,6 @@ impl Val
         }
     }
 }
-
-
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum BinOpcode { Add, Sub, Mul, Div, Eq, Ne, Lt, Gt, Le, Ge, And, Or }
@@ -341,4 +336,180 @@ pub enum UniOpcode {
     Sub, // additive negative
     Inv, // multiplicative inverse
     Neg, // boolean negation
+}
+
+#[derive(Clone)]
+pub enum BlockAction
+{
+    Return(Val),
+    PcExit,
+    BreakL,
+}
+
+#[derive(Clone)]
+pub struct Func
+{
+    pars: Vec<(Type, String)>,
+    body: Block,
+    rett: Type,
+}
+
+impl Func
+{
+    pub fn new(
+        p: &Vec<(Type, String)>,
+        b: &Block,
+        r: &Type)
+     -> Self
+    {
+        // check uniques in p
+        let mut p2: Vec<&str> = p
+            .iter()
+            .map(|pair| (pair.1).as_str())
+            .collect();
+        p2.sort();
+        p2.dedup();
+        if p2.len() != p.len() {
+            panic!("duplicate parameters in decl of a func");
+        }
+        return Self {
+            pars: (*p).clone(),
+            body: (*b).clone(),
+            rett: (*r).clone(),
+        };
+    }
+
+    pub fn parc(&self) -> usize
+    {
+        return self.pars.len();
+    }
+
+    pub fn part(&self) -> Vec<Type>
+    {
+        return self.pars
+            .iter()
+            .map(|arg| (*arg).0.clone())
+            .collect();
+    }
+
+    pub fn pars(&self) -> &[(Type, String)]
+    {
+        return self.pars.as_slice();
+    }
+
+    pub fn body(&self) -> &Block
+    {
+        return &self.body;
+    }
+
+    pub fn rett(&self) -> Type
+    {
+        return self.rett.clone();
+    }
+
+    pub fn get_type(&self) -> Type
+    {
+        return Type::F(
+            Box::new(self.rett.clone()),
+            self.pars
+                .iter()
+                .map(|pair| pair.0.clone())
+                .collect(),
+        );
+    }
+}
+
+impl PartialEq for Func
+{
+    // Required method
+    fn eq(&self, other: &Self) -> bool
+    {
+        return false;
+    }
+}
+
+impl std::fmt::Debug for Func
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
+    {
+        write!(f, "...")
+    }
+}
+
+#[derive(Clone)]
+pub struct Proc
+{
+    name: String,
+    pars: Vec<(Type, String)>,
+    body: Block,
+}
+
+impl Proc
+{
+    pub fn new(n: &str, p: &Vec<(Type, String)>, b: &Block) -> Self
+    {
+        return Self {
+            name: String::from(n),
+            pars: p.clone(),
+            body: (*b).clone(),
+        };
+    }
+
+    pub fn name(&self) -> &str
+    {
+        return &self.name;
+    }
+
+    pub fn pars(&self) -> &[(Type, String)]
+    {
+        return self.pars.as_slice();
+    }
+
+    pub fn parc(&self) -> usize
+    {
+        return self.pars.len();
+    }
+
+    pub fn part(&self) -> Vec<Type>
+    {
+        return self.pars
+            .iter()
+            .map(|arg| (*arg).0.clone())
+            .collect();
+    }
+
+    pub fn body(&self) -> &Block
+    {
+        return &self.body;
+    }
+}
+
+pub type Block = Vec<Stmt>;
+
+#[derive(Clone)]
+pub enum Stmt
+{
+    Assign(String, Expr),
+    OperOn(String, BinOpcode, Expr),
+    IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
+    LoopIf(Expr, Block),
+    BreakL,
+    Return(Expr),
+    PcDecl(Proc),
+    PcExit,
+    PcCall(String, Vec<Expr>),
+}
+
+#[derive(Clone)]
+pub enum Expr
+{
+    Const(Val),
+    Ident(String),
+    Tcast(Type, Box<Expr>),
+    BinOp(Box<Expr>, BinOpcode, Box<Expr>),
+    UniOp(Box<Expr>, UniOpcode),
+    Fdefn(Func),
+    Fcall(Box<Expr>, Vec<Expr>),
+    ArrEl(Box<Expr>, Box<Expr>),
+    Array(Vec<Expr>),
 }

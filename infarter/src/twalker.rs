@@ -25,7 +25,7 @@ impl<'a> Scope<'a>
         };
     }
 
-    fn print(&self)
+    pub fn print(&self)
     {
         println!("\nScope:");
         for (i, v) in &self.vars {
@@ -37,7 +37,7 @@ impl<'a> Scope<'a>
     }
 }
 
-pub struct ScopeRef<'a>
+struct ScopeRef<'a>
 {
     pub vars: util::StaVec<8, &'a str>,
     pub pros: util::StaVec<8, &'a str>,
@@ -45,7 +45,7 @@ pub struct ScopeRef<'a>
 
 impl<'a> ScopeRef<'a>
 {
-    pub fn new() -> Self
+    fn new() -> Self
     {
         return Self {
             vars: util::StaVec::new(),
@@ -54,7 +54,7 @@ impl<'a> ScopeRef<'a>
     }
 }
 
-pub struct BlockScope<'a, 's>
+struct BlockScope<'a, 's>
 {
     pub outer: &'s mut Scope::<'a>, // inherited variables
     pub inner: ScopeRef::<'a>,   // new created variables
@@ -73,7 +73,6 @@ impl<'a, 's> BlockScope<'a, 's>
     #[inline]
     pub fn clean(&mut self)
     {
-        //self.outer.print();
         for v in self.inner.vars.as_slice() {
             self.outer.vars.remove(v);
         }
@@ -81,6 +80,14 @@ impl<'a, 's> BlockScope<'a, 's>
             self.outer.pros.remove(p);
         }
     }
+}
+
+#[derive(Clone)]
+enum BlockAction
+{
+    Return(Val),
+    PcExit,
+    BreakL,
 }
 
 /* MAIN FUNCTION to execute all þe programm */
@@ -264,7 +271,7 @@ fn do_pccall<'a>(
         }
     }
     // all ok, let's go
-    return proc.exec(scope, &args);
+    return exec_pc(scope, proc, &args);
 }
 
 fn eval_fncall(
@@ -279,7 +286,7 @@ fn eval_fncall(
     } else {
         // eval þe more complex call Expr
         if let Val::F(f) = eval_expr(scope, call) {
-            f.eval(scope, &args)
+            eval_fn(scope, &f, &args)
         } else {
             panic!("call expr is not a func")
         }
@@ -296,7 +303,7 @@ fn eval_named_fncall(
 {
     return if let Some(v) = scope.vars.get(name) {
         if let Val::F(f) = v {
-            f.eval(scope, args)
+            eval_fn(scope, f, args)
         } else {
             panic!("{name}# is not a function")
         }
@@ -467,235 +474,85 @@ fn do_cast(t: &Type, v: &Val) -> Val
     }
 }
 
-#[derive(Clone)]
-pub enum BlockAction
+fn eval_fn(scope: &Scope, f: &Func, raw_args: &Vec<Expr>) -> Val
 {
-    Return(Val),
-    PcExit,
-    BreakL,
+    // check numba'v args
+    if f.parc() != raw_args.len() {
+        panic!("not rite numba ov args, calling func");
+    }
+    // eval every arg
+    let args: Vec<Val> = eval_args(scope, raw_args);
+    // check every arg's type w/ func's decl
+    for (i, t) in f.part().iter().enumerate() {
+        if *t != Type::from(&args[i]) {
+            panic!("argument numba {i} is not of type {}%", t.to_string());
+        }
+    }
+    // all checked ok, let's go
+    return eval_fn_ok(f, &args);
 }
 
-#[derive(Clone)]
-pub struct Func
+fn eval_fn_ok<'a>(f: &'a Func, args: &'a [Val]) -> Val
 {
-    pars: Vec<(Type, String)>,
-    body: Block,
-    rett: Type,
-}
-
-impl Func
-{
-    pub fn new(
-        p: &Vec<(Type, String)>,
-        b: &Block,
-        r: &Type)
-     -> Self
-    {
-        // check uniques in p
-        let mut p2: Vec<&str> = p
-            .iter()
-            .map(|pair| (pair.1).as_str())
-            .collect();
-        p2.sort();
-        p2.dedup();
-        if p2.len() != p.len() {
-            panic!("duplicate parameters in decl of a func");
-        }
-        return Self {
-            pars: (*p).clone(),
-            body: (*b).clone(),
-            rett: (*r).clone(),
-        };
+    let mut func_sc = Scope::<'a>::new();
+    // decl args as vars
+    for (i, par) in f.pars().iter().enumerate() {
+        func_sc.vars.insert(&par.1, args[i].clone());
+        //do_assign(&mut func_bs, &par.1, &Expr::Const(args[i]));
     }
-
-    pub fn parc(&self) -> usize
-    {
-        return self.pars.len();
-    }
-
-    pub fn part(&self) -> Vec<Type>
-    {
-        return self.pars
-            .iter()
-            .map(|arg| (*arg).0.clone())
-            .collect();
-    }
-
-    pub fn get_type(&self) -> Type
-    {
-        return Type::F(
-            Box::new(self.rett.clone()),
-            self.pars
-                .iter()
-                .map(|pair| pair.0.clone())
-                .collect(),
-        );
-    }
-
-    pub fn eval(&self, scope: &Scope, raw_args: &Vec<Expr>) -> Val
-    {
-        // check numba'v args
-        if self.parc() != raw_args.len() {
-            panic!("not rite numba ov args, calling func");
-        }
-        // eval every arg
-        let args: Vec<Val> = eval_args(scope, raw_args);
-        // check every arg's type w/ func's decl
-        for (i, t) in self.part().iter().enumerate() {
-            if *t != Type::from(&args[i]) {
-                panic!("argument numba {i} is not of type {}%", t.to_string());
-            }
-        }
-        // all checked ok, let's go
-        return self.eval_ok(&args);
-    }
-
-    fn eval_ok<'a>(&'a self, args: &'a Vec<Val>) -> Val
-    {
-        let mut func_sc = Scope::<'a>::new();
-        // decl args as vars
-        for (i, par) in self.pars.iter().enumerate() {
-            func_sc.vars.insert(&par.1, args[i].clone());
-            //do_assign(&mut func_bs, &par.1, &Expr::Const(args[i]));
-        }
-        // add idself to be recursive
-        func_sc.vars.insert("@", Val::F(self.clone()));
-        // --------------------------------
-        // exec body
-        // code similar to do_block
-        if let Some(ba) = do_block(&mut func_sc, &self.body) {
-            if let BlockAction::Return(v) = ba {
-                // func_scope is destroyed
-                if self.rett != Type::from(&v) {
-                    panic!("return value is not of type {}",
-                        self.rett.to_string());
-                } else {
-                    return v.clone();
-                }
+    // add idself to be recursive
+    func_sc.vars.insert("@", Val::F(f.clone()));
+    // --------------------------------
+    // exec body
+    // code similar to do_block
+    let frett: Type = f.rett();
+    if let Some(ba) = do_block(&mut func_sc, f.body()) {
+        if let BlockAction::Return(v) = ba {
+            // func_scope is destroyed
+            if frett != Type::from(&v) {
+                panic!("return value is not of type {}",
+                    frett.to_string());
             } else {
-                panic!("cannot break or exit from func");
+                return v.clone();
             }
+        } else {
+            panic!("cannot break or exit from func");
         }
-        // func_scope is destroyed
-        panic!("EOF func w/o a return value");
     }
+    // func_scope is destroyed
+    panic!("EOF func w/o a return value");
 }
 
-impl PartialEq for Func
+fn exec_pc<'a, 's>(
+    sc: &'s mut Scope::<'a>,
+    pc: &'a Proc,
+    args: &Vec<Val>)
+ -> Option<BlockAction>
 {
-    // Required method
-    fn eq(&self, other: &Self) -> bool
-    {
-        return false;
-    }
-}
-
-impl std::fmt::Debug for Func
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
-    {
-        write!(f, "...")
-    }
-}
-
-#[derive(Clone)]
-pub struct Proc
-{
-    name: String,
-    pars: Vec<(Type, String)>,
-    body: Block,
-}
-
-impl Proc
-{
-    pub fn new(n: &str, p: &Vec<(Type, String)>, b: &Block) -> Self
-    {
-        return Self {
-            name: String::from(n),
-            pars: p.clone(),
-            body: (*b).clone(),
-        };
-    }
-
-    pub fn name(&self) -> &str
-    {
-        return &self.name;
-    }
-
-    pub fn parc(&self) -> usize
-    {
-        return self.pars.len();
-    }
-
-    pub fn part(&self) -> Vec<Type>
-    {
-        return self.pars
-            .iter()
-            .map(|arg| (*arg).0.clone())
-            .collect();
-    }
-
-    pub fn exec<'a, 's>(
-        &'a self,
-        sc: &'s mut Scope::<'a>,
-        args: &Vec<Val>)
-     -> Option<BlockAction>
-    {
-        // number and types of args already checked
-        // proc scope = new BlockScope
-        let mut ps = BlockScope::<'a, 's>::from_scope(sc);
-        // decl args as vars
-        for (i, par) in self.pars.iter().enumerate() {
-            let name = par.1.as_str();
-            if !ps.outer.vars.contains_key(name) {
-                ps.outer.vars.insert(name, args[i].clone());
-                ps.inner.vars.push(&name);
-            } else {
-                panic!("arg {name} already made");
-            }
+    // number and types of args already checked
+    // proc scope = new BlockScope
+    let mut ps = BlockScope::<'a, 's>::from_scope(sc);
+    // decl args as vars
+    for (i, par) in pc.pars().iter().enumerate() {
+        let name = par.1.as_str();
+        if !ps.outer.vars.contains_key(name) {
+            ps.outer.vars.insert(name, args[i].clone());
+            ps.inner.vars.push(&name);
+        } else {
+            panic!("arg {name} already made");
         }
-        // exec body
-        // code similar to do_loopif
-        for st in &self.body {
-            if let Some(ba) = do_stmt(&mut ps, st) {
-                ps.clean();
-                return match ba {
-                    BlockAction::PcExit => None,
-                    _ => Some(ba),
-                };
-            }
-        }
-        ps.clean();
-        return None;
     }
-}
-
-pub type Block = Vec<Stmt>;
-
-#[derive(Clone)]
-pub enum Stmt
-{
-    Assign(String, Expr),
-    OperOn(String, BinOpcode, Expr),
-    IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
-    LoopIf(Expr, Block),
-    BreakL,
-    Return(Expr),
-    PcDecl(Proc),
-    PcExit,
-    PcCall(String, Vec<Expr>),
-}
-
-#[derive(Clone)]
-pub enum Expr
-{
-    Const(Val),
-    Ident(String),
-    Tcast(Type, Box<Expr>),
-    BinOp(Box<Expr>, BinOpcode, Box<Expr>),
-    UniOp(Box<Expr>, UniOpcode),
-    Fdefn(Func),
-    Fcall(Box<Expr>, Vec<Expr>),
-    ArrEl(Box<Expr>, Box<Expr>),
-    Array(Vec<Expr>),
+    // exec body
+    // code similar to do_loopif
+    for st in pc.body() {
+        if let Some(ba) = do_stmt(&mut ps, st) {
+            ps.clean();
+            return match ba {
+                BlockAction::PcExit => None,
+                _ => Some(ba),
+            };
+        }
+    }
+    ps.clean();
+    return None;
 }

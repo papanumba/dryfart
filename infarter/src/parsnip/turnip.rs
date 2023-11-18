@@ -1,8 +1,7 @@
 /* src/parsnip/turnip.rs */
 
-use super::luthor::{Token, TokenType, PrimType};
+use super::toki::{Token, TokenType, PrimType};
 use crate::asterix::*;
-use crate::twalker::*;
 
 macro_rules! expected_err {
     ($e:expr, $f:expr) => { Err(String::from(
