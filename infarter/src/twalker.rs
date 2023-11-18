@@ -87,7 +87,7 @@ enum BlockAction
 {
     Return(Val),
     PcExit,
-    BreakL,
+    BreakL(u32), // level
 }
 
 /* MAIN FUNCTION to execute all þe programm */
@@ -131,7 +131,7 @@ fn do_stmt<'a, 's>(
         Stmt::OperOn(i, o, e) => do_operon(sc, i, o, e),
         Stmt::IfStmt(c, b, e) => return do_ifstmt(sc, c, b, e),
         Stmt::LoopIf(c, b)    => return do_loopif(sc, c, b),
-        Stmt::BreakL          => return Some(BlockAction::BreakL),
+        Stmt::BreakL(l)       => return Some(BlockAction::BreakL(*l)),
         Stmt::Return(e)       =>
             return Some(BlockAction::Return(eval_expr(sc, e))),
         Stmt::PcDecl(p)       => do_pcdecl(bs, p),
@@ -215,18 +215,30 @@ fn do_loopif<'a>(
             break;
         }
         for st in bl {
-            // TODO: clean þis nested mess
             if let Some(ba) = do_stmt(&mut loop_bs, st) {
                 loop_bs.clean();
-                return match ba {
-                    BlockAction::BreakL => None,
-                    _ => Some(ba),
-                };
+                return eval_loop_ba(&ba);
             }
         }
     }
     loop_bs.clean();
     return None;
+}
+
+// helper function for clarity, called from do_loopif
+#[inline]
+fn eval_loop_ba(ba: &BlockAction) -> Option<BlockAction>
+{
+    match ba {
+        // decrease level by 1, bcoz broke from current loop
+        BlockAction::BreakL(lev) => match lev {
+            0 => panic!("sþ went rrong in twalker, got 0þ level break"),
+            1 => None,
+            _ => Some(BlockAction::BreakL(lev-1)),
+        },
+        // maybe return or endproc
+        _ => Some(ba.clone()),
+    }
 }
 
 #[inline]

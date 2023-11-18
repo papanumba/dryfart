@@ -493,7 +493,7 @@ pub enum Stmt
     OperOn(String, BinOpcode, Expr),
     IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
     LoopIf(Expr, Block),
-    BreakL,
+    BreakL(u32),
     Return(Expr),
     PcDecl(Proc),
     PcExit,

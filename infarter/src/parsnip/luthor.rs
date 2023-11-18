@@ -136,14 +136,13 @@ impl<'src> Lexer<'src>
                 b'_' => Token::Uscore,
                 b'.' => Token::Period,
                 b',' => Token::Comma,
-                b'@' => Token::AtSign,
                 b'(' => Token::Lparen,
                 b')' => Token::Rparen,
                 b'[' => Token::LsqBra,
                 b']' => Token::RsqBra,
                 b'{' => Token::Lbrace,
                 b'}' => Token::Rbrace,
-                b'+' | b'-' | b'*' | b'/' |
+                b'+' | b'-' | b'*' | b'/' | b'@' |
                 b'&' | b'|' | b'#' | b'!' => self.maybe_2ble(*c),
                 b'~' => self.from_tilde(),  // ~, ~~, ~=
                 b'=' => self.from_equal(),  // =, ==, =>

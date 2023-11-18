@@ -136,8 +136,9 @@ impl<'src> Parsnip<'src>
                     None
                 }
             },
-            Token::LsqBra => Some(self.if_stmt()),
-            Token::AtSign => Some(self.loop_stmt()),
+            Token::LsqBra  => Some(self.if_stmt()),
+            Token::AtSign  => Some(self.loop_stmt()),
+            Token::AtSign2 => Some(self.break_stmt()),
             _ => None,
         }
     }
@@ -199,6 +200,24 @@ impl<'src> Parsnip<'src>
         let post = self.block()?;
         self.exp_adv(TokenType::Period)?;
         return Ok(Stmt::LoopIf(cond, post));
+    }
+
+    // called when peek: 0 -> @@
+    fn break_stmt(&mut self) -> Result<Stmt, String>
+    {
+        self.advance(); // @@
+        let mut level: u32 = 1;
+        if let Some(t) = self.peek::<0>() {
+            match t.0 {
+                Token::ValN(n) => {level = n; self.advance();},
+                Token::Period  => {}, // implicit level 1
+                _ => return expected_err!("ValN or .", t),
+            }
+        } else {
+            return expected_err!("ValN", ("EOF", "end"));
+        };
+        self.exp_adv(TokenType::Period)?;
+        return Ok(Stmt::BreakL(level));
     }
 
     fn expr(&mut self) -> Result<Expr, String>
