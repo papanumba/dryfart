@@ -39,46 +39,34 @@ use https://bnfplayground.pauliankline.com/;
 <AddTerm> ::= "-"* <MulExpr>
 
 <MulExpr> ::= <MulTerm> (("*" | "/") <MulTerm>)*
-<MulTerm> ::= "/"* <AtomExpr>
+<MulTerm> ::= "/"* <CastExpr>
 
-<AtomExpr> ::= <PrimLit>
-            | <PrimType> <AtomExpr>
-            | <AnonFn>
-            | # first-first conflict when putting <IdxExpr>
+<CastExpr> ::= <PrimType>* <IdxExpr>
 
 ### Indexed or FnCall expr
-<IdxExpr> ::= <Idxable> ("_" <Index>)*
-<Idxable> ::= <ArrLit>
-            | <IdxTerm>
-<Index>   ::= <N>
-            | <IdxTerm>
-<ArrLit>  ::= "{" <CommaEx>? "}"
-            | <String>
-<IdxTerm> ::= <AnonFn> <Args>  # called anonfn
-            | <Nucle> <Args>?  # nucle or nucle's return
-<Args>    ::= "#" <CommaEx>? ";"
+<IdxExpr> ::= <IdxTerm> ("_" <IdxTerm>)*
+<IdxTerm> ::= <Nucle> <FnArgs>*
+<FnArgs>  ::= "#" <CommaEx>? ";"
 <CommaEx> ::= <Expr> ("," <Expr>)*
 
 ### AnonFn
-<AnonFn>  ::= "#" <Params>? ">" <Type> ";" <Block> "#" "."
-<Params>  ::= <Param> ("," <Param>)*
-<Param>   ::= <Type> <Ident>
+<AnonFn>  ::= "#" <FnPars>? ";" <Block> "."
+<FnPars>  ::= <Ident> ("," <Ident>)*
 
 ### Nucle
-<Nucle>   ::= <Ident> | <Parented>
+<Nucle>   ::= <AnonFn> | <PrimLit> | <Ident> | <Parented> | "@" # recurs
 <Ident>   ::= "[A-Za-z][A-Za-z0-9]*"
 <Parented> ::= "(" <Expr> ")"
 
 ### Type
-<Type>    ::= <FuncType> | <ArrType> | <PrimType>
-<FuncType> ::= "#" <TypeList>? ">" <Type> ";"
-<TypeList> ::= <Type> ("," <Type>)*
-<ArrType> ::= "{" <Type> "}"
+<ArrType>  ::= <PrimType> | "#%"
 <PrimType> ::= "[BCNZR]%"
 
 ### Literals
+<ArrLit>  ::= "{" <CommaEx>? "}"
 <String>  ::= "check implementation"
 <PrimLit> ::= <B> | <N> | <R>
 <B> ::= "[TF]"
 <N> ::= "[0-9]+"
 <R> ::= "[0-9]+\.[0-9]+"
+    1

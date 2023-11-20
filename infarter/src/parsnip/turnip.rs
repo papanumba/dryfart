@@ -10,6 +10,10 @@ macro_rules! expected_err {
     )) };
 }
 
+/*macro_rules! expected_err_peek {
+    ($e:expr) => { expected_err!(e, self.peek::<0>().unwrap()) };
+}*/
+
 type LnToken<'a> = (Token<'a>, usize);
 
 pub struct Parsnip<'src>
@@ -139,6 +143,7 @@ impl<'src> Parsnip<'src>
             Token::LsqBra  => Some(self.if_stmt()),
             Token::AtSign  => Some(self.loop_stmt()),
             Token::AtSign2 => Some(self.break_stmt()),
+            Token::Hash2   => Some(self.return_stmt()),
             _ => None,
         }
     }
@@ -229,6 +234,15 @@ impl<'src> Parsnip<'src>
         };
         self.exp_adv(TokenType::Period)?;
         return Ok(Stmt::BreakL(level));
+    }
+
+    // called when peek: 0 -> ##
+    fn return_stmt(&mut self) -> Result<Stmt, String>
+    {
+        self.advance(); // ##
+        let ret = self.expr()?;
+        self.exp_adv(TokenType::Period)?;
+        return Ok(Stmt::Return(ret));
     }
 
     fn expr(&mut self) -> Result<Expr, String>
@@ -369,14 +383,52 @@ impl<'src> Parsnip<'src>
             self.advance();
             n += 1;
         }
-        let mut mt = self.atom_expr()?;
+        let mut mt = self.cast_expr()?;
         for i in 0..n {
             mt = Expr::UniOp(Box::new(mt), UniOpcode::Inv);
         }
         return Ok(mt);
     }
 
-    fn atom_expr(&mut self) -> Result<Expr, String>
+    fn cast_expr(&mut self) -> Result<Expr, String>
+    {
+        if let Some(t) = self.peek::<0>() {
+            match t.0 {
+                Token::PrimType(pt) => {
+                    self.advance();
+                    let casted = self.cast_expr()?;
+                    Ok(Expr::Tcast(pt.into(), Box::new(casted)))
+                }
+                _ => self.idx_expr(),
+            }
+        } else {
+            expected_err!(
+                "prim type, fn call, anon fn, ident or literal",
+                ("EOF", "end"))
+        }
+    }
+
+    fn idx_expr(&mut self) -> Result<Expr, String>
+    {
+        let root = self.idx_term()?;
+        if self.matches::<0>(TokenType::Uscore) {
+            todo!()
+        }
+        return Ok(root);
+    }
+
+    fn idx_term(&mut self) -> Result<Expr, String>
+    {
+        let mut nucle = self.nucle()?;
+        while self.matches::<0>(TokenType::Hash) {
+            self.advance(); // #
+            let args = self.comma_ex(TokenType::Semic)?;
+            nucle = Expr::Fcall(Box::new(nucle), args);
+        }
+        return Ok(nucle);
+    }
+
+    fn nucle(&mut self) -> Result<Expr, String>
     {
         if let Some(t) = self.peek::<0>() {
             match t.0 {
@@ -395,27 +447,26 @@ impl<'src> Parsnip<'src>
                     self.advance();
                     return Ok(ret);
                 },
-                Token::PrimType(pt) => {
-                    self.advance();
-                    let casted = self.atom_expr()?;
-                    return Ok(Expr::Tcast(pt.into(), Box::new(casted)));
-                },
                 Token::Ident(id) => {
                     self.advance();
                     return Ok(Expr::Ident(std::str::from_utf8(id)
                         .unwrap().to_owned()));
                 },
+                Token::AtSign => { // recurse ident
+                    self.advance();
+                    return Ok(Expr::Ident("@".to_string()));
+                },
                 Token::String(s) => self.string(s),
                 Token::Lparen => self.paren_expr(),
-                _ => expected_err!("ValN", t),
+                Token::Hash => self.anon_fn(),
+                _ => expected_err!("#, (, ident or literal", t),
             }
         } else {
             expected_err!("ValN", (Token::Eof, 0))
         }
     }
 
-    // not as in grammar, þis can return an empty vec
-    // so þis parses `<CommaEx>?`
+    // not as in grammar, þis can return an empty vec so þis parses `<CommaEx>?`
     fn comma_ex(&mut self, end: TokenType) -> Result<Vec<Expr>, String>
     {
         // check empty
@@ -450,6 +501,49 @@ impl<'src> Parsnip<'src>
         let e = self.expr()?;
         self.exp_adv(TokenType::Rparen)?;
         return Ok(e);
+    }
+
+    // called when peek: 0 -> #
+    fn anon_fn(&mut self) -> Result<Expr, String>
+    {
+        self.advance(); // #
+        let pars: Vec<String> = self.pars()?
+            .iter()
+            .map(|b| String::from(std::str::from_utf8(b).unwrap()))
+            .collect();
+        let bloq = self.block()?;
+        self.exp_adv(TokenType::Period)?;
+        return Ok(Expr::Fdefn(Func::new(&pars, &bloq)));
+    }
+
+    // matches Ident (Comma Ident)* Semic
+    fn pars(&mut self) -> Result<Vec<&[u8]>, String>
+    {
+        let mut res: Vec<&[u8]> = vec![];
+        if let Ok(i) = self.consume_ident() {
+            res.push(i);
+        }
+        while !self.matches::<0>(TokenType::Semic) {
+            self.exp_adv(TokenType::Comma)?;
+            let id = self.consume_ident()?;
+            res.push(id);
+        }
+        self.advance();
+        return Ok(res);
+    }
+
+    fn consume_ident(&mut self) -> Result<&'src [u8], String>
+    {
+        if let Some(t) = self.peek::<0>() {
+            if let Token::Ident(i) = t.0 {
+                self.advance();
+                return Ok(i);
+            } else {
+                expected_err!("Ident", t)
+            }
+        } else {
+            Err(String::from("expected Ident, found EOF"))
+        }
     }
 
     // called when curr tok is String

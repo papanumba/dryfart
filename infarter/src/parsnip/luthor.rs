@@ -136,6 +136,7 @@ impl<'src> Lexer<'src>
                 b'_' => Token::Uscore,
                 b'.' => Token::Period,
                 b',' => Token::Comma,
+                b';' => Token::Semic,
                 b'(' => Token::Lparen,
                 b')' => Token::Rparen,
                 b'[' => Token::LsqBra,

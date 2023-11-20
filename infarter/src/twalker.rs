@@ -577,12 +577,6 @@ fn eval_fn(scope: &Scope, f: &Func, raw_args: &Vec<Expr>) -> Val
     }
     // eval every arg
     let args: Vec<Val> = eval_args(scope, raw_args);
-    // check every arg's type w/ func's decl
-    for (i, t) in f.part().iter().enumerate() {
-        if *t != Type::from(&args[i]) {
-            panic!("argument numba {i} is not of type {}%", t.to_string());
-        }
-    }
     // all checked ok, let's go
     return eval_fn_ok(f, &args);
 }
@@ -592,7 +586,7 @@ fn eval_fn_ok<'a>(f: &'a Func, args: &'a [Val]) -> Val
     let mut func_sc = Scope::<'a>::new();
     // decl args as vars
     for (i, par) in f.pars().iter().enumerate() {
-        func_sc.vars.insert(&par.1, args[i].clone());
+        func_sc.vars.insert(&par, args[i].clone());
         //do_assign(&mut func_bs, &par.1, &Expr::Const(args[i]));
     }
     // add idself to be recursive
@@ -600,16 +594,10 @@ fn eval_fn_ok<'a>(f: &'a Func, args: &'a [Val]) -> Val
     // --------------------------------
     // exec body
     // code similar to do_block
-    let frett: Type = f.rett();
     if let Some(ba) = do_block(&mut func_sc, f.body()) {
         if let BlockAction::Return(v) = ba {
             // func_scope is destroyed
-            if frett != Type::from(&v) {
-                panic!("return value is not of type {}",
-                    frett.to_string());
-            } else {
-                return v.clone();
-            }
+            return v.clone();
         } else {
             panic!("cannot break or exit from func");
         }

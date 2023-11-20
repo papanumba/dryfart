@@ -14,7 +14,8 @@ pub fn put(args: &Vec<Val>)
             Val::Z(z) => print!("{z}"),
             Val::R(r) => print!("{r}"),
             Val::A(a) => print!("{a}"),
-            _ => panic!("cannot print"),
+            Val::F(_) => print!("#%"),
+//            _ => panic!("cannot print"),
         },
         _ => panic!("not rite numba of args calling show!"),
     }

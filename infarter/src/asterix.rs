@@ -1,15 +1,35 @@
 /* src/asterix.rs */
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Type
 {
-    B,  // bool
-    C,  // char
-    N,  // natural
-    Z,  // zahl
-    R,  // real
-    A(Box<Type>),  // array
-    F(Box<Type>, Vec<Type>), // func
+    B, // bool
+    C, // char
+    N, // natural
+    Z, // zahl
+    R, // real
+    F, // func
+    A(ArrType, usize),
+    // array: elem type, dim (>0)
+}
+
+// arrayable types
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ArrType { B, C, N, Z, R, F }
+
+impl std::fmt::Display for ArrType
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        match self {
+            Self::B => write!(f, "B%"),
+            Self::C => write!(f, "C%"),
+            Self::N => write!(f, "N%"),
+            Self::Z => write!(f, "Z%"),
+            Self::R => write!(f, "R%"),
+            Self::F => write!(f, "#%"),
+        }
+    }
 }
 
 impl Type
@@ -45,25 +65,8 @@ impl std::convert::From<&Val> for Type
             Val::N(_) => Type::N,
             Val::Z(_) => Type::Z,
             Val::R(_) => Type::R,
-            Val::A(a) => Type::A(Box::new(a.get_type())),
-            Val::F(f) => f.get_type(),
-        };
-    }
-}
-
-// TryInto is automatically implemented
-impl std::convert::TryFrom<&str> for Type
-{
-    type Error = &'static str;
-    fn try_from(s: &str) -> Result<Self, Self::Error>
-    {
-        return match s {
-            "B%" => Ok(Self::B),
-            "C%" => Ok(Self::C),
-            "N%" => Ok(Self::N),
-            "Z%" => Ok(Self::Z),
-            "R%" => Ok(Self::R),
-            _ => Err("unknown df type {value}"),
+            Val::F(_) => Type::F,
+            Val::A(a) => Type::A(a.get_type(), a.dim()),
         };
     }
 }
@@ -78,13 +81,11 @@ impl std::fmt::Display for Type
             Self::N => write!(f, "N%"),
             Self::Z => write!(f, "Z%"),
             Self::R => write!(f, "R%"),
-            Self::A(e) => write!(f, "{{{}}}", e.to_string()),
-            Self::F(r, a) => {
-                write!(f, "{r}#{{")?;
-                for arg in a {
-                    write!(f, "{arg},")?;
-                }
-                write!(f, "}}")?;
+            Self::F => write!(f, "#%"),
+            Self::A(a, d) => {
+                for _ in 0..*d { write!(f, "{{")?; }
+                write!(f, "{}", a)?;
+                for _ in 0..*d { write!(f, "}}")?; }
                 Ok(())
             },
         }
@@ -145,15 +146,20 @@ impl Array
             .replace("$$",  "$");
     }
 
-    pub fn get_type(&self) -> Type
+    pub fn get_type(&self) -> ArrType
     {
         return match self {
-            Self::B(_) => Type::B,
-            Self::C(_) => Type::C,
-            Self::N(_) => Type::N,
-            Self::Z(_) => Type::Z,
-            Self::R(_) => Type::R,
+            Self::B(_) => ArrType::B,
+            Self::C(_) => ArrType::C,
+            Self::N(_) => ArrType::N,
+            Self::Z(_) => ArrType::Z,
+            Self::R(_) => ArrType::R,
         };
+    }
+
+    pub fn dim(&self) -> usize
+    {
+        return 1; // TODO: multidim arrs
     }
 
     pub fn get(&self, i: u32) -> Val
@@ -349,24 +355,16 @@ pub enum BlockAction
 #[derive(Clone)]
 pub struct Func
 {
-    pars: Vec<(Type, String)>,
+    pars: Vec<String>,
     body: Block,
-    rett: Type,
 }
 
 impl Func
 {
-    pub fn new(
-        p: &Vec<(Type, String)>,
-        b: &Block,
-        r: &Type)
-     -> Self
+    pub fn new(p: &Vec<String>, b: &Block) -> Self
     {
         // check uniques in p
-        let mut p2: Vec<&str> = p
-            .iter()
-            .map(|pair| (pair.1).as_str())
-            .collect();
+        let mut p2: Vec<String> = p.clone();
         p2.sort();
         p2.dedup();
         if p2.len() != p.len() {
@@ -375,7 +373,6 @@ impl Func
         return Self {
             pars: (*p).clone(),
             body: (*b).clone(),
-            rett: (*r).clone(),
         };
     }
 
@@ -384,15 +381,7 @@ impl Func
         return self.pars.len();
     }
 
-    pub fn part(&self) -> Vec<Type>
-    {
-        return self.pars
-            .iter()
-            .map(|arg| (*arg).0.clone())
-            .collect();
-    }
-
-    pub fn pars(&self) -> &[(Type, String)]
+    pub fn pars(&self) -> &[String]
     {
         return self.pars.as_slice();
     }
@@ -400,22 +389,6 @@ impl Func
     pub fn body(&self) -> &Block
     {
         return &self.body;
-    }
-
-    pub fn rett(&self) -> Type
-    {
-        return self.rett.clone();
-    }
-
-    pub fn get_type(&self) -> Type
-    {
-        return Type::F(
-            Box::new(self.rett.clone()),
-            self.pars
-                .iter()
-                .map(|pair| pair.0.clone())
-                .collect(),
-        );
     }
 }
 
@@ -432,7 +405,7 @@ impl std::fmt::Debug for Func
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
     {
-        write!(f, "...")
+        write!(f, "#%...")
     }
 }
 
