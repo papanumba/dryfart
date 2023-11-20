@@ -130,7 +130,7 @@ fn do_stmt<'a, 's>(
         Stmt::Assign(i, e)    => do_assign(bs, i, e),
         Stmt::OperOn(i, o, e) => do_operon(sc, i, o, e),
         Stmt::IfStmt(c, b, e) => return do_ifstmt(sc, c, b, e),
-        Stmt::LoopIf(c, b)    => return do_loopif(sc, c, b),
+        Stmt::LoopIf(l)       => return do_loopif(sc, l),
         Stmt::BreakL(l)       => return Some(BlockAction::BreakL(*l)),
         Stmt::Return(e)       =>
             return Some(BlockAction::Return(eval_expr(sc, e))),
@@ -204,18 +204,48 @@ fn eval_cond(sc: &mut Scope, cd: &Expr) -> bool
 
 fn do_loopif<'a>(
     sc: &mut Scope::<'a>,
-    cd: &Expr,
-    bl: &'a Block)
+    lo: &'a Loop)
+ -> Option<BlockAction>
+{
+    // i know it's horrible code, but may be efficienter
+    match lo {
+        Loop::Inf(b      ) => do_inf_loop(sc, b),
+        Loop::Ini(   c, b) => do_ini_loop(sc, c, b),
+        Loop::Mid(b, c, f) => do_mid_loop(sc, b, c, f),
+        Loop::Fin(b, c   ) => do_fin_loop(sc, b, c),
+    }
+}
+
+fn do_inf_loop<'a>(
+    scope: &mut Scope::<'a>,
+    block: &'a Block)
+ -> Option<BlockAction>
+{
+    let mut loop_bs = BlockScope::from_scope(scope);
+    loop {
+        for s in block {
+            if let Some(ba) = do_stmt(&mut loop_bs, s) {
+                loop_bs.clean();
+                return eval_loop_ba(&ba);
+            }
+        }
+    }
+}
+
+fn do_ini_loop<'a>(
+    scope: &mut Scope::<'a>,
+    condt: &Expr,
+    block: &'a Block)
  -> Option<BlockAction>
 {
     // code adapted from do_block, so as not to alloc a blockScope every loop
-    let mut loop_bs = BlockScope::from_scope(sc);
+    let mut loop_bs = BlockScope::from_scope(scope);
     loop {
-        if !eval_cond(loop_bs.outer, cd) {
+        if !eval_cond(loop_bs.outer, condt) {
             break;
         }
-        for st in bl {
-            if let Some(ba) = do_stmt(&mut loop_bs, st) {
+        for s in block {
+            if let Some(ba) = do_stmt(&mut loop_bs, s) {
                 loop_bs.clean();
                 return eval_loop_ba(&ba);
             }
@@ -225,7 +255,60 @@ fn do_loopif<'a>(
     return None;
 }
 
-// helper function for clarity, called from do_loopif
+fn do_mid_loop<'a>(
+    scope: &mut Scope::<'a>,
+    bloq0: &'a Block,
+    condt: &Expr,
+    bloq1: &'a Block)
+ -> Option<BlockAction>
+{
+    // code adapted from do_block, so as not to alloc a blockScope every loop
+    let mut loop_bs = BlockScope::from_scope(scope);
+    loop {
+        for s in bloq0 {
+            if let Some(ba) = do_stmt(&mut loop_bs, s) {
+                loop_bs.clean();
+                return eval_loop_ba(&ba);
+            }
+        }
+        if !eval_cond(loop_bs.outer, condt) {
+            break;
+        }
+        for s in bloq1 {
+            if let Some(ba) = do_stmt(&mut loop_bs, s) {
+                loop_bs.clean();
+                return eval_loop_ba(&ba);
+            }
+        }
+    }
+    loop_bs.clean();
+    return None;
+}
+
+fn do_fin_loop<'a>(
+    scope: &mut Scope::<'a>,
+    block: &'a Block,
+    condt: &Expr)
+ -> Option<BlockAction>
+{
+    // code adapted from do_block, so as not to alloc a blockScope every loop
+    let mut loop_bs = BlockScope::from_scope(scope);
+    loop {
+        for s in block {
+            if let Some(ba) = do_stmt(&mut loop_bs, s) {
+                loop_bs.clean();
+                return eval_loop_ba(&ba);
+            }
+        }
+        if !eval_cond(loop_bs.outer, condt) {
+            break;
+        }
+    }
+    loop_bs.clean();
+    return None;
+}
+
+// helper function for all loop fns
 #[inline]
 fn eval_loop_ba(ba: &BlockAction) -> Option<BlockAction>
 {

@@ -2,8 +2,6 @@
 
 #![allow(dead_code, unused_variables)]
 
-//use regex;
-
 pub mod parsnip;
 pub mod asterix;
 pub mod twalker;

@@ -193,13 +193,24 @@ impl<'src> Parsnip<'src>
     fn loop_stmt(&mut self) -> Result<Stmt, String>
     {
         self.advance(); // @
-        //let pre = self.block();
+        let pre = self.block()?; // maybe empty
+        if !self.matches::<0>(TokenType::Lparen) { // infinite loop
+            self.exp_adv(TokenType::Period)?;
+            return Ok(Stmt::LoopIf(Loop::Inf(pre)));
+        }
+        // now, þer should be þe condition
         self.exp_adv(TokenType::Lparen)?;
         let cond = self.expr()?;
         self.exp_adv(TokenType::Rparen)?;
         let post = self.block()?;
         self.exp_adv(TokenType::Period)?;
-        return Ok(Stmt::LoopIf(cond, post));
+        return if pre.is_empty() { // even if post is empty
+            Ok(Stmt::LoopIf(Loop::Ini(cond, post)))
+        } else if post.is_empty() {
+            Ok(Stmt::LoopIf(Loop::Fin(pre, cond)))
+        } else {
+            Ok(Stmt::LoopIf(Loop::Mid(pre, cond, post)))
+        }
     }
 
     // called when peek: 0 -> @@

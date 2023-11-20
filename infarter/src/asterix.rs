@@ -484,6 +484,15 @@ impl Proc
     }
 }
 
+#[derive(Clone)]
+pub enum Loop
+{
+    Inf(Block),
+    Ini(       Expr, Block),
+    Mid(Block, Expr, Block),
+    Fin(Block, Expr       ),
+}
+
 pub type Block = Vec<Stmt>;
 
 #[derive(Clone)]
@@ -492,7 +501,7 @@ pub enum Stmt
     Assign(String, Expr),
     OperOn(String, BinOpcode, Expr),
     IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
-    LoopIf(Expr, Block),
+    LoopIf(Loop),
     BreakL(u32),
     Return(Expr),
     PcDecl(Proc),
