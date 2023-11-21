@@ -1,6 +1,0 @@
-put!(~F & ~T) ~= T,.
-b = T.
-put! b == T | F,.
-put!.
-put!-3.0 + /2.0,.
-put!.

@@ -1,7 +1,0 @@
-put!T & F,.  'F
-put!T | F,.  'T
-put!~T,.     'F
-put!~T | F,. 'F
-put!~T | ~F,.'T
-put!T & F | ~T,. 'F
-put!.
