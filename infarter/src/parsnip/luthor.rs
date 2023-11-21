@@ -31,7 +31,10 @@ impl<'src> Lexer<'src>
         self.init();
         let mut res = Vec::new();
         while let Some(t) = self.next_token() {
-            res.push((t, self.line));
+            match t {
+                Token::Comment(_) => continue,
+                _ => res.push((t, self.line)),
+            }
         }
         res.push((Token::Eof, self.line));
         return Ok(res);
@@ -55,7 +58,9 @@ impl<'src> Lexer<'src>
     {
         if !self.is_at_end() {
             self.next_pos += 1;
-        }
+        }/* else {
+            panic!("found EOF when advancing");
+        }*/
     }
 
     // skips whitespaces and updates self.line when finding '\n'
@@ -152,6 +157,7 @@ impl<'src> Lexer<'src>
                 b'0'..=b'9' => self.get_num(), // N or R
                 b'a'..=b'z' | b'A'..=b'Z' => self.get_ident(),
                 b'"' => self.get_string(),
+                b'\'' => self.comment(),
                  _ => Token::Unknown(*c),
             })
         } else {
@@ -314,5 +320,15 @@ impl<'src> Lexer<'src>
         let raw = &self.lexeme()[1..];
         self.advance(); // skip final quote
         return Token::String(raw);
+    }
+
+    // gets called when current is a single quote '
+    fn comment(&mut self) -> Token<'src>
+    {
+        self.advance(); // '
+        while !self.matches::<0>(b'\n') {
+            self.advance();
+        }
+        return Token::Comment(self.lexeme());
     }
 }
