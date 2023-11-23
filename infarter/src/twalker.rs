@@ -105,6 +105,9 @@ fn do_block<'a, 's>(
     block: &'a Block)
  -> Option<BlockAction>
 {
+    if block.is_empty() {
+        return None;
+    }
     // keep track of þis block's new scope
     let mut blocks_scope = BlockScope::<'a, 's>::from_scope(scope);
     // do statements
@@ -386,7 +389,6 @@ fn eval_fncall(
             panic!("call expr is not a func")
         }
     }
-
 }
 
 #[inline]
@@ -428,6 +430,7 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
             &eval_expr(scope, r)
         ),
         Expr::UniOp(t, o) => eval_uniop(&eval_expr(scope, t), o),
+        Expr::CmpOp(f, o) => eval_cmpop(scope, f, o),
         Expr::Fdefn(f) => Val::F((*f).clone()),
         Expr::Fcall(c, a) => eval_fncall(scope, &**c, a),
         Expr::ArrEl(a, i) => try_arr_el(
@@ -450,6 +453,33 @@ fn eval_ident(scope: &Scope, i: &str) -> Val
     } else {
         panic!("cannot find {i} in scope");
     }
+}
+
+#[inline]
+fn eval_cmpop(
+    scope: &Scope,
+    first: &Expr,
+    others: &Vec<(BinOpcode, Expr)>)
+ -> Val
+{
+    // `a <= b < c` evals as `a <= b & b < c`
+    let term0: Val = eval_expr(scope, first);
+    if others.is_empty() {
+        return term0;
+    }
+    let mut terms = others
+        .iter()
+        .map(|t| eval_expr(scope, &t.1)) // b, c
+        .collect::<Vec<_>>();
+    terms.insert(0, term0); // a
+    return Val::B(terms
+        .windows(2)
+        .enumerate()
+        .map(|(i, w)| match eval_binop(&w[0], &others[i].0, &w[1]) {
+            Val::B(b) => b,
+            _ => unreachable!(), // all cmp give B%
+        })
+        .fold(true, |acum, e| acum && e));
 }
 
 fn eval_uniop(t: &Val, o: &UniOpcode) -> Val

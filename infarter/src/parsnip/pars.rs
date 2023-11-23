@@ -1,4 +1,4 @@
-/* src/parsnip/turnip.rs */
+/* src/parsnip/pars.rs */
 
 use super::toki::{Token, TokenType, PrimType};
 use crate::asterix::*;
@@ -10,19 +10,15 @@ macro_rules! expected_err {
     )) };
 }
 
-/*macro_rules! expected_err_peek {
-    ($e:expr) => { expected_err!(e, self.peek::<0>().unwrap()) };
-}*/
-
 type LnToken<'a> = (Token<'a>, usize);
 
-pub struct Parsnip<'src>
+pub struct Nip<'src>
 {
     cursor: usize,
     tokens: Vec<LnToken<'src>>,
 }
 
-impl<'src> Parsnip<'src>
+impl<'src> Nip<'src>
 {
     pub fn new(tl: &[LnToken<'src>]) -> Self
     {
@@ -131,20 +127,31 @@ impl<'src> Parsnip<'src>
         };
         match t.0 {
             // one of þe few 2-lookahead
-            Token::Ident(i) => {
-                if self.matches::<1>(TokenType::Equal) {
-                    Some(self.assign(i))
-                } else if self.matches::<1>(TokenType::Bang) {
-                    Some(self.pccall(i))
-                } else {
-                    None
-                }
-            },
+            Token::Ident(i) => self.stmt_from_ident(i),
             Token::LsqBra  => Some(self.if_stmt()),
             Token::AtSign  => Some(self.loop_stmt()),
             Token::AtSign2 => Some(self.break_stmt()),
             Token::Hash2   => Some(self.return_stmt()),
             _ => None,
+        }
+    }
+
+    fn stmt_from_ident(&mut self, id: &[u8]) -> Option<Result<Stmt, String>>
+    {
+        if let Some(t) = self.peek::<1>() {
+            match t.0 {
+                Token::Equal => Some(self.assign(id)),
+                Token::Bang => Some(self.pccall(id)),
+                Token::Plus2 |
+                Token::Minus2 |
+                Token::Asterisk2 |
+                Token::Slash2 |
+                Token::And2 |
+                Token::Vbar2 => Some(self.operon(id, t.0)),
+                _ => None,
+            }
+        } else {
+            None
         }
     }
 
@@ -158,6 +165,22 @@ impl<'src> Parsnip<'src>
         self.exp_adv(TokenType::Period)?;
         let id = std::str::from_utf8(i).unwrap().to_owned();
         Ok(Stmt::Assign(id, e))
+    }
+
+    // called when peek 0 -> ident, 1 -> Some Operon
+    #[inline]
+    fn operon(&mut self, id: &[u8], op: Token<'_>) -> Result<Stmt, String>
+    {
+        self.advance(); // ident
+        self.advance(); // operon
+        let binop = BinOpcode::try_from(&op)?;
+        let ex = self.expr()?;
+        self.exp_adv(TokenType::Period)?;
+        return Ok(Stmt::OperOn(
+            String::from_utf8_lossy(id).into_owned(),
+            binop,
+            ex,
+        ));
     }
 
     // called when: peek 0 -> ident, 1 -> Bang
@@ -297,27 +320,18 @@ impl<'src> Parsnip<'src>
 
     fn cmp_expr(&mut self) -> Result<Expr, String>
     {
-        let lhs = self.add_expr()?;
-        let op = if let Some(pop) = self.peek::<0>() {
-            if pop.0.is_cmp() {
-                Some(cmp_tok_to_binop(&pop.0))
-            } else {
-                None
+        let first = self.add_expr()?;
+        let mut others: Vec<(BinOpcode, Expr)> = vec![];
+        while let Some(pop) = self.peek::<0>() {
+            if !pop.0.is_cmp() {
+                break;
             }
-        } else {
-            None
-        };
-        if let Some(sop) = op {
+            let op = BinOpcode::try_from(&pop.0).unwrap();
             self.advance();
             let rhs = self.add_expr()?;
-            Ok(Expr::BinOp(
-                Box::new(lhs),
-                sop,
-                Box::new(rhs),
-            ))
-        } else {
-            Ok(lhs)
+            others.push((op, rhs));
         }
+        Ok(Expr::CmpOp(Box::new(first), others))
     }
 
     fn add_expr(&mut self) -> Result<Expr, String>
@@ -571,16 +585,27 @@ impl From<PrimType> for Type
     }
 }
 
-fn cmp_tok_to_binop(t: &Token) -> BinOpcode
+impl TryFrom<&Token<'_>> for BinOpcode
 {
-    match t {
-        Token::Equal2 => BinOpcode::Eq,
-        Token::Ne     => BinOpcode::Ne,
-        Token::Langle => BinOpcode::Lt,
-        Token::Le     => BinOpcode::Le,
-        Token::Rangle => BinOpcode::Gt,
-        Token::Ge     => BinOpcode::Ge,
-        _ => panic!("trying to use cmp_tok_to_binop on a non-cmp token {:?}",
-            t),
+    type Error = String;
+    fn try_from(t: &Token<'_>) -> Result<Self, Self::Error>
+    {
+        match t {
+            Token::Equal2 => Ok(BinOpcode::Eq),
+            Token::Ne     => Ok(BinOpcode::Ne),
+            Token::Langle => Ok(BinOpcode::Lt),
+            Token::Le     => Ok(BinOpcode::Le),
+            Token::Rangle => Ok(BinOpcode::Gt),
+            Token::Ge     => Ok(BinOpcode::Ge),
+            // for Operons
+            Token::Plus2  => Ok(BinOpcode::Add),
+            Token::Minus2 => Ok(BinOpcode::Sub),
+            Token::Asterisk2 => Ok(BinOpcode::Mul),
+            Token::Slash2 => Ok(BinOpcode::Div),
+            Token::And2   => Ok(BinOpcode::And),
+            Token::Vbar2  => Ok(BinOpcode::Or),
+            _ => Err(String::from(format!(
+                "cannot convert token {:?} into a BinOp", t))),
+        }
     }
 }

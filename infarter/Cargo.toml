@@ -6,14 +6,6 @@ edition = "2021"
 description = "DryFart interpreter"
 repository = "https://github.com/papanumba/dryfart"
 license = "GPL-3.0"
-#build = "build.rs"
-
-[dependencies]
-#lalrpop-util = { version = "0.20", features = ["lexer"] }
-#regex = "1.8.4"
-
-#[build-dependencies]
-#lalrpop = "0.20"
 
 [profile.release]
 lto = true

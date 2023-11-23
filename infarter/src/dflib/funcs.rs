@@ -42,8 +42,8 @@ pub fn round(args: &Vec<Val>) -> Val
     };
 }
 
-// N%#{Z%,}
-pub fn absz(args: &Vec<Val>) -> Val
+// N%#{Z%,} | R%#Z%;
+pub fn abs(args: &Vec<Val>) -> Val
 {
     let x = match args.len() {
         1 => &args[0],
@@ -51,6 +51,7 @@ pub fn absz(args: &Vec<Val>) -> Val
     };
     return match x {
         Val::Z(z) => Val::N(i32::abs(*z) as u32),
+        Val::R(r) => Val::R(f32::abs(*r)),
         _ => panic!("ERROR absz#: not rite typ'arg: expected Z%"),
     };
 }

@@ -490,6 +490,7 @@ pub enum Expr
     Tcast(Type, Box<Expr>),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
+    CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
     Fdefn(Func),
     Fcall(Box<Expr>, Vec<Expr>),
     ArrEl(Box<Expr>, Box<Expr>),

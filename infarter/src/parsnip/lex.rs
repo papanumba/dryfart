@@ -1,9 +1,9 @@
-/* src/parsnip/luthor.rs */
+/* src/parsnip/lex.rs */
 
 use super::toki::{Token, PrimType};
 
 #[derive(Debug)]
-pub struct Lexer<'src>
+pub struct Luthor<'src>
 {
     input: &'src [u8],
     line:     usize,  // current line
@@ -11,7 +11,7 @@ pub struct Lexer<'src>
     next_pos: usize,  // final position of the trying token
 }
 
-impl<'src> Lexer<'src>
+impl<'src> Luthor<'src>
 {
     pub fn new(s: &'src str) -> Self
     {

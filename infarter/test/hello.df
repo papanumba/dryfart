@@ -1,0 +1,3 @@
+' Hello world in DryFart
+
+put!"Hello, world!N$".

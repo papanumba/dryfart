@@ -93,9 +93,9 @@ impl Token<'_>
     {
         return match self {
             Self::Equal2
+            | Self::Ne
             | Self::Rangle
             | Self::Langle
-            | Self::Ne
             | Self::Le
             | Self::Ge => true,
             _ => false,

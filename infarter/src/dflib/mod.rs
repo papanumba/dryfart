@@ -11,7 +11,7 @@ pub fn do_fncall(name: &str, raw_args: &Vec<Val>) -> Val
     return match name {
         "len" => funcs::len(raw_args),
         "sqrt" => funcs::sqrt(raw_args),
-        "absz" => funcs::absz(raw_args),
+        "abs" => funcs::abs(raw_args),
         "round" => funcs::round(raw_args),
         "atan2" => funcs::atan2(raw_args),
         "exp" => funcs::exp(raw_args),

@@ -21,19 +21,11 @@ fn main()
 
 pub fn parse_file(fname: &str)
 {
-    let mut taco: String = read_file_to_string(fname);
-    clear_comments(&mut taco);
+    let taco: String = read_file_to_string(fname);
     match parsnip::parse(&taco) {
         Ok(b) => twalker::anal_check(&b),
         Err(e) => println!("{e}"),
     }
-}
-
-fn clear_comments(s: &mut String)
-{
-//    let com_re = regex::Regex::new(r"'.*\n").unwrap();
-//    let result = com_re.replace_all(s, "\n");
-//    *s = result.to_string();
 }
 
 #[inline]
