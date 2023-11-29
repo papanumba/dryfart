@@ -6,6 +6,7 @@
 #include "common.h"
 
 enum ValType {
+    VAL_V,
     VAL_B,
     VAL_C,
     VAL_N,
@@ -16,7 +17,7 @@ enum ValType {
 struct DfVal {
     enum ValType type;
     union {
-        int b; /* used as 0 or !0 */
+        int b; /* int used as 0 or !0 */
         char c;
         uint n;
         int z;
@@ -35,5 +36,6 @@ void values_grow(struct Values *, uint);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
 void values_print(struct DfVal);
+char values_type_to_char(enum ValType);
 
 #endif /* DFVM_VALUES_H */

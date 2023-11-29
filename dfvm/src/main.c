@@ -5,9 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "common.h"
-#include "norris.h"
-#include "virmac.h"
+#include "../include/common.h"
+#include "../include/norris.h"
+#include "../include/virmac.h"
 
 static void run_file(struct VirMac *vm, const char *);
 static struct Norris read_file_to_norris(const char *);
@@ -18,12 +18,8 @@ int main(int argc, const char *argv[])
     struct VirMac vm;
     virmac_init(&vm);
     switch (argc) {
-      case 1: /* example */
-        run_example(&vm);
-        break;
-      case 2: /* <exefile> <bytecode> */
-        run_file(&vm, argv[1]);
-        break;
+      case 1: run_example(&vm); break;
+      case 2: run_file(&vm, argv[1]); break;
       default:
         fprintf(stderr, "U idiot, provide a signle file to be run\n");
         virmac_free(&vm);
@@ -35,14 +31,15 @@ int main(int argc, const char *argv[])
 
 static void run_example(struct VirMac *vm)
 {
-    uint i;
-    enum OpCode c[] = {
-        OP_LZ1, OP_LZ1, OP_SUB, OP_LZ0, OP_CNE, OP_NOT, OP_LBT, OP_AND, OP_RET
+#define EX_LEN 4
+    enum OpCode c[EX_LEN] = {
+        OP_LZ1, OP_LBT, OP_ADD, OP_RET
     };
+    uint i;
     struct Norris code;
     enum ItpRes res;
     norris_init(&code);
-    for (i = 0; i < 9; ++i)
+    for (i = 0; i < EX_LEN; ++i)
         norris_push_byte(&code, c[i]);
     res = virmac_run(vm, &code);
     norris_free(&code);
@@ -57,6 +54,7 @@ static void run_example(struct VirMac *vm)
         fputs("some unknown error from virmac_run\n", stderr);
         break;
     }
+#undef EX_LEN
 }
 
 static void run_file(struct VirMac *vm, const char *path)

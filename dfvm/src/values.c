@@ -1,8 +1,8 @@
 /* values.c */
 
 #include <stdio.h>
-#include "values.h"
-#include "alzhmr.h"
+#include "../include/values.h"
+#include "../include/alzhmr.h"
 
 void values_init(struct Values *v)
 {
@@ -43,17 +43,25 @@ void values_print(struct DfVal value)
         else
             printf("F");
         break;
-      case VAL_C:
-        printf("%c", value.as.c);
-        break;
-      case VAL_Z:
-        printf("%d", value.as.z);
-        break;
-      case VAL_R:
-        printf("%f", value.as.r);
-        break;
+      case VAL_C: printf("%c", value.as.c); break;
+      case VAL_N: printf("%u", value.as.n); break;
+      case VAL_Z: printf("%d", value.as.z); break;
+      case VAL_R: printf("%f", value.as.r); break;
       default:
         printf("something went rrong in value.type");
         break;
+    }
+}
+
+char values_type_to_char(enum ValType t)
+{
+    switch (t) {
+        case VAL_V: return 'V';
+        case VAL_B: return 'B';
+        case VAL_C: return 'C';
+        case VAL_N: return 'N';
+        case VAL_Z: return 'Z';
+        case VAL_R: return 'R';
+        default: return '\0';
     }
 }

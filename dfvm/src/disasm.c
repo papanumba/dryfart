@@ -1,8 +1,8 @@
 /* disasm.c */
 
 #include <stdio.h>
-#include "disasm.h"
-#include "values.h"
+#include "../include/disasm.h"
+#include "../include/values.h"
 
 /* static functions */
 static uint constt_instru(const char *, struct Norris *, uint);
@@ -29,6 +29,8 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_LM1: return simple_instru("LM1", offset);
       case OP_LZ0: return simple_instru("LZ0", offset);
       case OP_LZ1: return simple_instru("LZ1", offset);
+      case OP_LR0: return simple_instru("LR0", offset);
+      case OP_LR1: return simple_instru("LR1", offset);
 
       case OP_NEG: return simple_instru("NEG", offset);
       case OP_ADD: return simple_instru("ADD", offset);

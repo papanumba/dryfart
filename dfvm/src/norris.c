@@ -1,7 +1,7 @@
 /* norris.c */
 
-#include "norris.h"
-#include "alzhmr.h"
+#include "../include/norris.h"
+#include "../include/alzhmr.h"
 
 void norris_init(struct Norris *n)
 {
