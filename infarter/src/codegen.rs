@@ -55,6 +55,7 @@ enum OpCode
     OP_SUB = 0x12,
     OP_MUL = 0x13,
     OP_DIV = 0x14,
+    OP_INV = 0x15,
 
     OP_CEQ = 0x18,
     OP_CNE = 0x19,
@@ -87,8 +88,17 @@ impl CodeGen
 
     pub fn transfart(&mut self, e: &Expr)
     {
+        for _ in 0..4 { // dummy u32 value for bc_len
+            self.bc.push(0);
+        }
         self.gen_expr(e);
         self.bc.push(OpCode::OP_RET as u8);
+        let mut bc_len = u32::try_from(self.bc.len())
+            .expect("program too large");
+        bc_len -= 4; // bc_len itself
+        for (i, b) in bc_len.to_be_bytes().iter().enumerate() {
+            self.bc[i] = *b;
+        }
     }
 
     pub fn cp_to_bytes(&self) -> Vec<u8>
@@ -143,7 +153,7 @@ impl CodeGen
 
     fn gen_ctnl(&mut self, idx: u16)
     {
-        if idx < 255 {
+        if idx < 256 {
             self.bc.push(OpCode::OP_CTN as u8);
             self.bc.push(idx as u8);
         } else {
@@ -158,7 +168,7 @@ impl CodeGen
         self.bc.push(match o {
             UniOpcode::Neg => OpCode::OP_NEG,
             UniOpcode::Not => OpCode::OP_NOT,
-            _ => todo!(),
+            UniOpcode::Inv => OpCode::OP_INV,
         } as u8);
     }
 

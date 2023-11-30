@@ -43,6 +43,7 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_SUB: return simple_instru("SUB", offset);
       case OP_MUL: return simple_instru("MUL", offset);
       case OP_DIV: return simple_instru("DIV", offset);
+      case OP_INV: return simple_instru("INV", offset);
 
       case OP_CEQ: return simple_instru("CEQ", offset);
       case OP_CNE: return simple_instru("CNE", offset);

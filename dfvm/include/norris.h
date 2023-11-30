@@ -25,6 +25,7 @@ enum OpCode {
     OP_SUB = 0x12,
     OP_MUL = 0x13,
     OP_DIV = 0x14,
+    OP_INV = 0x15, /* unary float invert */
 
     OP_CEQ = 0x18,
     OP_CNE = 0x19,

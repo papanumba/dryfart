@@ -1,6 +1,7 @@
 # DFVM bytecode format specification
 
 2 bytes: number of constants to read
+
 constant section: contains previus number of constants:
     - 1 constant is
         1st byte is ValType (from values.h),
@@ -13,4 +14,8 @@ constant section: contains previus number of constants:
             O: 1st byte is ObjType (from object.h)
                 STR: 1st byte is lengþ (yes, like Pascal)
                     all next bytes are þe string
+
+4 bytes: lengþ (in bytes) of þe following Norris,
+it's just to check þat þe read bytes are þe expected lengþ
+
 All following bytes are þe instructions

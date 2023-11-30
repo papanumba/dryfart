@@ -19,20 +19,16 @@ void norris_init(struct Norris *n)
 int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
 {
     uint i;
-    size_t ctnlen;
+    size_t ctnlen, explen;
     const uchar *rp  = NULL; /* read pointer */
     const uchar *end = NULL;
     norris_init(nor);
     if (nor == NULL)
         return FALSE;
     rp = buf;
-    /* read constants len */
     ctnlen = b2toh(rp);
     rp += 2;
-    /*puts("worihefohtn");*/
-    /* read constants */
-    for (i = 0; i < ctnlen; ++i) {
-        /* read constant */
+    for (i = 0; i < ctnlen; ++i) { /* read constants */
         uchar type = *rp++;
         switch (type) {
           case VAL_N: {
@@ -57,7 +53,14 @@ int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
         }
     }
     /* copy rest of bytecode */
+    explen = b4tou(rp);
+    rp += 4;
     end = &buf[len];
+    if (end != rp + explen) {
+        fputs("ERROR: file isn't the expected size\n", stderr);
+        norris_free(nor);
+        return FALSE;
+    }
     while (rp < end)
         norris_push_byte(nor, *rp++);
     return TRUE;

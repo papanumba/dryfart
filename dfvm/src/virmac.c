@@ -40,6 +40,7 @@ static int op_add(struct VirMac *);
 static int op_sub(struct VirMac *);
 static int op_mul(struct VirMac *);
 static int op_div(struct VirMac *);
+static int op_inv(struct VirMac *);
 
 /* comparison */
 static int op_ceq(struct VirMac *);
@@ -132,6 +133,7 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_SUB, op_sub)
           DO_OP(OP_MUL, op_mul)
           DO_OP(OP_DIV, op_div)
+          DO_OP(OP_INV, op_inv)
 
           DO_OP(OP_CEQ, op_ceq)
           DO_OP(OP_CNE, op_cne)
@@ -369,6 +371,21 @@ static int op_div(struct VirMac *vm)
       case VAL_R: res.as.r = lhs.as.r / rhs.as.r; break;
       default:
         err_cant_op("/", lhs.type);
+        return FALSE;
+    }
+    virmac_push(vm, &res);
+    return TRUE;
+}
+
+static int op_inv(struct VirMac *vm)
+{
+    struct DfVal val, res;
+    val = virmac_pop(vm);
+    res.type = val.type;
+    switch (val.type) {
+      case VAL_R: res.as.r = 1.0f / val.as.r; break;
+      default:
+        err_cant_op("unary /", val.type);
         return FALSE;
     }
     virmac_push(vm, &res);
