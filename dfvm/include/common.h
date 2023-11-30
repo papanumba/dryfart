@@ -3,7 +3,6 @@
 #ifndef DFVM_COMMON_H
 #define DFVM_COMMON_H
 
-#include <stdint.h>
 #include <stddef.h>
 
 #define TRUE    1

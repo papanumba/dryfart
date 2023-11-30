@@ -5,13 +5,16 @@
 
 #include "common.h"
 
+struct Object; /* to avoid cyclic dependency */
+
 enum ValType {
-    VAL_V,
-    VAL_B,
-    VAL_C,
-    VAL_N,
-    VAL_Z,
-    VAL_R
+    VAL_V = 0x00,
+    VAL_B = 0x02,
+    VAL_C = 0x04,
+    VAL_N = 0x06,
+    VAL_Z = 0x08,
+    VAL_R = 0x0A,
+    VAL_O = 0x0C /* any heap stuff */
 };
 
 struct DfVal {
@@ -22,17 +25,17 @@ struct DfVal {
         uint n;
         int z;
         float r;
+        struct Object *o;
     } as;
 };
 
 struct Values {
     struct DfVal *arr;
-    uint          len;
-    uint          cap;
+    size_t        len;
+    size_t        cap;
 };
 
 void values_init(struct Values *);
-void values_grow(struct Values *, uint);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
 void values_print(struct DfVal);

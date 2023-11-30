@@ -1,11 +1,13 @@
 /* disasm.c */
 
 #include <stdio.h>
-#include "../include/disasm.h"
-#include "../include/values.h"
+#include "values.h"
+#include "disasm.h"
+#include "alzhmr.h"
 
 /* static functions */
-static uint constt_instru(const char *, struct Norris *, uint);
+static uint    ctn_instru(const char *, struct Norris *, uint);
+static uint    ctl_instru(const char *, struct Norris *, uint);
 static uint simple_instru(const char *, uint);
 
 void disasm_norris(struct Norris *code, const char *name)
@@ -22,8 +24,12 @@ uint disasm_instru(struct Norris *code, uint offset)
     printf("%04d ", offset);
     instru = code->cod[offset];
     switch (instru) {
-      case OP_CTN: return constt_instru("CTN", code, offset);
+      case OP_CTN: return ctn_instru("CTN", code, offset);
+      case OP_CTL: return ctl_instru("CTL", code, offset);
 
+      case OP_LVV: return simple_instru("LVV", offset);
+      case OP_LBT: return simple_instru("LBT", offset);
+      case OP_LBF: return simple_instru("LBF", offset);
       case OP_LN0: return simple_instru("LN0", offset);
       case OP_LN1: return simple_instru("LN1", offset);
       case OP_LM1: return simple_instru("LM1", offset);
@@ -57,13 +63,22 @@ uint disasm_instru(struct Norris *code, uint offset)
     }
 }
 
-static uint constt_instru(const char *name, struct Norris *n, uint offset)
+static uint ctn_instru(const char *name, struct Norris *n, uint offset)
 {
     uchar c = n->cod[offset+1];
-    printf("%-16s %4d '", name, c);
+    printf("%-16s %4d (", name, c);
     values_print(n->ctn.arr[c]);
-    printf("'\n");
+    printf(")\n");
     return offset + 2;
+}
+
+static uint ctl_instru(const char *name, struct Norris *n, uint offset)
+{
+    uint c = b2toh(&n->cod[offset+1]);
+    printf("%-16s %4d (", name, c);
+    values_print(n->ctn.arr[c]);
+    printf(")\n");
+    return offset + 3;
 }
 
 static uint simple_instru(const char *name, uint offset)

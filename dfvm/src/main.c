@@ -5,9 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../include/common.h"
-#include "../include/norris.h"
-#include "../include/virmac.h"
+#include "virmac.h"
 
 static void run_file(struct VirMac *vm, const char *);
 static struct Norris read_file_to_norris(const char *);
@@ -33,7 +31,7 @@ static void run_example(struct VirMac *vm)
 {
 #define EX_LEN 4
     enum OpCode c[EX_LEN] = {
-        OP_LZ1, OP_LBT, OP_ADD, OP_RET
+        OP_LZ1, OP_LVV, OP_ADD, OP_RET
     };
     uint i;
     struct Norris code;
@@ -79,11 +77,10 @@ static void run_file(struct VirMac *vm, const char *path)
 
 static struct Norris read_file_to_norris(const char *path)
 {
-    uint i;
     size_t file_size, bytes_read;
+    struct Norris res;
     uchar *buffer = NULL;
     FILE *file = NULL;
-    struct Norris res;
     file = fopen(path, "rb");
     if (file == NULL) {
         fprintf(stderr, "ERROR@read_file: opening file %s\n", path);
@@ -102,10 +99,11 @@ static struct Norris read_file_to_norris(const char *path)
         fprintf(stderr, "ERROR@read_file: could not read file %s\n", path);
         exit(1);
     }
-    /* copy to norris */
-    norris_init(&res);
-    for (i = 0; i < bytes_read; ++i)
-        norris_push_byte(&res, buffer[i]);
+    /* load to norris */
+    if (!norris_from_buff(&res, buffer, bytes_read)) {
+        fprintf(stderr, "ERROR: couldn't load %s into a valid Norris\n", path);
+        exit(1);
+    }
     fclose(file);
     free(buffer);
     return res;

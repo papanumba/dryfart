@@ -1,2 +1,2 @@
 #!/bin/sh
-cat *.c *.h *.sh | grep . | wc -l
+cat src/*.c include/*.h *.sh | grep . | wc -l

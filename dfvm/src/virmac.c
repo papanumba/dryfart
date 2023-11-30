@@ -2,21 +2,28 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "../include/common.h"
-#include "../include/virmac.h"
-#include "../include/values.h"
-#include "../include/disasm.h"
+#include "virmac.h"
+#include "object.h"
+#include "alzhmr.h"
+
+#ifdef DEBUG
+#include "disasm.h"
+#endif
 
 #define READ_BYTE() (*vm->ip++)
 
 /* static functions */
-static void reset_stack(struct VirMac *);
+#ifdef DEBUG
 static void print_stack(struct VirMac *);
+#endif
+static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
+short read_i16_be      (struct VirMac *);
 void err_cant_op  (const char *, enum ValType);
 void err_dif_types(const char *, enum ValType, enum ValType);
 
 /* pre-built constant loading */
+static void op_lvv(struct VirMac *vm);
 static void op_lbt(struct VirMac *vm);
 static void op_lbf(struct VirMac *vm);
 static void op_ln0(struct VirMac *vm);
@@ -103,7 +110,12 @@ static enum ItpRes run(struct VirMac *vm)
           case OP_CTN:
             virmac_push(vm, &vm->norris->ctn.arr[READ_BYTE()]);
             break;
+          case OP_CTL:
+            virmac_push(vm, &vm->norris->ctn.arr[b2toh(vm->ip)]);
+            vm->ip += 2;
+            break;
 
+          case OP_LVV: op_lvv(vm); break;
           case OP_LBT: op_lbt(vm); break;
           case OP_LBF: op_lbf(vm); break;
           case OP_LN0: op_ln0(vm); break;
@@ -143,6 +155,7 @@ static enum ItpRes run(struct VirMac *vm)
     }
 }
 
+#ifdef DEBUG
 static void print_stack(struct VirMac *vm)
 {
     struct DfVal *slot = NULL;
@@ -154,6 +167,16 @@ static void print_stack(struct VirMac *vm)
         printf("]");
     }
     printf("\n");
+}
+#endif
+
+short read_i16(struct VirMac *vm)
+{
+    union { unsigned short us; short s; } u;
+    u.us = READ_BYTE();
+    u.us <<= 8;
+    u.us |= READ_BYTE();
+    return u.s;
 }
 
 /* error message for same type but invalid operations */
@@ -170,6 +193,14 @@ void err_dif_types(const char *op, enum ValType t1, enum ValType t2)
 }
 
 /* most funcs */
+
+static void op_lvv(struct VirMac *vm)
+{
+    struct DfVal v;
+    v.type = VAL_V;
+/*    v.as.b = FALSE;*/ /* FIXME should initialize? */
+    virmac_push(vm, &v);
+}
 
 static void op_lbt(struct VirMac *vm)
 {
@@ -359,6 +390,7 @@ static int op_ceq(struct VirMac *vm)
       case VAL_C: res.as.b = (lhs.as.c == rhs.as.c); break;
       case VAL_N: res.as.b = (lhs.as.n == rhs.as.n); break;
       case VAL_Z: res.as.b = (lhs.as.z == rhs.as.z); break;
+      case VAL_O: res.as.b = object_eq(lhs.as.o, rhs.as.o); break;
       case VAL_R:
         fputs("ERROR: use an epsilon to compare R% values u idiot\n", stderr);
         return FALSE;

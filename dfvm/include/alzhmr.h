@@ -11,7 +11,9 @@
 #define GROW_CAP(c) ((c) < 8 ? 8 : (c) * 2)
 
 void *realloc_or_free(void *, size_t);
-short uc2toh_be(uchar *); /* BIG ENDIAN */
-int   uc4toi_be(uchar *); /* BIG ENDIAN */
+short b2toh(const uchar *); /* BIG ENDIAN */
+int   b4toi(const uchar *); /* BIG ENDIAN */
+uint  b4tou(const uchar *); /* BIG ENDIAN */
+float b4tof(const uchar *); /* BIG ENDIAN */
 
 #endif /* DFVM_ALZHMR_H */

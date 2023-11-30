@@ -7,17 +7,18 @@
 #include "values.h"
 
 enum OpCode {
-    OP_CTN = 0x00, /* load constant to Norris->ctn */
-    OP_L00 = 0x01,
-    OP_LBT = 0x02,
-    OP_LBF = 0x03,
-    OP_LN0 = 0x04,
-    OP_LN1 = 0x05,
-    OP_LM1 = 0x06, /* -Z%1 */
-    OP_LZ0 = 0x07,
-    OP_LZ1 = 0x08,
-    OP_LR0 = 0x0B,
-    OP_LR1 = 0x0C,
+    OP_CTN = 0x00, /* load constant */
+    OP_CTL = 0x01, /* load constant long */
+    OP_LVV = 0x02,
+    OP_LBT = 0x03,
+    OP_LBF = 0x04,
+    OP_LN0 = 0x05,
+    OP_LN1 = 0x06,
+    OP_LM1 = 0x07, /* -Z%1 */
+    OP_LZ0 = 0x08,
+    OP_LZ1 = 0x09,
+    OP_LR0 = 0x0C,
+    OP_LR1 = 0x0D,
 
     OP_NEG = 0x10, /* unary int negate */
     OP_ADD = 0x11,
@@ -43,13 +44,13 @@ enum OpCode {
 /* chunk norris */
 struct Norris {
     uchar        *cod; /* bytecode */
-    uint          len; /* used length */
-    uint          cap; /* allocd capanacity */
+    size_t        len; /* used length */
+    size_t        cap; /* allocd capanacity */
     struct Values ctn; /* constants */
 };
 
 void norris_init     (struct Norris *);
-void norris_grow     (struct Norris *, uint);
+int  norris_from_buff(struct Norris *, const uchar *, size_t);
 void norris_free     (struct Norris *);
 void norris_push_byte(struct Norris *, uchar);
 uint norris_push_ctn (struct Norris *, struct DfVal);

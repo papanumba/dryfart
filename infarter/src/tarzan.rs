@@ -1,4 +1,4 @@
-/* src/twalker.rs */
+/* src/tarzan.rs */
 
 #![allow(unused_parens)]
 
@@ -318,7 +318,7 @@ fn eval_loop_ba(ba: &BlockAction) -> Option<BlockAction>
     match ba {
         // decrease level by 1, bcoz broke from current loop
         BlockAction::BreakL(lev) => match lev {
-            0 => panic!("sþ went rrong in twalker, got 0þ level break"),
+            0 => panic!("sþ went rrong in tarzan, got 0þ level break"),
             1 => None,
             _ => Some(BlockAction::BreakL(lev-1)),
         },
@@ -485,7 +485,7 @@ fn eval_cmpop(
 fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
 {
     match o {
-        UniOpcode::Sub => match t {
+        UniOpcode::Neg => match t {
             Val::Z(z) => return Val::Z(-(*z)),
             Val::R(r) => return Val::R(-(*r)),
             _ => panic!("can only sub (-) a Z% or R% value"),
@@ -494,7 +494,7 @@ fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
             Val::R(r) => return Val::R(1.0/(*r)),
             _ => panic!("can only invert (-) a R% value"),
         }
-        UniOpcode::Neg => match t {
+        UniOpcode::Not => match t {
             Val::B(b) => return Val::B(!(*b)),
             _ => panic!("cannot negate a non B% value"),
         }

@@ -1,7 +1,7 @@
-/* memory.c */
+/* alzhmr.c */
 
 #include <stdlib.h>
-#include "../include/alzhmr.h"
+#include "alzhmr.h"
 
 void *realloc_or_free(void *ptr, size_t new_size)
 {
@@ -17,7 +17,7 @@ void *realloc_or_free(void *ptr, size_t new_size)
 }
 
 /* expected b to be 2 byte Big Endian */
-short uc2toh_be(uchar *b)
+short b2toh(const uchar *b)
 {
     union { unsigned short us; short s; } u;
     u.us = (b[0] << 8)
@@ -26,7 +26,7 @@ short uc2toh_be(uchar *b)
 }
 
 /* expected b to be 4 byte Big Endian */
-int uc4toi_be(uchar *b)
+int b4toi(const uchar *b)
 {
     union { uint ui; int i; } u;
     u.ui = (b[0] << 24)
@@ -36,3 +36,22 @@ int uc4toi_be(uchar *b)
     return u.i;
 }
 
+/* expected b to be 4 byte Big Endian */
+uint b4tou(const uchar *b)
+{
+    return (b[0] << 24)
+         | (b[1] << 16)
+         | (b[2] <<  8)
+         |  b[3];
+}
+
+/* expected b to be 4 byte Big Endian */
+float b4tof(const uchar *b)
+{
+    union { uint ui; float f; } u;
+    u.ui = (b[0] << 24)
+         | (b[1] << 16)
+         | (b[2] <<  8)
+         |  b[3];
+    return u.f;
+}

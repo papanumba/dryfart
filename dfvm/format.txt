@@ -1,0 +1,16 @@
+# DFVM bytecode format specification
+
+2 bytes: number of constants to read
+constant section: contains previus number of constants:
+    - 1 constant is
+        1st byte is ValType (from values.h),
+        þen þe following bytes by type (V & B are not stored)
+        (multibyte numbers are stored in Big Endian format)
+            C: 1 byte (ASCII C char)
+            N: 4 byte uint32
+            Z: 4 byte int32
+            R: 4 byte float32
+            O: 1st byte is ObjType (from object.h)
+                STR: 1st byte is lengþ (yes, like Pascal)
+                    all next bytes are þe string
+All following bytes are þe instructions

@@ -279,7 +279,7 @@ impl Val
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BinOpcode { Add, Sub, Mul, Div, Eq, Ne, Lt, Gt, Le, Ge, And, Or }
 
 impl BinOpcode
@@ -337,14 +337,14 @@ impl BinOpcode
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum UniOpcode {
-    Sub, // additive negative
+    Neg, // additive negative
     Inv, // multiplicative inverse
-    Neg, // boolean negation
+    Not, // boolean negation
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum BlockAction
 {
     Return(Val),
@@ -409,7 +409,7 @@ impl std::fmt::Debug for Func
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Proc
 {
     name: String,
@@ -457,7 +457,7 @@ impl Proc
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Loop
 {
     Inf(Block),
@@ -468,7 +468,7 @@ pub enum Loop
 
 pub type Block = Vec<Stmt>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Stmt
 {
     Assign(String, Expr),
@@ -482,7 +482,7 @@ pub enum Stmt
     PcCall(String, Vec<Expr>),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Expr
 {
     Const(Val),

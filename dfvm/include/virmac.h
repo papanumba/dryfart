@@ -3,6 +3,7 @@
 #ifndef DFVM_VIRMAC_H
 #define DFVM_VIRMAC_H
 
+#include "common.h"
 #include "norris.h"
 #include "values.h"
 

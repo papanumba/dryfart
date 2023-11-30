@@ -313,7 +313,7 @@ impl<'src> Nip<'src>
         }
         let mut at = self.cmp_expr()?;
         for i in 0..n {
-            at = Expr::UniOp(Box::new(at), UniOpcode::Neg);
+            at = Expr::UniOp(Box::new(at), UniOpcode::Not);
         }
         return Ok(at);
     }
@@ -364,7 +364,7 @@ impl<'src> Nip<'src>
         }
         let mut at = self.mul_expr()?;
         for i in 0..n {
-            at = Expr::UniOp(Box::new(at), UniOpcode::Sub);
+            at = Expr::UniOp(Box::new(at), UniOpcode::Neg);
         }
         return Ok(at);
     }

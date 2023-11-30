@@ -4,7 +4,7 @@ mod funcs;
 mod procs;
 
 use crate::asterix::Val;
-use crate::twalker::Scope;
+use crate::tarzan::Scope;
 
 pub fn do_fncall(name: &str, raw_args: &Vec<Val>) -> Val
 {
