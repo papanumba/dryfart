@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "virmac.h"
+#include "idents.h"
 #include "object.h"
 #include "alzhmr.h"
 
@@ -18,7 +19,6 @@ static void print_stack(struct VirMac *);
 #endif
 static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
-short read_i16_be      (struct VirMac *);
 void err_cant_op  (const char *, enum ValType);
 void err_dif_types(const char *, enum ValType, enum ValType);
 
@@ -75,6 +75,7 @@ enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
 {
     if (vm == NULL || bc == NULL || bc->cod == NULL)
         return ITP_NULLPTR_ERR;
+    disasm_norris(bc, "main");
     vm->norris = bc;
     vm->ip = bc->cod;
     return run(vm);
@@ -171,15 +172,6 @@ static void print_stack(struct VirMac *vm)
     printf("\n");
 }
 #endif
-
-short read_i16(struct VirMac *vm)
-{
-    union { unsigned short us; short s; } u;
-    u.us = READ_BYTE();
-    u.us <<= 8;
-    u.us |= READ_BYTE();
-    return u.s;
-}
 
 /* error message for same type but invalid operations */
 void err_cant_op(const char *op, enum ValType ty)

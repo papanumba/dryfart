@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "values.h"
+#include "idents.h"
 
 enum OpCode {
     OP_CTN = 0x00, /* load constant */
@@ -48,6 +49,7 @@ struct Norris {
     size_t        len; /* used length */
     size_t        cap; /* allocd capanacity */
     struct Values ctn; /* constants */
+    struct Idents idf; /* identifiers */
 };
 
 void norris_init     (struct Norris *);
@@ -55,5 +57,6 @@ int  norris_from_buff(struct Norris *, const uchar *, size_t);
 void norris_free     (struct Norris *);
 void norris_push_byte(struct Norris *, uchar);
 uint norris_push_ctn (struct Norris *, struct DfVal);
+/*uint norris_push_idf (struct Norris *, struct DfIdf);*/
 
 #endif /* DFVM_NORRIS_H */

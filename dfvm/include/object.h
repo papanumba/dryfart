@@ -23,6 +23,6 @@ struct ObjStr {
 
 void object_print(struct Object *);
 int  object_eq   (struct Object *, struct Object *);
-struct ObjStr objstr_from_chars(const char *, size_t);
+/*struct ObjStr objstr_from_chars(const char *, size_t);*/
 
 #endif /* DFVM_OBJECT_H */

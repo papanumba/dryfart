@@ -1,19 +1,24 @@
-# DFVM bytecode format specification
+# DFVM bytecode format informal specification
 
-2 bytes: number of constants to read
+2 bytes: number of identifiers in the idf pool
 
-constant section: contains previus number of constants:
-    - 1 constant is
-        1st byte is ValType (from values.h),
-        þen þe following bytes by type (V & B are not stored)
-        (multibyte numbers are stored in Big Endian format)
-            C: 1 byte (ASCII C char)
-            N: 4 byte uint32
-            Z: 4 byte int32
-            R: 4 byte float32
-            O: 1st byte is ObjType (from object.h)
-                STR: 1st byte is lengþ (yes, like Pascal)
-                    all next bytes are þe string
+1 identifier is
+    1 byte is len (MAX ident len = 255)
+    following bytes are the string
+
+2 bytes: number of constants in the ctn pool
+
+1 constant is
+    1st byte is ValType (from values.h),
+    þen þe following bytes by type (V & B are not stored)
+    (multibyte numbers are stored in Big Endian format)
+        C: 1 byte (ASCII C char)
+        N: 4 byte uint32
+        Z: 4 byte int32
+        R: 4 byte float32
+        O: 1st byte is ObjType (from object.h)
+            STR: 1st byte is lengþ (yes, like Pascal)
+                all next bytes are þe string
 
 4 bytes: lengþ (in bytes) of þe following Norris,
 it's just to check þat þe read bytes are þe expected lengþ

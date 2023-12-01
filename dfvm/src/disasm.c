@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include "values.h"
+#include "idents.h"
 #include "disasm.h"
 #include "alzhmr.h"
 
@@ -14,6 +15,9 @@ void disasm_norris(struct Norris *code, const char *name)
 {
     uint offset = 0;
     printf("=== %s ===\n", name);
+/*    values_print(&code->ctn);*/
+    fputs("Idents: ", stdout);
+    idents_print(&code->idf);
     while (offset < code->len)
         offset = disasm_instru(code, offset);
 }

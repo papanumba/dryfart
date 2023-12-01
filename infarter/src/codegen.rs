@@ -4,6 +4,7 @@
 
 use std::fs;
 use std::io::Write;
+use std::collections::HashSet;
 use crate::asterix::*;
 
 /* ÞA 1 & ONLY pub fn in þis mod*/
@@ -22,15 +23,15 @@ pub fn transfart(b: &Block, of: &str)
     };
     let mut g = CodeGen::new();
     g.transfart(e);
-    dbg!(&g.cp, &g.bc);
 
     // write to bin file
     let mut ofile = match fs::File::create(of) {
         Ok(f) => f,
         Err(_) => panic!("could create file"),
     };
-    ofile.write_all(&g.cp_to_bytes());
-    ofile.write_all(&g.bc);
+    dbg!(ofile.write_all(&g.id_to_bytes())); // dummy idents len
+    dbg!(ofile.write_all(&g.cp_to_bytes()));
+    dbg!(ofile.write_all(&g.bc));
 }
 
 
@@ -74,6 +75,7 @@ enum OpCode
 
 struct CodeGen
 {
+    id: HashSet<String>,
     cp_len: u16,
     pub cp: Vec<Val>, // constant pool
     pub bc: Vec<u8>, // bytecode acumulator
@@ -83,7 +85,12 @@ impl CodeGen
 {
     pub fn new() -> Self
     {
-        return Self { cp_len: 0, cp: vec![], bc: vec![] };
+        return Self {
+            id: HashSet::new(),
+            cp_len: 0,
+            cp: vec![],
+            bc: vec![]
+        };
     }
 
     pub fn transfart(&mut self, e: &Expr)
@@ -99,19 +106,37 @@ impl CodeGen
         for (i, b) in bc_len.to_be_bytes().iter().enumerate() {
             self.bc[i] = *b;
         }
+        println!("{}", self.bc.len());
     }
 
     pub fn cp_to_bytes(&self) -> Vec<u8>
     {
         let mut res = Vec::<u8>::new();
         // push len
-        let cp_len = self.cp.len() as u16;
-        res.extend_from_slice(&cp_len.to_be_bytes());
+        res.extend_from_slice(&self.cp_len.to_be_bytes());
         // push every Val
         for v in &self.cp {
             res.push(u8::from(&Type::from(v)));
             res.extend_from_slice(&val_to_bytes(v));
         }
+        println!("{}", res.len());
+        return res;
+    }
+
+    pub fn id_to_bytes(&self) -> Vec<u8>
+    {
+        let mut res = Vec::<u8>::new();
+        // push len
+        let id_len = u16::try_from(self.id.len())
+            .expect("too many idents");
+        res.extend_from_slice(&id_len.to_be_bytes());
+        // push every Val
+        for i in self.id.iter() {
+            res.push(u8::try_from(i.len())
+                .expect("Ident too long > 256"));
+            res.extend_from_slice(&i.as_bytes());
+        }
+        println!("{}", res.len());
         return res;
     }
 
@@ -129,6 +154,7 @@ impl CodeGen
     {
         match e {
             Expr::Const(v)       => self.gen_const(v),
+            Expr::Ident(i)       => self.gen_ident(i),
             Expr::UniOp(e, o)    => self.gen_uniop(e, o),
             Expr::BinOp(l, o, r) => self.gen_binop(l, o, r),
             Expr::CmpOp(l, _)    => self.gen_expr(l),
@@ -140,8 +166,8 @@ impl CodeGen
     {
         match v {
             Val::N(n) => match n {
-                0 => self.bc.push(OpCode::OP_LN0 as u8),
-                1 => self.bc.push(OpCode::OP_LN1 as u8),
+                0 => {self.bc.push(OpCode::OP_LN0 as u8); return;},
+                1 => {self.bc.push(OpCode::OP_LN1 as u8); return;},
                 _ => {},
             },
             Val::R(_) => {},
@@ -160,6 +186,12 @@ impl CodeGen
             self.bc.push(OpCode::OP_CTL as u8);
             self.bc.extend_from_slice(&idx.to_be_bytes());
         }
+    }
+
+    fn gen_ident(&mut self, i: &str)
+    {
+        self.id.insert(i.to_owned());
+        self.gen_const(&Val::N(0));
     }
 
     fn gen_uniop(&mut self, e: &Expr, o: &UniOpcode)

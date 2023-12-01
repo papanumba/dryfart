@@ -27,7 +27,7 @@ int object_eq(struct Object *o0, struct Object *o1)
     return FALSE;
 }
 
-struct ObjStr objstr_from_chars(const char *str, size_t len)
+/*struct ObjStr objstr_from_chars(const char *str, size_t len)
 {
     struct ObjStr objstr;
     char *newstr;
@@ -37,7 +37,7 @@ struct ObjStr objstr_from_chars(const char *str, size_t len)
     objstr.len = len;
     objstr.str = newstr;
     return objstr;
-}
+}*/
 
 static int objstr_eq(struct ObjStr *s0, struct ObjStr *s1)
 {

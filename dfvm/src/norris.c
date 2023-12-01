@@ -5,6 +5,7 @@
 #include "norris.h"
 #include "alzhmr.h"
 
+static void norris_push_idf(struct Norris *, struct DfIdf);
 static void grow(struct Norris *, uint);
 
 void norris_init(struct Norris *n)
@@ -13,22 +14,33 @@ void norris_init(struct Norris *n)
     n->len = 0;
     n->cap = 0;
     values_init(&n->ctn);
+    idents_init(&n->idf);
 }
 
 /* reads constant pool and þe instructions */
 int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
 {
     uint i;
-    size_t ctnlen, explen;
+    size_t ctnlen, idflen, explen;
     const uchar *rp  = NULL; /* read pointer */
     const uchar *end = NULL;
     norris_init(nor);
     if (nor == NULL)
         return FALSE;
     rp = buf;
-    ctnlen = b2toh(rp);
-    rp += 2;
-    for (i = 0; i < ctnlen; ++i) { /* read constants */
+    /* read identifiers */
+    idflen = b2toh(rp); rp += 2;
+    for (i = 0; i < idflen; ++i) {
+        struct DfIdf idf;
+        size_t ident_len;
+        ident_len = *rp++;
+        dfidf_from_chars(&idf, (char *) rp, ident_len);
+        rp += ident_len;
+        norris_push_idf(nor, idf);
+    }
+    /* read constants */
+    ctnlen = b2toh(rp); rp += 2;
+    for (i = 0; i < ctnlen; ++i) {
         uchar type = *rp++;
         switch (type) {
           case VAL_N: {
@@ -48,7 +60,7 @@ int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
             break;
           }
           default:
-            puts("TODO: load other constants");
+            puts("TODO: load other constant types");
             exit(1);
         }
     }
@@ -70,6 +82,7 @@ void norris_free(struct Norris *n)
 {
     realloc_or_free(n->cod, 0);
     values_free(&n->ctn);
+    idents_free(&n->idf);
     norris_init(n); /* set all to 0 */
 }
 
@@ -87,6 +100,11 @@ uint norris_push_ctn(struct Norris *n, struct DfVal c)
 {
     values_push(&n->ctn, c);
     return n->ctn.len - 1;
+}
+
+static void norris_push_idf(struct Norris *n, struct DfIdf i)
+{
+    idents_push(&n->idf, i);
 }
 
 static void grow(struct Norris *n, uint newcap)
