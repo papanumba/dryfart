@@ -29,8 +29,9 @@ static void dfidf_init(struct DfIdf *i)
 
 void dfidf_free(struct DfIdf *idf)
 {
-    if (idf != NULL)
-        realloc_or_free(idf->str, 0);
+    if (idf == NULL)
+        return;
+    realloc_or_free(idf->str, 0);
 }
 
 void idents_init(struct Idents *i)
@@ -40,10 +41,15 @@ void idents_init(struct Idents *i)
     i->cap = 0;
 }
 
-void idents_free(struct Idents *i)
+void idents_free(struct Idents *ids)
 {
-    realloc_or_free(i->arr, 0);
-    idents_init(i); /* set all to 0 */
+    uint i;
+    if (ids == NULL)
+        return;
+    for (i = 0; i < ids->len; ++i)
+        dfidf_free(&ids->arr[i]);
+    realloc_or_free(ids->arr, 0);
+    idents_init(ids); /* set all to 0 */
 }
 
 void idents_push(struct Idents *i, struct DfIdf ident)
