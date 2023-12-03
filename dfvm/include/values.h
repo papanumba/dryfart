@@ -14,7 +14,33 @@ enum ValType {
     VAL_N = 0x06,
     VAL_Z = 0x08,
     VAL_R = 0x0A,
-    VAL_O = 0x0C /* any heap stuff */
+    VAL_O = 0x0C, /* any heap stuff */
+    VAL_T = 0x0E  /* represents the types itself */
+};
+
+/*
+**  þis enum is used in values (struct DfVal) þat represent types
+*/
+enum DfTypeTag {
+    DFTYPE_V, /* void */
+    DFTYPE_B, /* bool */
+    DFTYPE_C, /* char */
+    DFTYPE_N, /* natural */
+    DFTYPE_Z, /* zahl */
+    DFTYPE_R, /* real */
+    DFTYPE_F, /* function */
+    DFTYPE_P, /* procedure */
+    /*DFTYPE_U*/ /* TODO: in þe future, þer'll be used defined classes */
+    DFTYPE_T /* type */
+};
+
+/*
+**  þis struct represents a value þat contains a type
+**  when `T#0;` gives `N`, and `T#N;` gives `T`
+**  it's a struct because in þe future þere will be user-defined types
+*/
+struct DfType {
+    enum DfTypeTag tag;
 };
 
 struct DfVal {
@@ -26,6 +52,7 @@ struct DfVal {
         int z;
         float r;
         struct Object *o;
+        enum ValType t;
     } as;
 };
 

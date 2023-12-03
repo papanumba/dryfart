@@ -1,17 +1,20 @@
 /* object.c */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include "alzhmr.h"
 #include "object.h"
 
-static int objstr_eq(struct ObjStr *, struct ObjStr *);
+static struct Object * alloc_object(enum ObjType);
+static uint hash_string(const char *, size_t);
+static void objidf_print(struct ObjIdf *);
+static void objidf_free (struct ObjIdf *);
 
-void object_print(struct Object *obj)
+void object_print(struct Object *o)
 {
-    switch (obj->type) {
-      case OBJ_STR:
-        puts(((struct ObjStr *)obj)->str);
+    switch (o->type) {
+      case OBJ_IDF:
+        objidf_print((struct ObjIdf *)o);
         break;
     }
 }
@@ -20,34 +23,64 @@ int object_eq(struct Object *o0, struct Object *o1)
 {
     if (o0->type != o1->type)
         return FALSE;
-    switch (o0->type) {
-      case OBJ_STR:
-        return objstr_eq((struct ObjStr *)o0, (struct ObjStr *)o1);
+/*    switch (o0->type) {
+    }*/
+    return FALSE;
+}
+
+void object_free(struct Object *o)
+{
+    switch (o->type) {
+      case OBJ_IDF:
+        objidf_free((struct ObjIdf *)o);
     }
-    return FALSE;
 }
 
-/*struct ObjStr objstr_from_chars(const char *str, size_t len)
+struct ObjIdf * objidf_new(const char *str, size_t len)
 {
-    struct ObjStr objstr;
-    char *newstr;
-    newstr = calloc(sizeof(char), len + 1);
-    memcpy(newstr, str, len);
-    objstr.obj.type = OBJ_STR;
-    objstr.len = len;
-    objstr.str = newstr;
-    return objstr;
-}*/
-
-static int objstr_eq(struct ObjStr *s0, struct ObjStr *s1)
-{
-    if (s0->len == s1->len)
-        return memcmp(s0->str, s1->str, s0->len) == 0;
-    return FALSE;
+    struct ObjIdf *idf;
+    idf = (struct ObjIdf *) alloc_object(OBJ_IDF);
+    idf->str = realloc_or_free(NULL, (len + 1) * sizeof(char));
+    memcpy(idf->str, str, len);
+    idf->str[len] = '\0';
+    idf->len = len;
+    idf->hsh = hash_string(str, len);
+    return idf;
 }
 
-/*static struct ObjStr * objstr_new(char *str, size_t len, uint hsh)
+static void objidf_free(struct ObjIdf *idf)
 {
-    hast_
+    realloc_or_free(idf->str, 0);
+    realloc_or_free(idf, 0);
 }
-*/
+
+static void objidf_print(struct ObjIdf *idf)
+{
+    if (idf == NULL)
+        return;
+    printf("%s", idf->str);
+}
+
+static struct Object * alloc_object(enum ObjType type)
+{
+    size_t size;
+    struct Object *obj;
+    switch (type) {
+      case OBJ_IDF: size = sizeof(struct ObjIdf); break;
+    }
+    obj = realloc_or_free(NULL, size);
+    obj->type = type;
+    return obj;
+}
+
+/* FNV-1a (Fowler-Noll-Vo) hash function for 32 bit */
+static uint hash_string(const char *str, size_t len)
+{
+    uint i;
+    uint hash = 2166136261;
+    for (i = 0; i < len; ++i) {
+        hash ^= (uchar) str[i];
+        hash *= 16777619;
+    }
+    return hash;
+}

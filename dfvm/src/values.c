@@ -22,10 +22,8 @@ void values_free(struct Values *v)
 
 void values_push(struct Values *v, struct DfVal value)
 {
-    if (v->cap < v->len + 1) {
-        uint new_cap = GROW_CAP(v->cap);
-        grow(v, new_cap);
-    }
+    if (v->cap < v->len + 1)
+        grow(v, GROW_CAP(v->cap));
     v->arr[v->len] = value;
     v->len++;
 }
@@ -40,8 +38,9 @@ void values_print(struct DfVal value)
       case VAL_Z: printf("%d", value.as.z);     break;
       case VAL_R: printf("%f", value.as.r);     break;
       case VAL_O: object_print(value.as.o);     break;
+      case VAL_T: putchar(values_type_to_char(value.as.t));     break;
       default:
-        printf("something went rrong in value.type");
+        fprintf(stderr, "unknown value.type %d\n", value.type);
         break;
     }
 }
@@ -56,7 +55,9 @@ char values_type_to_char(enum ValType t)
         case VAL_Z: return 'Z';
         case VAL_R: return 'R';
         case VAL_O: return 'O';
-        default: return '\0';
+        default:
+            fprintf(stderr, "unknown type %x\n", t);
+            return '\0';
     }
 }
 
@@ -66,4 +67,3 @@ static void grow(struct Values *v, uint newcap)
     v->arr = realloc_or_free(v->arr, new_size);
     v->cap = newcap;
 }
-

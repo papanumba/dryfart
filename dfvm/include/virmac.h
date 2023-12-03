@@ -6,6 +6,7 @@
 #include "common.h"
 #include "norris.h"
 #include "values.h"
+#include "htable.h"
 
 #define STACK_MAX   0x100
 
@@ -14,6 +15,7 @@ struct VirMac {
     uchar *ip;
     struct DfVal stack[STACK_MAX];
     struct DfVal *sp;
+    struct Htable globals;
 };
 
 enum ItpRes {

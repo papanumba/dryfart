@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "virmac.h"
-#include "idents.h"
 #include "object.h"
 #include "alzhmr.h"
 
@@ -55,6 +54,11 @@ static int op_not(struct VirMac *);
 static int op_and(struct VirMac *);
 static int op_ior(struct VirMac *);
 
+/* casts */
+static int op_cat(struct VirMac *);
+
+static int op_sgl(struct VirMac *);
+
 
 static void reset_stack(struct VirMac *vm)
 {
@@ -64,18 +68,22 @@ static void reset_stack(struct VirMac *vm)
 void virmac_init(struct VirMac *vm)
 {
     reset_stack(vm);
+    htable_init(&vm->globals);
 }
 
 void virmac_free(struct VirMac *vm)
 {
-    virmac_init(vm);
+    reset_stack(vm);
+    htable_free(&vm->globals);
 }
 
 enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
 {
     if (vm == NULL || bc == NULL || bc->cod == NULL)
         return ITP_NULLPTR_ERR;
+#ifdef DEBUG
     disasm_norris(bc, "main");
+#endif
     vm->norris = bc;
     vm->ip = bc->cod;
     return run(vm);
@@ -146,7 +154,12 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_NOT, op_not)
           DO_OP(OP_AND, op_and)
           DO_OP(OP_IOR, op_ior)
+
+          DO_OP(OP_CAT, op_cat)
+
+          DO_OP(OP_SGL, op_sgl)
 #undef DO_OP
+
 
           case OP_RET:
             values_print(virmac_pop(vm));
@@ -192,7 +205,6 @@ static void op_lvv(struct VirMac *vm)
 {
     struct DfVal v;
     v.type = VAL_V;
-/*    v.as.b = FALSE;*/ /* FIXME should initialize? */
     virmac_push(vm, &v);
 }
 
@@ -399,7 +411,7 @@ static int op_ceq(struct VirMac *vm)
       case VAL_C: res.as.b = (lhs.as.c == rhs.as.c); break;
       case VAL_N: res.as.b = (lhs.as.n == rhs.as.n); break;
       case VAL_Z: res.as.b = (lhs.as.z == rhs.as.z); break;
-      case VAL_O: res.as.b = object_eq(lhs.as.o, rhs.as.o); break;
+      /*case VAL_O: res.as.b = object_eq(lhs.as.o, rhs.as.o); break;*/
       case VAL_R:
         fputs("ERROR: use an epsilon to compare R% values u idiot\n", stderr);
         return FALSE;
@@ -576,5 +588,31 @@ static int op_ior(struct VirMac *vm)
         return FALSE;
     }
     virmac_push(vm, &res);
+    return TRUE;
+}
+
+static int op_cat(struct VirMac *vm)
+{
+    struct DfVal res;
+    res.type = VAL_T;
+    res.as.t = virmac_pop(vm).type;
+    virmac_push(vm, &res);
+    return TRUE;
+}
+
+static int op_sgl(struct VirMac *vm)
+{
+    struct DfVal  *idf_val;
+    struct ObjIdf *idf;
+    /* its next operand will be a u16 index*/
+    idf_val = &vm->norris->idf.arr[b2toh(vm->ip)];
+    vm->ip += 2;
+    if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
+        fprintf(stderr, "ERROR: not an identifier\n");
+        return FALSE;
+    }
+    idf = (struct ObjIdf *) idf_val->as.o;
+    object_print(idf_val->as.o);
+    htable_set(&vm->globals, idf, virmac_pop(vm));
     return TRUE;
 }

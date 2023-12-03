@@ -5,7 +5,6 @@
 
 #include "common.h"
 #include "values.h"
-#include "idents.h"
 
 enum OpCode {
     OP_CTN = 0x00, /* load constant */
@@ -39,6 +38,15 @@ enum OpCode {
     OP_AND = 0x21,
     OP_IOR = 0x22,
 
+    OP_SGL = 0x40, /* set global */
+
+    OP_CAB = 0xE2,
+    OP_CAC = 0xE4,
+    OP_CAN = 0xE6,
+    OP_CAZ = 0xE8,
+    OP_CAR = 0xEA,
+    OP_CAT = 0xEE, /* cast a value into its type */
+
     OP_RET = 0xF0 /* return from current function */
     /* TODO: add opcodes */
 };
@@ -48,8 +56,8 @@ struct Norris {
     uchar        *cod; /* bytecode */
     size_t        len; /* used length */
     size_t        cap; /* allocd capanacity */
+    struct Values idf; /* identifiers*/
     struct Values ctn; /* constants */
-    struct Idents idf; /* identifiers */
 };
 
 void norris_init     (struct Norris *);
@@ -57,6 +65,5 @@ int  norris_from_buff(struct Norris *, const uchar *, size_t);
 void norris_free     (struct Norris *);
 void norris_push_byte(struct Norris *, uchar);
 uint norris_push_ctn (struct Norris *, struct DfVal);
-/*uint norris_push_idf (struct Norris *, struct DfIdf);*/
 
 #endif /* DFVM_NORRIS_H */

@@ -2,22 +2,22 @@
 
 #include <stdio.h>
 #include "values.h"
-#include "idents.h"
 #include "disasm.h"
 #include "alzhmr.h"
 
 /* static functions */
+static uint simple_instru(const char *, uint);
 static uint    ctn_instru(const char *, struct Norris *, uint);
 static uint    ctl_instru(const char *, struct Norris *, uint);
-static uint simple_instru(const char *, uint);
+static uint    sgl_instru(const char *, struct Norris *, uint);
 
 void disasm_norris(struct Norris *code, const char *name)
 {
     uint offset = 0;
     printf("=== %s ===\n", name);
-/*    values_print(&code->ctn);*/
-    fputs("Idents: ", stdout);
-    idents_print(&code->idf);
+    /*fputs("Idents: ", stdout);*/
+    /*values_print(&code->idf);*/
+    printf("len = %ld\n", code->len);
     while (offset < code->len)
         offset = disasm_instru(code, offset);
 }
@@ -60,12 +60,22 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_AND: return simple_instru("AND", offset);
       case OP_IOR: return simple_instru("IOR", offset);
 
+      case OP_CAT: return simple_instru("CAT", offset);
+
+      case OP_SGL: return sgl_instru("SGL", code, offset);
+
       case OP_RET: return simple_instru("RET", offset);
 
       default:
         printf("unknown opcode 0x%02x\n", instru);
         return offset + 1;
     }
+}
+
+static uint simple_instru(const char *name, uint offset)
+{
+    printf("%s\n", name);
+    return offset + 1;
 }
 
 static uint ctn_instru(const char *name, struct Norris *n, uint offset)
@@ -86,8 +96,12 @@ static uint ctl_instru(const char *name, struct Norris *n, uint offset)
     return offset + 3;
 }
 
-static uint simple_instru(const char *name, uint offset)
+static uint sgl_instru(const char *name, struct Norris *n, uint offset)
 {
-    printf("%s\n", name);
-    return offset + 1;
+    uint c = b2toh(&n->cod[offset+1]);
+    printf("%-16s %4d (", name, c);
+    values_print(n->idf.arr[c]);
+    printf(")\n");
+    return offset + 3;
 }
+

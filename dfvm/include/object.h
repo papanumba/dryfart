@@ -7,22 +7,23 @@
 #include "values.h"
 
 enum ObjType {
-    OBJ_STR
+    OBJ_IDF
 };
 
 struct Object {
     enum ObjType type;
-    /*TODO*/
 };
 
-struct ObjStr {
-    struct Object obj; /* type punning */
-    size_t        len;
-    char         *str;
+struct ObjIdf {
+    struct Object obj;
+    char  *str;
+    size_t len;
+    uint   hsh;
 };
 
 void object_print(struct Object *);
 int  object_eq   (struct Object *, struct Object *);
-/*struct ObjStr objstr_from_chars(const char *, size_t);*/
+void object_free (struct Object *);
+struct ObjIdf * objidf_new(const char *, size_t);
 
 #endif /* DFVM_OBJECT_H */

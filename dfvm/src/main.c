@@ -29,9 +29,9 @@ int main(int argc, const char *argv[])
 
 static void run_example(struct VirMac *vm)
 {
-#define EX_LEN 4
+#define EX_LEN 3
     enum OpCode c[EX_LEN] = {
-        OP_LZ1, OP_LVV, OP_ADD, OP_RET
+        OP_LZ1, OP_CAT, OP_RET
     };
     uint i;
     struct Norris code;
