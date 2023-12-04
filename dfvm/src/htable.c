@@ -50,7 +50,7 @@ int htable_set(
     if (t->cap * MAX_LOAD < t->siz + 1)
         grow(t, GROW_CAP(t->cap));
     e = find_entry(t->ent, t->cap, k);
-    is_new_key = (e == NULL);
+    is_new_key = (e->k == NULL);
     if (is_new_key)
         t->siz++;
     e->k = k;
@@ -62,9 +62,22 @@ int htable_set(
     struct Htable *t,
     struct ObjIdf *k)
 {
-    
 }
 */
+
+void htable_print(struct Htable *t)
+{
+    uint i;
+    for (i = 0; i < t->cap; ++i) {
+        struct Hentry *e = &t->ent[i];
+        if (e->k == NULL)
+            continue;
+        object_print((struct Object *)e->k);
+        printf("\t: ");
+        values_print(&e->v);
+        printf("\n");
+    }
+}
 
 static struct Hentry * find_entry(
     struct Hentry *ent,

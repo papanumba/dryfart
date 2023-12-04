@@ -18,10 +18,11 @@ struct Htable {
     size_t         cap;
 };
 
-void htable_init(struct Htable *);
-void htable_free(struct Htable *);
-int  htable_get (struct Htable *, struct ObjIdf *, struct DfVal *);
-int  htable_set (struct Htable *, struct ObjIdf *, struct DfVal);
+void htable_init (struct Htable *);
+void htable_free (struct Htable *);
+int  htable_get  (struct Htable *, struct ObjIdf *, struct DfVal *);
+int  htable_set  (struct Htable *, struct ObjIdf *, struct DfVal);
+void htable_print(struct Htable *);
 /*int  htable_del (struct Htable *, struct ObjIdf *);*/
 
 

@@ -65,7 +65,7 @@ struct Values {
 void values_init(struct Values *);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
-void values_print(struct DfVal);
+void values_print(struct DfVal *);
 char values_type_to_char(enum ValType);
 
 #endif /* DFVM_VALUES_H */

@@ -38,7 +38,8 @@ enum OpCode {
     OP_AND = 0x21,
     OP_IOR = 0x22,
 
-    OP_SGL = 0x40, /* set global */
+    OP_GGL = 0x40, /* Get GLobal */
+    OP_SGL = 0x41, /* Set GLobal */
 
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,
@@ -47,7 +48,8 @@ enum OpCode {
     OP_CAR = 0xEA,
     OP_CAT = 0xEE, /* cast a value into its type */
 
-    OP_RET = 0xF0 /* return from current function */
+    OP_RET = 0xF0, /* return from current function */
+    OP_HLT = 0xFF /* halt */
     /* TODO: add opcodes */
 };
 

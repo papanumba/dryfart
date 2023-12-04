@@ -4,102 +4,100 @@
 
 use std::fs;
 use std::io::Write;
-use std::collections::HashSet;
+use crate::util::ArraySet;
 use crate::asterix::*;
 
 /* ÞA 1 & ONLY pub fn in þis mod*/
 
 // transfarts only 1 assignement,
 // which is printed directly.
-pub fn transfart(b: &Block, of: &str)
+pub fn transfart<'a>(b: &'a Block, of: &str)
 {
-    if b.len() != 1 {
-        panic!("transfart program must be len 1, by now");
-    }
-    let s = &b[0];
-    let e = match s {
-        Stmt::Assign(_, ex) => ex,
-        _ => panic!("3"),
-    };
-    let mut g = CodeGen::new();
-    g.transfart(e);
+    let mut g = CodeGen::<'a>::new();
+    g.transfart(b);
 
     // write to bin file
     let mut ofile = match fs::File::create(of) {
         Ok(f) => f,
         Err(_) => panic!("could create file"),
     };
-    dbg!(ofile.write_all(&g.id_to_bytes())); // dummy idents len
-    dbg!(ofile.write_all(&g.cp_to_bytes()));
-    dbg!(ofile.write_all(&g.bc));
+    ofile.write_all(&g.idents_to_bytes()).unwrap(); // dummy idents len
+    ofile.write_all(&g.cp_to_bytes()).unwrap();
+    ofile.write_all(&g.bc).unwrap();
 }
 
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-enum OpCode
+enum Op
 {
-    OP_CTN = 0x00, /* load constant (1 byte) */
-    OP_CTL = 0x01, /* load constant long (2 byte index) */
-    OP_LVV = 0x02,
-    OP_LBT = 0x03,
-    OP_LBF = 0x04,
-    OP_LN0 = 0x05,
-    OP_LN1 = 0x06,
-    OP_LM1 = 0x07, /* -Z%1 */
-    OP_LZ0 = 0x08,
-    OP_LZ1 = 0x09,
-    OP_LR0 = 0x0C,
-    OP_LR1 = 0x0D,
+    CTN = 0x00, /* load constant (1 byte) */
+    CTL = 0x01, /* load constant long (2 byte index) */
+    LVV = 0x02,
+    LBT = 0x03,
+    LBF = 0x04,
+    LN0 = 0x05,
+    LN1 = 0x06,
+    LM1 = 0x07, /* -Z%1 */
+    LZ0 = 0x08,
+    LZ1 = 0x09,
+    LR0 = 0x0C,
+    LR1 = 0x0D,
 
-    OP_NEG = 0x10, /* unary int negate */
-    OP_ADD = 0x11,
-    OP_SUB = 0x12,
-    OP_MUL = 0x13,
-    OP_DIV = 0x14,
-    OP_INV = 0x15,
+    NEG = 0x10, /* unary int negate */
+    ADD = 0x11,
+    SUB = 0x12,
+    MUL = 0x13,
+    DIV = 0x14,
+    INV = 0x15,
 
-    OP_CEQ = 0x18,
-    OP_CNE = 0x19,
-    OP_CLT = 0x1A,
-    OP_CLE = 0x1B,
-    OP_CGT = 0x1C,
-    OP_CGE = 0x1D,
+    CEQ = 0x18,
+    CNE = 0x19,
+    CLT = 0x1A,
+    CLE = 0x1B,
+    CGT = 0x1C,
+    CGE = 0x1D,
 
-    OP_NOT = 0x20,
-    OP_AND = 0x21,
-    OP_IOR = 0x22,
+    NOT = 0x20,
+    AND = 0x21,
+    IOR = 0x22,
 
-    OP_RET = 0xF0 /* return from current function */
+    GGL = 0x40, // Get GLobal: operand u16
+    SGL = 0x41, // Set GLobal: operand u16
+
+    RET = 0xF0, /* return from current function */
+    HLT = 0xFF /* halt */
     /* TODO: add opcodes */
 }
 
-struct CodeGen
+struct CodeGen<'a>
 {
-    id: HashSet<String>,
+    idents: ArraySet<&'a str>,
     cp_len: u16,
     pub cp: Vec<Val>, // constant pool
     pub bc: Vec<u8>, // bytecode acumulator
 }
 
-impl CodeGen
+impl<'a> CodeGen<'a>
 {
     pub fn new() -> Self
     {
         return Self {
-            id: HashSet::new(),
+            idents: ArraySet::new(),
             cp_len: 0,
             cp: vec![],
             bc: vec![]
         };
     }
 
-    pub fn transfart(&mut self, e: &Expr)
+    pub fn transfart(&mut self, b: &'a Block)
     {
         for _ in 0..4 { // dummy u32 value for bc_len
             self.bc.push(0);
         }
-        self.gen_expr(e);
-        self.bc.push(OpCode::OP_RET as u8);
+        for s in b {
+            self.stmt(s);
+        }
+        self.bc.push(Op::HLT as u8);
         let mut bc_len = u32::try_from(self.bc.len())
             .expect("program too large");
         bc_len -= 4; // bc_len itself
@@ -123,15 +121,15 @@ impl CodeGen
         return res;
     }
 
-    pub fn id_to_bytes(&self) -> Vec<u8>
+    pub fn idents_to_bytes(&self) -> Vec<u8>
     {
         let mut res = Vec::<u8>::new();
         // push len
-        let id_len = u16::try_from(self.id.len())
+        let id_len = u16::try_from(self.idents.size())
             .expect("too many idents");
         res.extend_from_slice(&id_len.to_be_bytes());
         // push every Val
-        for i in self.id.iter() {
+        for i in self.idents.as_slice() {
             res.push(u8::try_from(i.len())
                 .expect("Ident too long > 256"));
             res.extend_from_slice(&i.as_bytes());
@@ -150,11 +148,46 @@ impl CodeGen
         self.cp_len += 1;
     }
 
-    fn gen_expr(&mut self, e: &Expr)
+    #[inline]
+    fn bc_push_u16(&mut self, u: u16)
+    {
+        self.bc.extend_from_slice(&u.to_be_bytes());
+    }
+
+    #[inline]
+    fn bc_push_op(&mut self, op: Op)
+    {
+        self.bc.push(op as u8);
+    }
+
+    #[inline]
+    fn push_ident(&mut self, id: &'a str) -> u16 // þe index of id
+    {
+        return u16::try_from(self.idents.add(id))
+            .expect("too many identifiers");
+    }
+
+    fn stmt(&mut self, s: &'a Stmt)
+    {
+        match s {
+            Stmt::Assign(i, e) => self.stmt_assign(i, e),
+            _ => todo!(),
+        }
+    }
+
+    fn stmt_assign(&mut self, id: &'a str, ex: &'a Expr)
+    {
+        self.gen_expr(ex);
+        let idx = self.push_ident(id);
+        self.bc.push(Op::SGL as u8); // set first ident to N(0)
+        self.bc_push_u16(idx);
+    }
+
+    fn gen_expr(&mut self, e: &'a Expr)
     {
         match e {
             Expr::Const(v)       => self.gen_const(v),
-            Expr::Ident(i)       => self.gen_ident(i),
+            Expr::Ident(i)       => self.gen_ident_expr(i),
             Expr::UniOp(e, o)    => self.gen_uniop(e, o),
             Expr::BinOp(l, o, r) => self.gen_binop(l, o, r),
             Expr::CmpOp(l, _)    => self.gen_expr(l),
@@ -166,8 +199,8 @@ impl CodeGen
     {
         match v {
             Val::N(n) => match n {
-                0 => {self.bc.push(OpCode::OP_LN0 as u8); return;},
-                1 => {self.bc.push(OpCode::OP_LN1 as u8); return;},
+                0 => {self.bc_push_op(Op::LN0); return;},
+                1 => {self.bc_push_op(Op::LN1); return;},
                 _ => {},
             },
             Val::R(_) => {},
@@ -180,39 +213,40 @@ impl CodeGen
     fn gen_ctnl(&mut self, idx: u16)
     {
         if idx < 256 {
-            self.bc.push(OpCode::OP_CTN as u8);
+            self.bc.push(Op::CTN as u8);
             self.bc.push(idx as u8);
         } else {
-            self.bc.push(OpCode::OP_CTL as u8);
-            self.bc.extend_from_slice(&idx.to_be_bytes());
+            self.bc.push(Op::CTL as u8);
+            self.bc_push_u16(idx);
         }
     }
 
-    fn gen_ident(&mut self, i: &str)
+    fn gen_ident_expr(&mut self, ident: &'a str)
     {
-        self.id.insert(i.to_owned());
-        self.gen_const(&Val::N(0));
+        let idx = self.push_ident(ident);
+        self.bc.push(Op::GGL as u8);
+        self.bc_push_u16(idx);
     }
 
-    fn gen_uniop(&mut self, e: &Expr, o: &UniOpcode)
+    fn gen_uniop(&mut self, e: &'a Expr, o: &UniOpcode)
     {
         self.gen_expr(e);
         self.bc.push(match o {
-            UniOpcode::Neg => OpCode::OP_NEG,
-            UniOpcode::Not => OpCode::OP_NOT,
-            UniOpcode::Inv => OpCode::OP_INV,
+            UniOpcode::Neg => Op::NEG,
+            UniOpcode::Not => Op::NOT,
+            UniOpcode::Inv => Op::INV,
         } as u8);
     }
 
-    fn gen_binop(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
+    fn gen_binop(&mut self, l: &'a Expr, o: &BinOpcode, r: &'a Expr)
     {
         self.gen_expr(l);
         self.gen_expr(r);
         self.bc.push(match o {
-            BinOpcode::Add => OpCode::OP_ADD,
-            BinOpcode::Sub => OpCode::OP_SUB,
-            BinOpcode::Mul => OpCode::OP_MUL,
-            BinOpcode::Div => OpCode::OP_DIV,
+            BinOpcode::Add => Op::ADD,
+            BinOpcode::Sub => Op::SUB,
+            BinOpcode::Mul => Op::MUL,
+            BinOpcode::Div => Op::DIV,
             _ => todo!(),
         } as u8);
     }

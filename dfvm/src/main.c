@@ -6,10 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "virmac.h"
+#include "disasm.h"
 
 static void run_file(struct VirMac *vm, const char *);
 static struct Norris read_file_to_norris(const char *);
 static void run_example(struct VirMac *vm);
+static void disasm(const char *);
 
 int main(int argc, const char *argv[])
 {
@@ -18,6 +20,15 @@ int main(int argc, const char *argv[])
     switch (argc) {
       case 1: run_example(&vm); break;
       case 2: run_file(&vm, argv[1]); break;
+      case 3: {
+        if (strcmp(argv[1], "d") != 0) {
+            fprintf(stderr, "illegal argument %s \n", argv[1]);
+            virmac_free(&vm);
+            return 1;
+        }
+        disasm(argv[2]);
+        break;
+      }
       default:
         fprintf(stderr, "U idiot, provide a signle file to be run\n");
         virmac_free(&vm);
@@ -107,4 +118,11 @@ static struct Norris read_file_to_norris(const char *path)
     fclose(file);
     free(buffer);
     return res;
+}
+
+static void disasm(const char *path)
+{
+    struct Norris nor = read_file_to_norris(path);
+    disasm_norris(&nor, path);
+    norris_free(&nor);
 }

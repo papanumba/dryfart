@@ -13,9 +13,7 @@
 #define READ_BYTE() (*vm->ip++)
 
 /* static functions */
-#ifdef DEBUG
 static void print_stack(struct VirMac *);
-#endif
 static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
 void err_cant_op  (const char *, enum ValType);
@@ -57,6 +55,7 @@ static int op_ior(struct VirMac *);
 /* casts */
 static int op_cat(struct VirMac *);
 
+static int op_ggl(struct VirMac *);
 static int op_sgl(struct VirMac *);
 
 
@@ -82,7 +81,7 @@ enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
     if (vm == NULL || bc == NULL || bc->cod == NULL)
         return ITP_NULLPTR_ERR;
 #ifdef DEBUG
-    disasm_norris(bc, "main");
+/*    disasm_norris(bc, "main");*/
 #endif
     vm->norris = bc;
     vm->ip = bc->cod;
@@ -157,13 +156,21 @@ static enum ItpRes run(struct VirMac *vm)
 
           DO_OP(OP_CAT, op_cat)
 
+          DO_OP(OP_GGL, op_ggl)
           DO_OP(OP_SGL, op_sgl)
 #undef DO_OP
 
-
-          case OP_RET:
-            values_print(virmac_pop(vm));
+          case OP_RET: {
+            struct DfVal v = virmac_pop(vm);
+            values_print(&v);
             fputs("\n", stdout);
+            return ITP_OK;
+          }
+          case OP_HLT:
+            print_stack(vm);
+            puts("globals: ");
+            htable_print(&vm->globals);
+            htable_free (&vm->globals);
             return ITP_OK;
           default:
             fputs("unknown instruction\n", stderr);
@@ -171,7 +178,6 @@ static enum ItpRes run(struct VirMac *vm)
     }
 }
 
-#ifdef DEBUG
 static void print_stack(struct VirMac *vm)
 {
     struct DfVal *slot = NULL;
@@ -179,12 +185,11 @@ static void print_stack(struct VirMac *vm)
          slot != vm->sp;
          slot++) {
         printf("[");
-        values_print(*slot);
+        values_print(slot);
         printf("]");
     }
     printf("\n");
 }
-#endif
 
 /* error message for same type but invalid operations */
 void err_cant_op(const char *op, enum ValType ty)
@@ -600,6 +605,27 @@ static int op_cat(struct VirMac *vm)
     return TRUE;
 }
 
+static int op_ggl(struct VirMac *vm)
+{
+    struct DfVal  *idf_val;
+    struct ObjIdf *idf;
+    struct DfVal   ret_val;
+    /* its next operand will be a u16 index*/
+    idf_val = &vm->norris->idf.arr[b2toh(vm->ip)];
+    vm->ip += 2;
+    if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
+        fprintf(stderr, "ERROR: not an identifier\n");
+        return FALSE;
+    }
+    idf = (struct ObjIdf *) idf_val->as.o;
+    if (!htable_get(&vm->globals, idf, &ret_val)) { /* key not found */
+        fprintf(stderr, "global identifier '%s' not found\n", idf->str);
+        return FALSE;
+    }
+    virmac_push(vm, &ret_val);
+    return TRUE;
+}
+
 static int op_sgl(struct VirMac *vm)
 {
     struct DfVal  *idf_val;
@@ -612,7 +638,6 @@ static int op_sgl(struct VirMac *vm)
         return FALSE;
     }
     idf = (struct ObjIdf *) idf_val->as.o;
-    object_print(idf_val->as.o);
     htable_set(&vm->globals, idf, virmac_pop(vm));
     return TRUE;
 }

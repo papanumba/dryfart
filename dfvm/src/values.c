@@ -16,6 +16,11 @@ void values_init(struct Values *v)
 
 void values_free(struct Values *v)
 {
+    uint i;
+    for (i = 0; i < v->len; ++i) {
+        if (v->arr[i].type == VAL_O)
+            object_free(v->arr[i].as.o);
+    }
     realloc_or_free(v->arr, 0);
     values_init(v); /* set all to 0 */
 }
@@ -28,19 +33,19 @@ void values_push(struct Values *v, struct DfVal value)
     v->len++;
 }
 
-void values_print(struct DfVal value)
+void values_print(struct DfVal *value)
 {
-    switch (value.type) {
-      case VAL_V: fputs("Void", stdout);        break;
-      case VAL_B: putchar(value.as.b?'T':'F');  break;
-      case VAL_C: putchar(value.as.c);          break;
-      case VAL_N: printf("%u", value.as.n);     break;
-      case VAL_Z: printf("%d", value.as.z);     break;
-      case VAL_R: printf("%f", value.as.r);     break;
-      case VAL_O: object_print(value.as.o);     break;
-      case VAL_T: putchar(values_type_to_char(value.as.t));     break;
+    switch (value->type) {
+      case VAL_V: fputs("Void", stdout);         break;
+      case VAL_B: putchar(value->as.b?'T':'F');  break;
+      case VAL_C: putchar(value->as.c);          break;
+      case VAL_N: printf("%u", value->as.n);     break;
+      case VAL_Z: printf("%d", value->as.z);     break;
+      case VAL_R: printf("%f", value->as.r);     break;
+      case VAL_O: object_print(value->as.o);     break;
+      case VAL_T: putchar(values_type_to_char(value->as.t)); break;
       default:
-        fprintf(stderr, "unknown value.type %d\n", value.type);
+        fprintf(stderr, "unknown value.type %d\n", value->type);
         break;
     }
 }

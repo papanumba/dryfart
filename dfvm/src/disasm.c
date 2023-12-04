@@ -9,14 +9,14 @@
 static uint simple_instru(const char *, uint);
 static uint    ctn_instru(const char *, struct Norris *, uint);
 static uint    ctl_instru(const char *, struct Norris *, uint);
-static uint    sgl_instru(const char *, struct Norris *, uint);
+static uint    glo_instru(const char *, struct Norris *, uint);
 
 void disasm_norris(struct Norris *code, const char *name)
 {
     uint offset = 0;
     printf("=== %s ===\n", name);
     /*fputs("Idents: ", stdout);*/
-    /*values_print(&code->idf);*/
+    /*values_print(values_print(&code->idf);*/
     printf("len = %ld\n", code->len);
     while (offset < code->len)
         offset = disasm_instru(code, offset);
@@ -62,9 +62,11 @@ uint disasm_instru(struct Norris *code, uint offset)
 
       case OP_CAT: return simple_instru("CAT", offset);
 
-      case OP_SGL: return sgl_instru("SGL", code, offset);
+      case OP_GGL: return glo_instru("GGL", code, offset);
+      case OP_SGL: return glo_instru("SGL", code, offset);
 
       case OP_RET: return simple_instru("RET", offset);
+      case OP_HLT: return simple_instru("HLT", offset);
 
       default:
         printf("unknown opcode 0x%02x\n", instru);
@@ -82,7 +84,7 @@ static uint ctn_instru(const char *name, struct Norris *n, uint offset)
 {
     uchar c = n->cod[offset+1];
     printf("%-16s %4d (", name, c);
-    values_print(n->ctn.arr[c]);
+    values_print(&n->ctn.arr[c]);
     printf(")\n");
     return offset + 2;
 }
@@ -91,16 +93,16 @@ static uint ctl_instru(const char *name, struct Norris *n, uint offset)
 {
     uint c = b2toh(&n->cod[offset+1]);
     printf("%-16s %4d (", name, c);
-    values_print(n->ctn.arr[c]);
+    values_print(&n->ctn.arr[c]);
     printf(")\n");
     return offset + 3;
 }
 
-static uint sgl_instru(const char *name, struct Norris *n, uint offset)
+static uint glo_instru(const char *name, struct Norris *n, uint offset)
 {
     uint c = b2toh(&n->cod[offset+1]);
     printf("%-16s %4d (", name, c);
-    values_print(n->idf.arr[c]);
+    values_print(&n->idf.arr[c]);
     printf(")\n");
     return offset + 3;
 }

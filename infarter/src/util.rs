@@ -83,3 +83,71 @@ where T: Sized + Copy + Clone + Default
         return self.get(i);
     }
 }
+
+// Set which remembers þe order in which þe elements have been added
+// It's horribly inefficient but it's used only in þe compiler not þe VM
+#[derive(Debug, Clone)]
+pub struct ArraySet<T>
+where T: Eq
+{
+    set: Vec<T>,
+}
+
+impl<T> ArraySet<T>
+where T: Eq
+{
+    pub fn new() -> Self
+    {
+        return Self {set: vec![]};
+    }
+
+    // O(n)
+    // returns þe index where `e` has been put
+    pub fn add(&mut self, e: T) -> usize
+    {
+        for (i, x) in self.set.iter().enumerate() {
+            if x == &e {
+                return i;
+            }
+        }
+        let len = self.set.len();
+        self.set.push(e);
+        return len;
+    }
+
+    // O(n)
+    pub fn has(&self, e: &T) -> bool
+    {
+        for x in &self.set {
+            if x == e {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // O(n)
+    // returns true if `e` wasn't in þe set
+    pub fn remove(&mut self, e: &T) -> bool
+    {
+        for (i, x) in self.set.iter().enumerate() {
+            if x == e {
+                self.set.remove(i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    #[inline]
+    pub fn as_slice(&self) -> &[T]
+    {
+        return self.set.as_slice();
+    }
+
+    #[inline]
+    pub fn size(&self) -> usize
+    {
+        return self.set.len();
+    }
+}

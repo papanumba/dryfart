@@ -31,8 +31,7 @@ int object_eq(struct Object *o0, struct Object *o1)
 void object_free(struct Object *o)
 {
     switch (o->type) {
-      case OBJ_IDF:
-        objidf_free((struct ObjIdf *)o);
+      case OBJ_IDF: objidf_free((struct ObjIdf *)o); break;
     }
 }
 

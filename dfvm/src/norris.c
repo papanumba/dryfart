@@ -117,6 +117,5 @@ static const uchar * push_idf(struct Norris *nor, const uchar *rp)
     obj.type = VAL_O;
     obj.as.o = (struct Object *) objidf_new((char *) rp, len);
     values_push(&nor->idf, obj);
-    values_print(obj);
     return rp + len;
 }
