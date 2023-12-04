@@ -48,7 +48,11 @@ enum OpCode {
     OP_CAR = 0xEA,
     OP_CAT = 0xEE, /* cast a value into its type */
 
+    OP_JMP = 0x50,
+    OP_JBF = 0x52,
+
     OP_RET = 0xF0, /* return from current function */
+    OP_POP = 0xF8,
     OP_HLT = 0xFF /* halt */
     /* TODO: add opcodes */
 };

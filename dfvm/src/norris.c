@@ -30,12 +30,12 @@ int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
     if (nor == NULL || buf == NULL || len == 0)
         return FALSE;
     rp = buf;
-    idflen = b2toh(rp);
+    idflen = b2tohi(rp);
     rp += 2;
     for (i = 0; i < idflen; ++i)
         rp = push_idf(nor, rp);
     /* read constants */
-    ctnlen = b2toh(rp);
+    ctnlen = b2tohi(rp);
     rp += 2;
     for (i = 0; i < ctnlen; ++i) {
         uchar type = *rp++;

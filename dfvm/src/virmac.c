@@ -108,6 +108,15 @@ struct DfVal virmac_pop(struct VirMac *vm)
     return *vm->sp;
 }
 
+struct DfVal virmac_peek(struct VirMac *vm)
+{
+    if (vm->sp == vm->stack) {
+        fputs("ERROR: empty stack\n", stderr);
+        exit(1);
+    }
+    return vm->sp[-1];
+}
+
 static enum ItpRes run(struct VirMac *vm)
 {
     while (1) {
@@ -120,7 +129,7 @@ static enum ItpRes run(struct VirMac *vm)
             virmac_push(vm, &vm->norris->ctn.arr[READ_BYTE()]);
             break;
           case OP_CTL:
-            virmac_push(vm, &vm->norris->ctn.arr[b2toh(vm->ip)]);
+            virmac_push(vm, &vm->norris->ctn.arr[b2tohu(vm->ip)]);
             vm->ip += 2;
             break;
 
@@ -160,12 +169,30 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_SGL, op_sgl)
 #undef DO_OP
 
+          case OP_JMP: {
+            short dist = b2tohi(vm->ip);
+            vm->ip += 2;
+            vm->ip += dist;
+            break;
+          }
+          case OP_JBF: {
+            short dist;
+            struct DfVal b = virmac_peek(vm);
+            dist = b2tohi(vm->ip);
+            vm->ip += 2;
+            if (b.type == VAL_B && !b.as.b) {
+                vm->ip += dist;
+            }
+            break;
+          }
+
           case OP_RET: {
             struct DfVal v = virmac_pop(vm);
             values_print(&v);
             fputs("\n", stdout);
             return ITP_OK;
           }
+          case OP_POP: virmac_pop(vm); break;
           case OP_HLT:
             print_stack(vm);
             puts("globals: ");
@@ -611,7 +638,7 @@ static int op_ggl(struct VirMac *vm)
     struct ObjIdf *idf;
     struct DfVal   ret_val;
     /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[b2toh(vm->ip)];
+    idf_val = &vm->norris->idf.arr[b2tohu(vm->ip)];
     vm->ip += 2;
     if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
         fprintf(stderr, "ERROR: not an identifier\n");
@@ -631,7 +658,7 @@ static int op_sgl(struct VirMac *vm)
     struct DfVal  *idf_val;
     struct ObjIdf *idf;
     /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[b2toh(vm->ip)];
+    idf_val = &vm->norris->idf.arr[b2tohu(vm->ip)];
     vm->ip += 2;
     if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
         fprintf(stderr, "ERROR: not an identifier\n");

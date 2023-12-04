@@ -10,6 +10,7 @@ static uint simple_instru(const char *, uint);
 static uint    ctn_instru(const char *, struct Norris *, uint);
 static uint    ctl_instru(const char *, struct Norris *, uint);
 static uint    glo_instru(const char *, struct Norris *, uint);
+static uint    jmp_instru(const char *, struct Norris *, uint);
 
 void disasm_norris(struct Norris *code, const char *name)
 {
@@ -65,7 +66,11 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_GGL: return glo_instru("GGL", code, offset);
       case OP_SGL: return glo_instru("SGL", code, offset);
 
+      case OP_JMP: return jmp_instru("JMP", code, offset);
+      case OP_JBF: return jmp_instru("JBF", code, offset);
+
       case OP_RET: return simple_instru("RET", offset);
+      case OP_POP: return simple_instru("POP", offset);
       case OP_HLT: return simple_instru("HLT", offset);
 
       default:
@@ -91,7 +96,7 @@ static uint ctn_instru(const char *name, struct Norris *n, uint offset)
 
 static uint ctl_instru(const char *name, struct Norris *n, uint offset)
 {
-    uint c = b2toh(&n->cod[offset+1]);
+    uint c = b2tohu(&n->cod[offset+1]);
     printf("%-16s %4d (", name, c);
     values_print(&n->ctn.arr[c]);
     printf(")\n");
@@ -100,10 +105,16 @@ static uint ctl_instru(const char *name, struct Norris *n, uint offset)
 
 static uint glo_instru(const char *name, struct Norris *n, uint offset)
 {
-    uint c = b2toh(&n->cod[offset+1]);
+    uint c = b2tohu(&n->cod[offset+1]);
     printf("%-16s %4d (", name, c);
     values_print(&n->idf.arr[c]);
     printf(")\n");
     return offset + 3;
 }
 
+static uint jmp_instru(const char *name, struct Norris *n, uint offset)
+{
+    short c = b2tohi(&n->cod[offset+1]);
+    printf("%-16s %+4hi\n", name, c);
+    return offset + 3;
+}

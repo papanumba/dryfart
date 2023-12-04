@@ -61,12 +61,16 @@ enum Op
     AND = 0x21,
     IOR = 0x22,
 
-    GGL = 0x40, // Get GLobal: operand u16
-    SGL = 0x41, // Set GLobal: operand u16
+    GGL = 0x40, // Get GLobal: (u16)
+    SGL = 0x41, // Set GLobal: (u16)
 
-    RET = 0xF0, /* return from current function */
-    HLT = 0xFF /* halt */
-    /* TODO: add opcodes */
+    JMP = 0x50, // JuMP: (i16)
+    JBF = 0x52, // Jump Bool False: (i16)
+
+    RET = 0xF0, // RETurn from current function
+    POP = 0xF8, // POP
+    HLT = 0xFF  // HaLT
+    // TODO: add opcodes
 }
 
 struct CodeGen<'a>
@@ -89,14 +93,12 @@ impl<'a> CodeGen<'a>
         };
     }
 
-    pub fn transfart(&mut self, b: &'a Block)
+    pub fn transfart(&mut self, main: &'a Block)
     {
         for _ in 0..4 { // dummy u32 value for bc_len
             self.bc.push(0);
         }
-        for s in b {
-            self.stmt(s);
-        }
+        self.block(main);
         self.bc.push(Op::HLT as u8);
         let mut bc_len = u32::try_from(self.bc.len())
             .expect("program too large");
@@ -155,6 +157,28 @@ impl<'a> CodeGen<'a>
     }
 
     #[inline]
+    fn bc_push_i16(&mut self, i: i16)
+    {
+        self.bc.extend_from_slice(&i.to_be_bytes());
+    }
+
+    fn bc_write_u16_at(&mut self, num: u16, i: usize)
+    {
+        let b = num.to_be_bytes();
+        for k in 0..2 { // WARNING: þis will panic
+            self.bc[i + k] = b[k];
+        }
+    }
+
+    fn bc_write_i16_at(&mut self, num: i16, i: usize)
+    {
+        let b = num.to_be_bytes();
+        for k in 0..2 { // WARNING: þis will panic
+            self.bc[i + k] = b[k];
+        }
+    }
+
+    #[inline]
     fn bc_push_op(&mut self, op: Op)
     {
         self.bc.push(op as u8);
@@ -167,10 +191,18 @@ impl<'a> CodeGen<'a>
             .expect("too many identifiers");
     }
 
+    fn block(&mut self, b: &'a Block)
+    {
+        for s in b {
+            self.stmt(s);
+        }
+    }
+
     fn stmt(&mut self, s: &'a Stmt)
     {
         match s {
             Stmt::Assign(i, e) => self.stmt_assign(i, e),
+            Stmt::LoopIf(l)    => self.stmt_loopif(l),
             _ => todo!(),
         }
     }
@@ -183,6 +215,31 @@ impl<'a> CodeGen<'a>
         self.bc_push_u16(idx);
     }
 
+    fn stmt_loopif(&mut self, lo: &'a Loop)
+    {
+        match lo {
+            Loop::Ini(e, b) => self.loop_ini(e, b),
+            _ => todo!(),
+        }
+    }
+
+    fn loop_ini(&mut self, ex: &'a Expr, bl: &'a Block)
+    {
+        let begin_idx = self.bc.len() as i16;
+        self.gen_expr(ex);
+        self.bc_push_op(Op::JBF);
+        let dummy_idx = self.bc.len() as i16;
+        self.bc_push_i16(0); // dummy for later
+        self.bc_push_op(Op::POP);
+        self.block(bl);
+        self.bc_push_op(Op::JMP);
+        self.bc_push_i16(begin_idx - self.bc.len() as i16 - 2);
+        let end_idx = self.bc.len() as i16;
+        self.bc_push_op(Op::POP);
+        self.bc_write_i16_at(end_idx as i16 - dummy_idx - 2,
+            dummy_idx as usize);
+    }
+
     fn gen_expr(&mut self, e: &'a Expr)
     {
         match e {
@@ -190,7 +247,7 @@ impl<'a> CodeGen<'a>
             Expr::Ident(i)       => self.gen_ident_expr(i),
             Expr::UniOp(e, o)    => self.gen_uniop(e, o),
             Expr::BinOp(l, o, r) => self.gen_binop(l, o, r),
-            Expr::CmpOp(l, _)    => self.gen_expr(l),
+            Expr::CmpOp(l, v)    => self.gen_cmpop(l, v),
             _ => todo!(),
         }
     }
@@ -250,6 +307,22 @@ impl<'a> CodeGen<'a>
             _ => todo!(),
         } as u8);
     }
+
+    fn gen_cmpop(&mut self, l: &'a Expr, v: &'a Vec<(BinOpcode, Expr)>)
+    {
+        self.gen_expr(l);
+        match v.len() {
+            0 => return,
+            1 => {}, // normal ok
+            _ => todo!(),
+        }
+        self.gen_expr(&v[0].1);
+        self.bc.push(match v[0].0 {
+            BinOpcode::Eq => Op::CEQ,
+            BinOpcode::Ne => Op::CNE,
+            _ => todo!(),
+        } as u8);
+    }
 }
 
 impl From<&Type> for u8
@@ -275,3 +348,8 @@ fn val_to_bytes(v: &Val) -> Vec<u8>
         _ => todo!(),
     }
 }
+
+/*trait ToBeBytes {
+    type ByteArray: AsRef<[u8]>; // = [u8; 8], etc.
+    fn to_be_bytes(&self) -> Self::ByteArray;
+}*/

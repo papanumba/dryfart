@@ -17,12 +17,19 @@ void *realloc_or_free(void *ptr, size_t new_size)
 }
 
 /* expected b to be 2 byte Big Endian */
-short b2toh(const uchar *b)
+short b2tohi(const uchar *b)
 {
     union { unsigned short us; short s; } u;
     u.us = (b[0] << 8)
           | b[1];
     return u.s;
+}
+
+/* expected b to be 2 byte Big Endian */
+unsigned short b2tohu(const uchar *b)
+{
+    return (b[0] << 8)
+         |  b[1];
 }
 
 /* expected b to be 4 byte Big Endian */
