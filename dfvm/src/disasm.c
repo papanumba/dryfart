@@ -62,14 +62,17 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_IOR: return simple_instru("IOR", offset);
 
       case OP_CAT: return simple_instru("CAT", offset);
+      case OP_CAR: return simple_instru("CAR", offset);
 
       case OP_GGL: return glo_instru("GGL", code, offset);
       case OP_SGL: return glo_instru("SGL", code, offset);
 
       case OP_JMP: return jmp_instru("JMP", code, offset);
       case OP_JBF: return jmp_instru("JBF", code, offset);
+      case OP_JPF: return jmp_instru("JPF", code, offset);
 
       case OP_RET: return simple_instru("RET", offset);
+      case OP_DUP: return simple_instru("DUP", offset);
       case OP_POP: return simple_instru("POP", offset);
       case OP_HLT: return simple_instru("HLT", offset);
 
@@ -88,7 +91,7 @@ static uint simple_instru(const char *name, uint offset)
 static uint ctn_instru(const char *name, struct Norris *n, uint offset)
 {
     uchar c = n->cod[offset+1];
-    printf("%-16s %4d (", name, c);
+    printf("%-8s %4d (", name, c);
     values_print(&n->ctn.arr[c]);
     printf(")\n");
     return offset + 2;
@@ -97,7 +100,7 @@ static uint ctn_instru(const char *name, struct Norris *n, uint offset)
 static uint ctl_instru(const char *name, struct Norris *n, uint offset)
 {
     uint c = b2tohu(&n->cod[offset+1]);
-    printf("%-16s %4d (", name, c);
+    printf("%-8s %4d (", name, c);
     values_print(&n->ctn.arr[c]);
     printf(")\n");
     return offset + 3;
@@ -106,7 +109,7 @@ static uint ctl_instru(const char *name, struct Norris *n, uint offset)
 static uint glo_instru(const char *name, struct Norris *n, uint offset)
 {
     uint c = b2tohu(&n->cod[offset+1]);
-    printf("%-16s %4d (", name, c);
+    printf("%-8s %4d (", name, c);
     values_print(&n->idf.arr[c]);
     printf(")\n");
     return offset + 3;
@@ -115,6 +118,6 @@ static uint glo_instru(const char *name, struct Norris *n, uint offset)
 static uint jmp_instru(const char *name, struct Norris *n, uint offset)
 {
     short c = b2tohi(&n->cod[offset+1]);
-    printf("%-16s %+4hi\n", name, c);
+    printf("%-8s %+4hi\n", name, c);
     return offset + 3;
 }

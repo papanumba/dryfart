@@ -50,8 +50,10 @@ enum OpCode {
 
     OP_JMP = 0x50,
     OP_JBF = 0x52,
+    OP_JPF = 0x54,
 
     OP_RET = 0xF0, /* return from current function */
+    OP_DUP = 0xF1,
     OP_POP = 0xF8,
     OP_HLT = 0xFF /* halt */
     /* TODO: add opcodes */

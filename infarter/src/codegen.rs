@@ -63,11 +63,21 @@ enum Op
 
     GGL = 0x40, // Get GLobal: (u16)
     SGL = 0x41, // Set GLobal: (u16)
+    SLO = 0x44,
+    GLO = 0x45,
 
     JMP = 0x50, // JuMP: (i16)
+    // JBT
     JBF = 0x52, // Jump Bool False: (i16)
+    // JPT
+    JPF = 0x54, // Jump Pop False: (i16)
+    // JEQ, JNE also pop
+    // JLT, JLE, JGT, JGE ?
+
+    CAR = 0xEA, // CAst Real
 
     RET = 0xF0, // RETurn from current function
+    DUP = 0xF1, // DUPlicate
     POP = 0xF8, // POP
     HLT = 0xFF  // HaLT
     // TODO: add opcodes
@@ -75,6 +85,9 @@ enum Op
 
 struct CodeGen<'a>
 {
+    envlev: usize,
+    locals: ArraySet<&'a str>,
+    globals: ArraySet<&'a str>,
     idents: ArraySet<&'a str>,
     cp_len: u16,
     pub cp: Vec<Val>, // constant pool
@@ -86,7 +99,10 @@ impl<'a> CodeGen<'a>
     pub fn new() -> Self
     {
         return Self {
-            idents: ArraySet::new(),
+            envlev: 0,
+            locals:  ArraySet::new(),
+            globals: ArraySet::new(),
+            idents:  ArraySet::new(),
             cp_len: 0,
             cp: vec![],
             bc: vec![]
@@ -98,6 +114,7 @@ impl<'a> CodeGen<'a>
         for _ in 0..4 { // dummy u32 value for bc_len
             self.bc.push(0);
         }
+        self.envlev = 0;
         self.block(main);
         self.bc.push(Op::HLT as u8);
         let mut bc_len = u32::try_from(self.bc.len())
@@ -151,6 +168,12 @@ impl<'a> CodeGen<'a>
     }
 
     #[inline]
+    fn at(&self) -> usize
+    {
+        return self.bc.len();
+    }
+
+    #[inline]
     fn bc_push_u16(&mut self, u: u16)
     {
         self.bc.extend_from_slice(&u.to_be_bytes());
@@ -193,9 +216,12 @@ impl<'a> CodeGen<'a>
 
     fn block(&mut self, b: &'a Block)
     {
+        let precount = self.locals.size();
+        self.envlev += 1;
         for s in b {
             self.stmt(s);
         }
+        self.envlev -= 1;
     }
 
     fn stmt(&mut self, s: &'a Stmt)
@@ -203,6 +229,7 @@ impl<'a> CodeGen<'a>
         match s {
             Stmt::Assign(i, e) => self.stmt_assign(i, e),
             Stmt::LoopIf(l)    => self.stmt_loopif(l),
+            Stmt::IfStmt(c, b, e) => self.stmt_ifstmt(c, b, e),
             _ => todo!(),
         }
     }
@@ -210,9 +237,28 @@ impl<'a> CodeGen<'a>
     fn stmt_assign(&mut self, id: &'a str, ex: &'a Expr)
     {
         self.gen_expr(ex);
+        if /*self.globals.has(&id)*/ true { // assign existing global var
+            self.bc.push(Op::SGL as u8);
+            let idx = self.push_ident(id);
+            self.bc_push_u16(idx);
+            return;
+        }
+        if self.locals.has(&id) { // assign existing local
+            self.bc.push(Op::SLO as u8);
+            let idx = self.locals.index_of(&id).unwrap();
+            self.bc_push_u16(idx as u16);
+        }
+        // now we know `id` is a new variable
+        // check envlev to know wheþer to declare it global or local
         let idx = self.push_ident(id);
-        self.bc.push(Op::SGL as u8); // set first ident to N(0)
-        self.bc_push_u16(idx);
+        if self.envlev == 0 { // global
+            self.globals.add(&id);
+            self.bc.push(Op::SGL as u8);
+            self.bc_push_u16(idx);
+        } else { // local
+            self.bc.push(Op::SLO as u8);
+            self.locals.add(id);
+        }
     }
 
     fn stmt_loopif(&mut self, lo: &'a Loop)
@@ -227,17 +273,60 @@ impl<'a> CodeGen<'a>
     {
         let begin_idx = self.bc.len() as i16;
         self.gen_expr(ex);
-        self.bc_push_op(Op::JBF);
+        self.bc_push_op(Op::JPF);
         let dummy_idx = self.bc.len() as i16;
         self.bc_push_i16(0); // dummy for later
-        self.bc_push_op(Op::POP);
         self.block(bl);
         self.bc_push_op(Op::JMP);
         self.bc_push_i16(begin_idx - self.bc.len() as i16 - 2);
         let end_idx = self.bc.len() as i16;
-        self.bc_push_op(Op::POP);
         self.bc_write_i16_at(end_idx as i16 - dummy_idx - 2,
             dummy_idx as usize);
+    }
+
+    fn stmt_ifstmt(&mut self,
+        cond: &'a Expr,
+        bloq: &'a Block,
+        elbl: &'a Option<Block>)
+    {
+        /*
+        **  simple if
+        **
+        **  [cond]
+        **  JPF p0 --+ [branch_i]
+        **  [bloq]   |
+        **      <----+ [end_i]
+        **
+        **  if-else
+        **
+        **  [cond]
+        **  JPF p0 -----+ [branch_i]
+        **  [bloq]      |
+        **  JMP p1 ---+ | [end_t_i]
+        **  [elbl]? <-|-+ [else_i]
+        **      <-----+   [end_i]
+        */
+        self.gen_expr(cond);
+        self.bc.push(Op::JPF as u8);
+        let p0_i = self.at();
+        self.bc_push_i16(0); // dummy
+        let branch_i = self.at() as isize;
+        self.block(bloq);
+        if let Some(eb) = elbl { // if-else
+            let end_t_i = self.at() as isize;
+            self.bc.push(Op::JMP as u8);
+            let p1_i = self.at();
+            self.bc_push_i16(0); // dummy
+            let else_i = self.at() as isize;
+            self.block(eb);
+            let end_i = self.bc.len() as isize;
+            // patch
+            self.bc_write_i16_at((else_i - branch_i) as i16, p0_i);
+            self.bc_write_i16_at((end_i - end_t_i) as i16 - 3, p1_i);
+        } else { // simple if
+            let end_i = self.at() as isize;
+            self.bc_write_i16_at((end_i - branch_i) as i16, p0_i);
+        }
     }
 
     fn gen_expr(&mut self, e: &'a Expr)
@@ -245,6 +334,7 @@ impl<'a> CodeGen<'a>
         match e {
             Expr::Const(v)       => self.gen_const(v),
             Expr::Ident(i)       => self.gen_ident_expr(i),
+            Expr::Tcast(t, e)    => self.gen_tcast(t, e),
             Expr::UniOp(e, o)    => self.gen_uniop(e, o),
             Expr::BinOp(l, o, r) => self.gen_binop(l, o, r),
             Expr::CmpOp(l, v)    => self.gen_cmpop(l, v),
@@ -261,6 +351,9 @@ impl<'a> CodeGen<'a>
                 _ => {},
             },
             Val::R(_) => {},
+            Val::B(b) =>
+                if *b {self.bc_push_op(Op::LBT); return;}
+                else  {self.bc_push_op(Op::LBF); return;},
             _ => todo!(),
         }
         self.gen_ctnl(self.cp_len);
@@ -285,6 +378,15 @@ impl<'a> CodeGen<'a>
         self.bc_push_u16(idx);
     }
 
+    fn gen_tcast(&mut self, t: &Type, e: &'a Expr)
+    {
+        self.gen_expr(e);
+        match t {
+            Type::R => self.bc_push_op(Op::CAR),
+            _ => todo!(),
+        }
+    }
+
     fn gen_uniop(&mut self, e: &'a Expr, o: &UniOpcode)
     {
         self.gen_expr(e);
@@ -297,8 +399,16 @@ impl<'a> CodeGen<'a>
 
     fn gen_binop(&mut self, l: &'a Expr, o: &BinOpcode, r: &'a Expr)
     {
+        let begin = self.bc.len();
         self.gen_expr(l);
+        let mid = self.bc.len();
         self.gen_expr(r);
+        let end = self.bc.len();
+        // DUP optimization
+        if &self.bc[begin..mid] == &self.bc[mid..end] {
+            self.bc.truncate(mid);
+            self.bc_push_op(Op::DUP);
+        }
         self.bc.push(match o {
             BinOpcode::Add => Op::ADD,
             BinOpcode::Sub => Op::SUB,
@@ -320,6 +430,10 @@ impl<'a> CodeGen<'a>
         self.bc.push(match v[0].0 {
             BinOpcode::Eq => Op::CEQ,
             BinOpcode::Ne => Op::CNE,
+            BinOpcode::Lt => Op::CLT,
+            BinOpcode::Le => Op::CLE,
+            BinOpcode::Gt => Op::CGT,
+            BinOpcode::Ge => Op::CGE,
             _ => todo!(),
         } as u8);
     }

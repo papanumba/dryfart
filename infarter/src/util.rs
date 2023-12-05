@@ -139,6 +139,24 @@ where T: Eq
         return false;
     }
 
+    pub fn truncate(&mut self, newlen: usize)
+    {
+        if newlen > self.size() {
+            panic!("cannot truncate ArraySet to len bigger");
+        }
+        self.set.truncate(newlen);
+    }
+
+    pub fn index_of(&mut self, e: &T) -> Option<usize>
+    {
+        for (i, x) in self.set.iter().enumerate() {
+            if x == e {
+                return Some(i);
+            }
+        }
+        return None;
+    }
+
     #[inline]
     pub fn as_slice(&self) -> &[T]
     {

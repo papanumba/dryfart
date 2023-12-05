@@ -84,12 +84,14 @@ static struct Hentry * find_entry(
     size_t         cap,
     struct ObjIdf *key)
 {
-    uint idx = key->hsh % cap;
+    uint idx, aux;
+    aux = (cap - 1); /* bcoz cap is a 2^n number */
+    idx = key->hsh & aux;
     while (TRUE) {
         struct Hentry *e = &ent[idx];
         if (e->k == key || e->k == NULL)
             return e;
-        idx = (idx + 1) % cap; /* linear probing */
+        idx = (idx + 1) & aux; /* linear probing */
     }
 }
 

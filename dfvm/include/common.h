@@ -9,6 +9,7 @@
 #define FALSE   0
 
 typedef unsigned int uint;
+typedef unsigned short ushort;
 typedef unsigned char uchar;
 
 #endif /* DFVM_COMMON_H */

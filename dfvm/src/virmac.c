@@ -18,6 +18,8 @@ static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
 void err_cant_op  (const char *, enum ValType);
 void err_dif_types(const char *, enum ValType, enum ValType);
+static ushort read_u16(uchar **);
+static short  read_i16(uchar **);
 
 /* pre-built constant loading */
 static void op_lvv(struct VirMac *vm);
@@ -53,11 +55,14 @@ static int op_and(struct VirMac *);
 static int op_ior(struct VirMac *);
 
 /* casts */
+static int op_car(struct VirMac *);
 static int op_cat(struct VirMac *);
 
 static int op_ggl(struct VirMac *);
 static int op_sgl(struct VirMac *);
 
+static int op_jbf(struct VirMac *);
+static int op_jpf(struct VirMac *);
 
 static void reset_stack(struct VirMac *vm)
 {
@@ -108,13 +113,13 @@ struct DfVal virmac_pop(struct VirMac *vm)
     return *vm->sp;
 }
 
-struct DfVal virmac_peek(struct VirMac *vm)
+struct DfVal * virmac_peek(struct VirMac *vm)
 {
     if (vm->sp == vm->stack) {
         fputs("ERROR: empty stack\n", stderr);
         exit(1);
     }
-    return vm->sp[-1];
+    return &vm->sp[-1];
 }
 
 static enum ItpRes run(struct VirMac *vm)
@@ -129,8 +134,7 @@ static enum ItpRes run(struct VirMac *vm)
             virmac_push(vm, &vm->norris->ctn.arr[READ_BYTE()]);
             break;
           case OP_CTL:
-            virmac_push(vm, &vm->norris->ctn.arr[b2tohu(vm->ip)]);
-            vm->ip += 2;
+            virmac_push(vm, &vm->norris->ctn.arr[read_u16(&vm->ip)]);
             break;
 
           case OP_LVV: op_lvv(vm); break;
@@ -163,26 +167,19 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_AND, op_and)
           DO_OP(OP_IOR, op_ior)
 
+          DO_OP(OP_CAR, op_car)
           DO_OP(OP_CAT, op_cat)
 
           DO_OP(OP_GGL, op_ggl)
           DO_OP(OP_SGL, op_sgl)
+
+          DO_OP(OP_JBF, op_jbf)
+          DO_OP(OP_JPF, op_jpf)
 #undef DO_OP
 
           case OP_JMP: {
-            short dist = b2tohi(vm->ip);
-            vm->ip += 2;
+            short dist = read_i16(&vm->ip);
             vm->ip += dist;
-            break;
-          }
-          case OP_JBF: {
-            short dist;
-            struct DfVal b = virmac_peek(vm);
-            dist = b2tohi(vm->ip);
-            vm->ip += 2;
-            if (b.type == VAL_B && !b.as.b) {
-                vm->ip += dist;
-            }
             break;
           }
 
@@ -192,6 +189,11 @@ static enum ItpRes run(struct VirMac *vm)
             fputs("\n", stdout);
             return ITP_OK;
           }
+          case OP_DUP: {
+            struct DfVal *val = virmac_peek(vm);
+            virmac_push(vm, val);
+            break;
+          }
           case OP_POP: virmac_pop(vm); break;
           case OP_HLT:
             print_stack(vm);
@@ -199,8 +201,9 @@ static enum ItpRes run(struct VirMac *vm)
             htable_print(&vm->globals);
             htable_free (&vm->globals);
             return ITP_OK;
+
           default:
-            fputs("unknown instruction\n", stderr);
+            fprintf(stderr, "unknown instruction 02x\n");
         }
     }
 }
@@ -230,6 +233,25 @@ void err_dif_types(const char *op, enum ValType t1, enum ValType t2)
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
         op, values_type_to_char(t1), values_type_to_char(t2));
 }
+
+static ushort read_u16(uchar **ip)
+{
+    uchar *aux;
+    uchar b0, b1;
+    aux = *ip;
+    b0 = *aux++;
+    b1 = *aux++;
+    *ip = aux;
+    return (b0 << 8) | b1;
+}
+
+static short read_i16(uchar **ip)
+{
+    union {ushort u; short s;} aux;
+    aux.u = read_u16(ip);
+    return aux.s;
+}
+
 
 /* most funcs */
 
@@ -623,6 +645,23 @@ static int op_ior(struct VirMac *vm)
     return TRUE;
 }
 
+static int op_car(struct VirMac *vm)
+{
+    struct DfVal val, res;
+    val = virmac_pop(vm);
+    res.type = VAL_R;
+    switch (val.type) {
+      case VAL_N: res.as.r = (float) val.as.n; break;
+      case VAL_Z: res.as.r = (float) val.as.z; break;
+      default:
+        /*err_cast(from.type, VAL_R);*/
+        printf("err cast");
+        return FALSE;
+    }
+    virmac_push(vm, &res);
+    return TRUE;
+}
+
 static int op_cat(struct VirMac *vm)
 {
     struct DfVal res;
@@ -638,8 +677,7 @@ static int op_ggl(struct VirMac *vm)
     struct ObjIdf *idf;
     struct DfVal   ret_val;
     /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[b2tohu(vm->ip)];
-    vm->ip += 2;
+    idf_val = &vm->norris->idf.arr[read_u16(&vm->ip)];
     if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
         fprintf(stderr, "ERROR: not an identifier\n");
         return FALSE;
@@ -658,13 +696,40 @@ static int op_sgl(struct VirMac *vm)
     struct DfVal  *idf_val;
     struct ObjIdf *idf;
     /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[b2tohu(vm->ip)];
-    vm->ip += 2;
+    idf_val = &vm->norris->idf.arr[read_u16(&vm->ip)];
     if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
         fprintf(stderr, "ERROR: not an identifier\n");
         return FALSE;
     }
     idf = (struct ObjIdf *) idf_val->as.o;
     htable_set(&vm->globals, idf, virmac_pop(vm));
+    return TRUE;
+}
+
+static int op_jbf(struct VirMac *vm)
+{
+    short dist;
+    struct DfVal *b = virmac_peek(vm);
+    dist = read_i16(&vm->ip);
+    if (b->type != VAL_B) {
+        fputs("condition is not B\n", stderr);
+        return FALSE;
+    }
+    if (!b->as.b)
+        vm->ip += dist;
+    return TRUE;
+}
+
+static int op_jpf(struct VirMac *vm)
+{
+    short dist;
+    struct DfVal b = virmac_pop(vm);
+    dist = read_i16(&vm->ip);
+    if (b.type != VAL_B) {
+        fputs("condition is not B\n", stderr);
+        return FALSE;
+    }
+    if (!b.as.b)
+        vm->ip += dist;
     return TRUE;
 }

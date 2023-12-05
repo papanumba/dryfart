@@ -25,11 +25,11 @@ enum ItpRes {
     ITP_NULLPTR_ERR
 };
 
-void         virmac_init(struct VirMac *);
-void         virmac_free(struct VirMac *);
-enum ItpRes  virmac_run (struct VirMac *, struct Norris *);
-void         virmac_push(struct VirMac *, struct DfVal *);
-struct DfVal virmac_pop (struct VirMac *);
-struct DfVal virmac_peek(struct VirMac *);
+void          virmac_init(struct VirMac *);
+void          virmac_free(struct VirMac *);
+enum ItpRes   virmac_run (struct VirMac *, struct Norris *);
+void          virmac_push(struct VirMac *, struct DfVal *);
+struct DfVal  virmac_pop (struct VirMac *);
+struct DfVal *virmac_peek(struct VirMac *);
 
 #endif /* DFVM_VIRMAC_H */
