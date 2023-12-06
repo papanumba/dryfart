@@ -24,6 +24,7 @@ pub fn transfart<'a>(b: &'a Block, of: &str)
     ofile.write_all(&g.idents_to_bytes()).unwrap(); // dummy idents len
     ofile.write_all(&g.cp_to_bytes()).unwrap();
     ofile.write_all(&g.bc).unwrap();
+    println!("Successfully transfarted to {of}");
 }
 
 
@@ -60,11 +61,16 @@ enum Op
     NOT = 0x20,
     AND = 0x21,
     IOR = 0x22,
+    XOR = 0x23,
 
-    GGL = 0x40, // Get GLobal: (u16)
-    SGL = 0x41, // Set GLobal: (u16)
-    SLO = 0x44,
-    GLO = 0x45,
+    LGL = 0x40, // Load   Global Long  (u16)
+    SGL = 0x41, // Store  Global Long  (u16)
+    LLS = 0x44, // Load   Local  Short (u8)
+    SLS = 0x45, // Store  Local  Short (u8)
+    ULS = 0x46, // Update Local  Short (u8)
+    LLL = 0x47, // Load   Local  Long  (u16)
+    SLL = 0x48, // Store  Local  Long  (u16)
+    ULL = 0x49, // Update Local  Long  (u16)
 
     JMP = 0x50, // JuMP: (i16)
     // JBT
@@ -85,7 +91,8 @@ enum Op
 
 struct CodeGen<'a>
 {
-    envlev: usize,
+    scpdpt: usize,
+    precount: usize,
     locals: ArraySet<&'a str>,
     globals: ArraySet<&'a str>,
     idents: ArraySet<&'a str>,
@@ -99,7 +106,8 @@ impl<'a> CodeGen<'a>
     pub fn new() -> Self
     {
         return Self {
-            envlev: 0,
+            scpdpt: 0, // starting at global
+            precount: 0,
             locals:  ArraySet::new(),
             globals: ArraySet::new(),
             idents:  ArraySet::new(),
@@ -114,8 +122,8 @@ impl<'a> CodeGen<'a>
         for _ in 0..4 { // dummy u32 value for bc_len
             self.bc.push(0);
         }
-        self.envlev = 0;
-        self.block(main);
+        self.scpdpt = 0;
+        self.no_env_block(main);
         self.bc.push(Op::HLT as u8);
         let mut bc_len = u32::try_from(self.bc.len())
             .expect("program too large");
@@ -123,7 +131,6 @@ impl<'a> CodeGen<'a>
         for (i, b) in bc_len.to_be_bytes().iter().enumerate() {
             self.bc[i] = *b;
         }
-        println!("{}", self.bc.len());
     }
 
     pub fn cp_to_bytes(&self) -> Vec<u8>
@@ -136,7 +143,6 @@ impl<'a> CodeGen<'a>
             res.push(u8::from(&Type::from(v)));
             res.extend_from_slice(&val_to_bytes(v));
         }
-        println!("{}", res.len());
         return res;
     }
 
@@ -153,7 +159,6 @@ impl<'a> CodeGen<'a>
                 .expect("Ident too long > 256"));
             res.extend_from_slice(&i.as_bytes());
         }
-        println!("{}", res.len());
         return res;
     }
 
@@ -174,29 +179,18 @@ impl<'a> CodeGen<'a>
     }
 
     #[inline]
-    fn bc_push_u16(&mut self, u: u16)
+    fn bc_push_num<B, const N: usize>(&mut self, n: B)
+    where B: ToBeBytes<N, Bytes = [u8; N]>
     {
-        self.bc.extend_from_slice(&u.to_be_bytes());
+        self.bc.extend_from_slice(&n.to_be_bytes())
     }
 
-    #[inline]
-    fn bc_push_i16(&mut self, i: i16)
-    {
-        self.bc.extend_from_slice(&i.to_be_bytes());
-    }
 
-    fn bc_write_u16_at(&mut self, num: u16, i: usize)
+    fn bc_write_num_at<B, const N: usize>(&mut self, n: B, i: usize)
+    where B: ToBeBytes<N, Bytes = [u8; N]>
     {
-        let b = num.to_be_bytes();
-        for k in 0..2 { // WARNING: þis will panic
-            self.bc[i + k] = b[k];
-        }
-    }
-
-    fn bc_write_i16_at(&mut self, num: i16, i: usize)
-    {
-        let b = num.to_be_bytes();
-        for k in 0..2 { // WARNING: þis will panic
+        let b = n.to_be_bytes();
+        for k in 0..N { // WARNING: þis will panic
             self.bc[i + k] = b[k];
         }
     }
@@ -207,6 +201,40 @@ impl<'a> CodeGen<'a>
         self.bc.push(op as u8);
     }
 
+    #[inline] // op is an ASCII char 'L', 'S' or 'U'
+    fn op_loc(&mut self, op: u8, idx: u16)
+    {
+        if idx <= u8::MAX as u16{
+            self.bc_push_op(match op {
+                b'L' => Op::LLS,
+                b'S' => Op::SLS,
+                b'U' => Op::ULS,
+                _ => unreachable!(),
+            });
+            self.bc.push(idx as u8);
+        } else {
+            self.bc_push_op(match op {
+                b'L' => Op::LLL,
+                b'S' => Op::SLL,
+                b'U' => Op::ULL,
+                _ => unreachable!(),
+            });
+            self.bc_push_num(idx as u16);
+        }
+    }
+
+    #[inline] // op is an ASCII char 'L', 'S' or 'U'
+    fn op_glo(&mut self, op: u8, idx: u16)
+    {
+        self.bc_push_op(match op {
+            b'L' => Op::LGL,
+            b'S' => Op::SGL,
+            b'U' => todo!(),
+            _ => unreachable!(),
+        });
+        self.bc_push_num(idx);
+    }
+
     #[inline]
     fn push_ident(&mut self, id: &'a str) -> u16 // þe index of id
     {
@@ -214,14 +242,56 @@ impl<'a> CodeGen<'a>
             .expect("too many identifiers");
     }
 
-    fn block(&mut self, b: &'a Block)
+    fn enter_scope(&mut self)
     {
-        let precount = self.locals.size();
-        self.envlev += 1;
+        self.precount = self.locals.size();
+        self.scpdpt += 1;
+    }
+
+    fn exit_scope(&mut self)
+    {
+        for _ in self.precount..self.locals.size() {
+            self.bc_push_op(Op::POP);
+        }
+        self.scpdpt -= 1;
+        self.locals.truncate(self.precount);
+    }
+
+    fn print_locals(&self)
+    {
+        println!("\ndepth: {}, locals: {:?}", self.scpdpt, self.locals);
+    }
+
+    fn no_env_block(&mut self, b: &'a Block)
+    {
         for s in b {
             self.stmt(s);
         }
-        self.envlev -= 1;
+    }
+
+    fn block(&mut self, b: &'a Block)
+    {
+        self.enter_scope();
+        let pre = self.locals.size();
+        self.no_env_block(b);
+        self.precount = pre;
+        self.exit_scope();
+    }
+
+    // analizes all assigns in block `b` and returns þose þat are new
+    fn blocals(&mut self, b: &'a Block) -> ArraySet<&'a str>
+    {
+        let mut new_locals = ArraySet::new();
+        for s in b {
+            if let Stmt::Assign(i, _) = s {
+                let i_str = i.as_str();
+                if !self.globals.has(&i_str) &&
+                   !self.locals.has(&i_str) { // b local found
+                    new_locals.add(i_str);
+                }
+            }
+        }
+        return new_locals;
     }
 
     fn stmt(&mut self, s: &'a Stmt)
@@ -237,27 +307,27 @@ impl<'a> CodeGen<'a>
     fn stmt_assign(&mut self, id: &'a str, ex: &'a Expr)
     {
         self.gen_expr(ex);
-        if /*self.globals.has(&id)*/ true { // assign existing global var
-            self.bc.push(Op::SGL as u8);
-            let idx = self.push_ident(id);
-            self.bc_push_u16(idx);
+        // now check where to assign it
+        if let Some(idx) = self.locals.index_of(&id) {
+            // assign existing local
+            self.op_loc(b'S', idx as u16);
             return;
         }
-        if self.locals.has(&id) { // assign existing local
-            self.bc.push(Op::SLO as u8);
-            let idx = self.locals.index_of(&id).unwrap();
-            self.bc_push_u16(idx as u16);
+        if self.globals.has(&id) {
+            // assign existing global var
+            let idx = self.push_ident(id);
+            self.op_glo(b'S', idx);
+            return;
         }
         // now we know `id` is a new variable
-        // check envlev to know wheþer to declare it global or local
+        // check scpdpt to know wheþer to declare it global or local
         let idx = self.push_ident(id);
-        if self.envlev == 0 { // global
+        if self.scpdpt == 0 { // global
             self.globals.add(&id);
-            self.bc.push(Op::SGL as u8);
-            self.bc_push_u16(idx);
+            self.op_glo(b'S', idx);
         } else { // local
-            self.bc.push(Op::SLO as u8);
             self.locals.add(id);
+            // no op, so stack grows
         }
     }
 
@@ -271,17 +341,29 @@ impl<'a> CodeGen<'a>
 
     fn loop_ini(&mut self, ex: &'a Expr, bl: &'a Block)
     {
+        self.enter_scope();
+        // declar its vars to V
+        let loop_precount = self.locals.size();
+        for v in self.blocals(bl).as_slice() {
+            // since blocals already detected þat v is a new var
+            // assign() will create a
+            self.stmt_assign(v, &Expr::Const(Val::V));
+        }
+        // start loop
         let begin_idx = self.bc.len() as i16;
         self.gen_expr(ex);
         self.bc_push_op(Op::JPF);
         let dummy_idx = self.bc.len() as i16;
-        self.bc_push_i16(0); // dummy for later
-        self.block(bl);
+        self.bc_push_num(0_i16); // dummy for later
+        self.no_env_block(bl);
         self.bc_push_op(Op::JMP);
-        self.bc_push_i16(begin_idx - self.bc.len() as i16 - 2);
+        self.bc_push_num(begin_idx - self.bc.len() as i16 - 2);
         let end_idx = self.bc.len() as i16;
-        self.bc_write_i16_at(end_idx as i16 - dummy_idx - 2,
+        self.bc_write_num_at(end_idx as i16 - dummy_idx - 2,
             dummy_idx as usize);
+        // -------------
+        self.precount = loop_precount; // dunno, but þis is a patch
+        self.exit_scope();
     }
 
     fn stmt_ifstmt(&mut self,
@@ -309,23 +391,23 @@ impl<'a> CodeGen<'a>
         self.gen_expr(cond);
         self.bc.push(Op::JPF as u8);
         let p0_i = self.at();
-        self.bc_push_i16(0); // dummy
+        self.bc_push_num(0_i16); // dummy
         let branch_i = self.at() as isize;
         self.block(bloq);
         if let Some(eb) = elbl { // if-else
             let end_t_i = self.at() as isize;
             self.bc.push(Op::JMP as u8);
             let p1_i = self.at();
-            self.bc_push_i16(0); // dummy
+            self.bc_push_num(0_i16); // dummy
             let else_i = self.at() as isize;
             self.block(eb);
             let end_i = self.bc.len() as isize;
             // patch
-            self.bc_write_i16_at((else_i - branch_i) as i16, p0_i);
-            self.bc_write_i16_at((end_i - end_t_i) as i16 - 3, p1_i);
+            self.bc_write_num_at((else_i - branch_i) as i16, p0_i);
+            self.bc_write_num_at((end_i - end_t_i) as i16 - 3, p1_i);
         } else { // simple if
             let end_i = self.at() as isize;
-            self.bc_write_i16_at((end_i - branch_i) as i16, p0_i);
+            self.bc_write_num_at((end_i - branch_i) as i16, p0_i);
         }
     }
 
@@ -345,6 +427,7 @@ impl<'a> CodeGen<'a>
     fn gen_const(&mut self, v: &Val)
     {
         match v {
+            Val::V => {self.bc_push_op(Op::LVV); return;},
             Val::N(n) => match n {
                 0 => {self.bc_push_op(Op::LN0); return;},
                 1 => {self.bc_push_op(Op::LN1); return;},
@@ -354,7 +437,7 @@ impl<'a> CodeGen<'a>
             Val::B(b) =>
                 if *b {self.bc_push_op(Op::LBT); return;}
                 else  {self.bc_push_op(Op::LBF); return;},
-            _ => todo!(),
+            _ => todo!("{:?}", v),
         }
         self.gen_ctnl(self.cp_len);
         self.cp_push(v);
@@ -362,20 +445,28 @@ impl<'a> CodeGen<'a>
 
     fn gen_ctnl(&mut self, idx: u16)
     {
-        if idx < 256 {
+        if idx < u8::MAX as u16 {
             self.bc.push(Op::CTN as u8);
             self.bc.push(idx as u8);
         } else {
             self.bc.push(Op::CTL as u8);
-            self.bc_push_u16(idx);
+            self.bc_push_num(idx);
         }
     }
 
     fn gen_ident_expr(&mut self, ident: &'a str)
     {
-        let idx = self.push_ident(ident);
-        self.bc.push(Op::GGL as u8);
-        self.bc_push_u16(idx);
+        // check if it's a global
+        if let Some(i) = self.globals.index_of(&ident) {
+            self.op_glo(b'L', i as u16);
+            return;
+        }
+        // if it's a local
+        if let Some(i) = self.locals.index_of(&ident) {
+            self.op_loc(b'L', i as u16);
+            return;
+        }
+        panic!("cannot resolve symbol {ident}");
     }
 
     fn gen_tcast(&mut self, t: &Type, e: &'a Expr)
@@ -463,7 +554,26 @@ fn val_to_bytes(v: &Val) -> Vec<u8>
     }
 }
 
-/*trait ToBeBytes {
-    type ByteArray: AsRef<[u8]>; // = [u8; 8], etc.
-    fn to_be_bytes(&self) -> Self::ByteArray;
-}*/
+trait ToBeBytes<const N: usize>
+{
+    type Bytes;
+    fn to_be_bytes(&self) -> Self::Bytes;
+}
+
+impl ToBeBytes<2> for u16
+{
+    type Bytes = [u8; 2];
+    fn to_be_bytes(&self) -> Self::Bytes
+    {
+        return u16::to_be_bytes(*self);
+    }
+}
+
+impl ToBeBytes<2> for i16
+{
+    type Bytes = [u8; 2];
+    fn to_be_bytes(&self) -> Self::Bytes
+    {
+        return i16::to_be_bytes(*self);
+    }
+}

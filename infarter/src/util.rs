@@ -88,13 +88,13 @@ where T: Sized + Copy + Clone + Default
 // It's horribly inefficient but it's used only in þe compiler not þe VM
 #[derive(Debug, Clone)]
 pub struct ArraySet<T>
-where T: Eq
+where T: Eq + std::fmt::Debug
 {
     set: Vec<T>,
 }
 
 impl<T> ArraySet<T>
-where T: Eq
+where T: Eq + std::fmt::Debug
 {
     pub fn new() -> Self
     {
@@ -139,6 +139,7 @@ where T: Eq
         return false;
     }
 
+    // O(1)
     pub fn truncate(&mut self, newlen: usize)
     {
         if newlen > self.size() {
@@ -147,6 +148,7 @@ where T: Eq
         self.set.truncate(newlen);
     }
 
+    // O(n)
     pub fn index_of(&mut self, e: &T) -> Option<usize>
     {
         for (i, x) in self.set.iter().enumerate() {

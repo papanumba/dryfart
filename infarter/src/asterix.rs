@@ -60,6 +60,7 @@ impl std::convert::From<&Val> for Type
     fn from(v: &Val) -> Self
     {
         return match v {
+            Val::V    => todo!(),
             Val::B(_) => Type::B,
             Val::C(_) => Type::C,
             Val::N(_) => Type::N,
@@ -259,6 +260,7 @@ pub fn try_arr_el(a: &Val, i: &Val) -> Val
 #[derive(Debug, Clone, PartialEq)]
 pub enum Val
 {
+    V,
     B(bool),
     C(char),
     N(u32),

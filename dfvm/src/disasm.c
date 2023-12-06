@@ -1,6 +1,7 @@
 /* disasm.c */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "values.h"
 #include "disasm.h"
 #include "alzhmr.h"
@@ -9,7 +10,8 @@
 static uint simple_instru(const char *, uint);
 static uint    ctn_instru(const char *, struct Norris *, uint);
 static uint    ctl_instru(const char *, struct Norris *, uint);
-static uint    glo_instru(const char *, struct Norris *, uint);
+static uint    glo_instru(const char *, struct Norris *, uint, uint);
+static uint    loc_instru(const char *, struct Norris *, uint, uint);
 static uint    jmp_instru(const char *, struct Norris *, uint);
 
 void disasm_norris(struct Norris *code, const char *name)
@@ -64,8 +66,12 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_CAT: return simple_instru("CAT", offset);
       case OP_CAR: return simple_instru("CAR", offset);
 
-      case OP_GGL: return glo_instru("GGL", code, offset);
-      case OP_SGL: return glo_instru("SGL", code, offset);
+      case OP_LGL: return glo_instru("LGL", code, offset, 2);
+      case OP_SGL: return glo_instru("SGL", code, offset, 2);
+      case OP_LLS: return loc_instru("LLS", code, offset, 1);
+      case OP_SLS: return loc_instru("SLS", code, offset, 1);
+      case OP_LLL: return loc_instru("LLL", code, offset, 2);
+      case OP_SLL: return loc_instru("SLL", code, offset, 2);
 
       case OP_JMP: return jmp_instru("JMP", code, offset);
       case OP_JBF: return jmp_instru("JBF", code, offset);
@@ -106,13 +112,46 @@ static uint ctl_instru(const char *name, struct Norris *n, uint offset)
     return offset + 3;
 }
 
-static uint glo_instru(const char *name, struct Norris *n, uint offset)
+static uint glo_instru(
+    const char *name,
+    struct Norris *n,
+    uint offset,
+    uint argsize)
 {
-    uint c = b2tohu(&n->cod[offset+1]);
+    uint c;
+    offset++;
+    switch (argsize) {
+      case 1: c = n->cod[offset]; break;
+      case 2: c = b2tohu(&n->cod[offset]); break;
+      default:
+        fputs("something went rrong in glo_instru\n", stderr);
+        exit(1);
+        break;
+    }
     printf("%-8s %4d (", name, c);
     values_print(&n->idf.arr[c]);
     printf(")\n");
-    return offset + 3;
+    return offset + argsize;
+}
+
+static uint loc_instru(
+    const char *name,
+    struct Norris *n,
+    uint offset,
+    uint argsize)
+{
+    uint c;
+    offset++;
+    switch (argsize) {
+      case 1: c = n->cod[offset]; break;
+      case 2: c = b2tohu(&n->cod[offset]); break;
+      default:
+        fputs("something went rrong in loc_instru\n", stderr);
+        exit(1);
+        break;
+    }
+    printf("%-8s %4d\n", name, c);
+    return offset + argsize;
 }
 
 static uint jmp_instru(const char *name, struct Norris *n, uint offset)

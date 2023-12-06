@@ -38,8 +38,14 @@ enum OpCode {
     OP_AND = 0x21,
     OP_IOR = 0x22,
 
-    OP_GGL = 0x40, /* Get GLobal */
-    OP_SGL = 0x41, /* Set GLobal */
+    OP_LGL = 0x40, /* Load   Global Long  (u16) */
+    OP_SGL = 0x41, /* Store  Global Long  (u16) */
+    OP_LLS = 0x44, /* Load   Local  Short (u8)  */
+    OP_SLS = 0x45, /* Store  Local  Short (u8)  */
+    OP_ULS = 0x46, /* Update Local  Short (u8)  */
+    OP_LLL = 0x47, /* Load   Local  Long  (u16) */
+    OP_SLL = 0x48, /* Store  Local  Long  (u16) */
+    OP_ULL = 0x49, /* Update Local  Long  (u16) */
 
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,

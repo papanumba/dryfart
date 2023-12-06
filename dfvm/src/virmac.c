@@ -58,8 +58,11 @@ static int op_ior(struct VirMac *);
 static int op_car(struct VirMac *);
 static int op_cat(struct VirMac *);
 
-static int op_ggl(struct VirMac *);
-static int op_sgl(struct VirMac *);
+static int  op_lgl(struct VirMac *);
+static int  op_sgl(struct VirMac *);
+static void op_lls(struct VirMac *);
+static void op_sls(struct VirMac *);
+static void op_uls(struct VirMac *);
 
 static int op_jbf(struct VirMac *);
 static int op_jpf(struct VirMac *);
@@ -137,17 +140,25 @@ static enum ItpRes run(struct VirMac *vm)
             virmac_push(vm, &vm->norris->ctn.arr[read_u16(&vm->ip)]);
             break;
 
-          case OP_LVV: op_lvv(vm); break;
-          case OP_LBT: op_lbt(vm); break;
-          case OP_LBF: op_lbf(vm); break;
-          case OP_LN0: op_ln0(vm); break;
-          case OP_LN1: op_ln1(vm); break;
-          case OP_LM1: op_lm1(vm); break;
-          case OP_LZ0: op_lz0(vm); break;
-          case OP_LZ1: op_lz1(vm); break;
-          case OP_LR0: op_lr0(vm); break;
-          case OP_LR1: op_lr1(vm); break;
+/* void ops */
+#define DO_OP(op, fn) case op: fn(vm); break;
+          DO_OP(OP_LVV, op_lvv)
+          DO_OP(OP_LBT, op_lbt)
+          DO_OP(OP_LBF, op_lbf)
+          DO_OP(OP_LN0, op_ln0)
+          DO_OP(OP_LN1, op_ln1)
+          DO_OP(OP_LM1, op_lm1)
+          DO_OP(OP_LZ0, op_lz0)
+          DO_OP(OP_LZ1, op_lz1)
+          DO_OP(OP_LR0, op_lr0)
+          DO_OP(OP_LR1, op_lr1)
 
+          DO_OP(OP_LLS, op_lls)
+          DO_OP(OP_SLS, op_sls)
+          DO_OP(OP_ULS, op_uls)
+#undef DO_OP
+
+/* fallible ops */
 #define DO_OP(op, fn) case op: if (!fn(vm)) return ITP_RUNTIME_ERR; break;
           DO_OP(OP_NEG, op_neg)
           DO_OP(OP_ADD, op_add)
@@ -170,7 +181,7 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_CAR, op_car)
           DO_OP(OP_CAT, op_cat)
 
-          DO_OP(OP_GGL, op_ggl)
+          DO_OP(OP_LGL, op_lgl)
           DO_OP(OP_SGL, op_sgl)
 
           DO_OP(OP_JBF, op_jbf)
@@ -671,7 +682,7 @@ static int op_cat(struct VirMac *vm)
     return TRUE;
 }
 
-static int op_ggl(struct VirMac *vm)
+static int op_lgl(struct VirMac *vm)
 {
     struct DfVal  *idf_val;
     struct ObjIdf *idf;
@@ -704,6 +715,27 @@ static int op_sgl(struct VirMac *vm)
     idf = (struct ObjIdf *) idf_val->as.o;
     htable_set(&vm->globals, idf, virmac_pop(vm));
     return TRUE;
+}
+
+/* Load Local Short */
+static void op_lls(struct VirMac *vm)
+{
+    struct DfVal *loc = &vm->stack[READ_BYTE()];
+    virmac_push(vm, loc);
+}
+
+/* Store Local Short (u8) */
+static void op_sls(struct VirMac *vm)
+{
+    uint index = READ_BYTE();
+    vm->stack[index] = virmac_pop(vm);
+}
+
+/* Update Local Short (u8) */
+static void op_uls(struct VirMac *vm)
+{
+    uint index = READ_BYTE();
+    vm->stack[index] = *virmac_peek(vm);
 }
 
 static int op_jbf(struct VirMac *vm)
