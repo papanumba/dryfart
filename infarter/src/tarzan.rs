@@ -554,6 +554,8 @@ fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
         (Val::N(vl), Val::N(vr)) => match o {
             BinOpcode::Add => Val::N(vl + vr),
             BinOpcode::Mul => Val::N(vl * vr),
+            BinOpcode::And => Val::N(*vl & *vr),
+            BinOpcode::Or  => Val::N(*vl | *vr),
             _ => panic!("not valid operation btwin N%"),
         },
         (Val::Z(vl), Val::Z(vr)) => match o {

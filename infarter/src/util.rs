@@ -142,9 +142,9 @@ where T: Eq + std::fmt::Debug
     // O(1)
     pub fn truncate(&mut self, newlen: usize)
     {
-        if newlen > self.size() {
+/*        if newlen > self.size() {
             panic!("cannot truncate ArraySet to len bigger");
-        }
+        }*/
         self.set.truncate(newlen);
     }
 

@@ -333,37 +333,98 @@ impl<'a> CodeGen<'a>
 
     fn stmt_loopif(&mut self, lo: &'a Loop)
     {
+        let precount = self.lvv_loop(lo);
         match lo {
-            Loop::Ini(e, b) => self.loop_ini(e, b),
-            _ => todo!(),
+            Loop::Inf(b) => self.loop_inf(b),
+            Loop::Ini(   e, b) => self.loop_cond(None,    e, Some(b)),
+            Loop::Mid(p, e, b) => self.loop_cond(Some(p), e, Some(b)),
+            Loop::Fin(p, e   ) => self.loop_cond(Some(p), e, None),
         }
+        self.pop_loop(precount);
     }
 
-    fn loop_ini(&mut self, ex: &'a Expr, bl: &'a Block)
+    // helper function to preinit all variables in a loop
+    // so as not to declar þem and pop þem every iter
+    // return precount
+    fn lvv_loop(&mut self, lo: &'a Loop) -> usize
     {
+        let block = match lo {
+            Loop::Inf(b) => b,
+            Loop::Ini(_, b) => b,
+            Loop::Mid(b, _, _) => b,
+            Loop::Fin(b, _) => b,
+        };
         self.enter_scope();
         // declar its vars to V
-        let loop_precount = self.locals.size();
-        for v in self.blocals(bl).as_slice() {
+        let mut precount = self.locals.size();
+        for v in self.blocals(block).as_slice() {
             // since blocals already detected þat v is a new var
-            // assign() will create a
+            // assign() will create it as new
             self.stmt_assign(v, &Expr::Const(Val::V));
         }
-        // start loop
-        let begin_idx = self.bc.len() as i16;
-        self.gen_expr(ex);
-        self.bc_push_op(Op::JPF);
-        let dummy_idx = self.bc.len() as i16;
-        self.bc_push_num(0_i16); // dummy for later
-        self.no_env_block(bl);
-        self.bc_push_op(Op::JMP);
-        self.bc_push_num(begin_idx - self.bc.len() as i16 - 2);
-        let end_idx = self.bc.len() as i16;
-        self.bc_write_num_at(end_idx as i16 - dummy_idx - 2,
-            dummy_idx as usize);
-        // -------------
+        // check 2nd block of Mid Loop
+        if let Loop::Mid(_,_,b) = lo {
+            precount += self.locals.size();
+            for v in self.blocals(b).as_slice() {
+                self.stmt_assign(v, &Expr::Const(Val::V));
+            }
+        }
+        return precount;
+    }
+
+    fn pop_loop(&mut self, loop_precount: usize)
+    {
         self.precount = loop_precount; // dunno, but þis is a patch
         self.exit_scope();
+    }
+
+    fn loop_inf(&mut self, block: &'a Block)
+    {
+        /*  infinite loop:
+        **
+        **  [block] <--+ [jmp1]
+        **  JMP -------+ [jmp0]
+        */
+
+        let jmp1 = self.at() as isize;
+        self.no_env_block(block);
+        self.bc_push_op(Op::JMP);
+        let jmp0 = self.at() as isize + 2; // + þe idx itself
+        self.bc_push_num((jmp1 - jmp0) as i16);
+    }
+
+    fn loop_cond(&mut self,
+        b0: Option<&'a Block>,
+        cond: &'a Expr,
+        b1: Option<&'a Block>)
+    {
+        /*  conditioned loop:
+        **
+        **  [b0]? <-+   [jmp1]
+        **  [cond]  |
+        **  JPF ----|-+ [jpf0]
+        **  [b1]?   | |
+        **  JMP ----+ | [jmp0]
+        **      <-----+ [jpf1]
+        */
+
+        let jmp1 = self.at() as isize;
+        if let Some(b) = b0 {
+            self.no_env_block(b);
+        }
+        self.gen_expr(cond);
+        self.bc_push_op(Op::JPF);
+        let jpf_patch = self.at();
+        self.bc_push_num(0_i16); // patch later
+        let jpf0 = self.at() as isize;
+        if let Some(b) = b1 {
+            self.no_env_block(b);
+        }
+        self.bc_push_op(Op::JMP);
+        let jmp0 = self.at() as isize + 2; // + þe idx itself
+        self.bc_push_num((jmp1 - jmp0) as i16);
+        let jpf1 = self.at() as isize;
+        self.bc_write_num_at((jpf1 - jpf0) as i16, jpf_patch);
     }
 
     fn stmt_ifstmt(&mut self,
@@ -505,6 +566,8 @@ impl<'a> CodeGen<'a>
             BinOpcode::Sub => Op::SUB,
             BinOpcode::Mul => Op::MUL,
             BinOpcode::Div => Op::DIV,
+            BinOpcode::And => Op::AND,
+            BinOpcode::Or  => Op::IOR,
             _ => todo!(),
         } as u8);
     }
