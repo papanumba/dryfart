@@ -33,14 +33,33 @@ void values_push(struct Values *v, struct DfVal value)
     v->len++;
 }
 
+int values_eq(struct DfVal *v, struct DfVal *w)
+{
+    if (v->type != w->type)
+        return FALSE;
+    switch (v->type) {
+      case VAL_V: return TRUE;
+      case VAL_B: return !!v->as.b == !!v->as.b; /* for oþer non-0 values */
+      case VAL_C: return v->as.c == w->as.c;
+      case VAL_N: return v->as.n == w->as.n;
+      case VAL_Z: return v->as.z == w->as.z;
+      case VAL_R: return FALSE;
+      case VAL_O: return object_eq(v->as.o, w->as.o);
+      case VAL_T: return v->as.t == w->as.t; /* TODO: check for user types*/
+      default:
+        fputs("unknown type in values_eq\n", stderr);
+        return FALSE;
+    }
+}
+
 void values_print(struct DfVal *value)
 {
     switch (value->type) {
       case VAL_V: fputs("Void", stdout);         break;
       case VAL_B: putchar(value->as.b?'T':'F');  break;
       case VAL_C: putchar(value->as.c);          break;
-      case VAL_N: printf("%u", value->as.n);     break;
-      case VAL_Z: printf("%d", value->as.z);     break;
+      case VAL_N: printf("%lu", (ulong)value->as.n);     break;
+      case VAL_Z: printf("%ld", (long)value->as.z);     break;
       case VAL_R: printf("%f", value->as.r);     break;
       case VAL_O: object_print(value->as.o);     break;
       case VAL_T: putchar(values_type_to_char(value->as.t)); break;

@@ -331,7 +331,11 @@ impl<'src> Nip<'src>
             let rhs = self.add_expr()?;
             others.push((op, rhs));
         }
-        Ok(Expr::CmpOp(Box::new(first), others))
+        if others.is_empty() {
+            Ok(first)
+        } else {
+            Ok(Expr::CmpOp(Box::new(first), others))
+        }
     }
 
     fn add_expr(&mut self) -> Result<Expr, String>
@@ -453,6 +457,11 @@ impl<'src> Nip<'src>
                 },
                 Token::ValN(n) => {
                     let ret = Expr::Const(Val::N(n));
+                    self.advance();
+                    return Ok(ret);
+                },
+                Token::ValZ(z) => {
+                    let ret = Expr::Const(Val::Z(z));
                     self.advance();
                     return Ok(ret);
                 },

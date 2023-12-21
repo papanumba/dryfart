@@ -1,5 +1,6 @@
 /* alzhmr.c */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include "alzhmr.h"
 
@@ -17,16 +18,24 @@ void *realloc_or_free(void *ptr, size_t new_size)
 }
 
 /* expected b to be 2 byte Big Endian */
+char b1toc(const uchar *b)
+{
+    union { uchar u; char s; } aux;
+    aux.u = b[0];
+    return aux.s;
+}
+
+/* expected b to be 2 byte Big Endian */
 short b2tohi(const uchar *b)
 {
-    union { unsigned short us; short s; } u;
+    union { ushort us; short s; } u;
     u.us = (b[0] << 8)
           | b[1];
     return u.s;
 }
 
 /* expected b to be 2 byte Big Endian */
-unsigned short b2tohu(const uchar *b)
+ushort b2tohu(const uchar *b)
 {
     return (b[0] << 8)
          |  b[1];
@@ -61,4 +70,10 @@ float b4tof(const uchar *b)
          | (b[2] <<  8)
          |  b[3];
     return u.f;
+}
+
+void panic(const char *msg)
+{
+    fprintf(stderr, "%s\n", msg);
+    exit(1);
 }

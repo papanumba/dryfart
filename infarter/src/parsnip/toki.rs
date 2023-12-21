@@ -68,6 +68,7 @@ pub enum Token<'src>
     // literals
     ValB(bool),
     ValN(u32),
+    ValZ(i32),
     ValR(f32),
     String(&'src [u8]),
     // ??
@@ -108,6 +109,16 @@ impl Token<'_>
             std::str::from_utf8(s)
             .unwrap()
             .parse::<u32>()
+            .unwrap()
+        );
+    }
+
+    pub fn parse_valz(s: &[u8]) -> Self
+    {
+        return Token::ValZ(
+            std::str::from_utf8(s)
+            .unwrap()
+            .parse::<i32>()
             .unwrap()
         );
     }
@@ -218,6 +229,7 @@ pub enum TokenType
     // literals
     ValB,
     ValN,
+    ValZ,
     ValR,
     String,
     // ??
@@ -277,6 +289,7 @@ impl<'src> From<&Token<'src>> for TokenType
             // literals
             Token::ValB(_)  => Self::ValB,
             Token::ValN(_)  => Self::ValN,
+            Token::ValZ(_)  => Self::ValZ,
             Token::ValR(_)  => Self::ValR,
             Token::String(_)=> Self::String,
             // ??

@@ -8,11 +8,10 @@
 
 /* static functions */
 static uint simple_instru(const char *, uint);
-static uint    ctn_instru(const char *, struct Norris *, uint);
-static uint    ctl_instru(const char *, struct Norris *, uint);
+static uint    lk_instru (size_t, struct Norris *, uint);
 static uint    glo_instru(const char *, struct Norris *, uint, uint);
 static uint    loc_instru(const char *, struct Norris *, uint, uint);
-static uint    jmp_instru(const char *, struct Norris *, uint);
+static uint    jmp_instru(const char *, struct Norris *, uint, uint);
 
 void disasm_norris(struct Norris *code, const char *name)
 {
@@ -31,19 +30,23 @@ uint disasm_instru(struct Norris *code, uint offset)
     printf("%04d ", offset);
     instru = code->cod[offset];
     switch (instru) {
-      case OP_CTN: return ctn_instru("CTN", code, offset);
-      case OP_CTL: return ctl_instru("CTL", code, offset);
-
+      /* 0x0_ */
+      case OP_NOP: return simple_instru("NOP", offset);
       case OP_LVV: return simple_instru("LVV", offset);
       case OP_LBT: return simple_instru("LBT", offset);
       case OP_LBF: return simple_instru("LBF", offset);
       case OP_LN0: return simple_instru("LN0", offset);
       case OP_LN1: return simple_instru("LN1", offset);
+      case OP_LN2: return simple_instru("LN2", offset);
+      case OP_LN3: return simple_instru("LN3", offset);
       case OP_LM1: return simple_instru("LM1", offset);
       case OP_LZ0: return simple_instru("LZ0", offset);
       case OP_LZ1: return simple_instru("LZ1", offset);
+      case OP_LZ2: return simple_instru("LZ2", offset);
       case OP_LR0: return simple_instru("LR0", offset);
       case OP_LR1: return simple_instru("LR1", offset);
+      case OP_LKS: return lk_instru(1, code, offset);
+      case OP_LKL: return lk_instru(2, code, offset);
 
       case OP_NEG: return simple_instru("NEG", offset);
       case OP_ADD: return simple_instru("ADD", offset);
@@ -63,8 +66,9 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_AND: return simple_instru("AND", offset);
       case OP_IOR: return simple_instru("IOR", offset);
 
-      case OP_CAT: return simple_instru("CAT", offset);
+      case OP_CAZ: return simple_instru("CAZ", offset);
       case OP_CAR: return simple_instru("CAR", offset);
+      case OP_CAT: return simple_instru("CAT", offset);
 
       case OP_LGL: return glo_instru("LGL", code, offset, 2);
       case OP_SGL: return glo_instru("SGL", code, offset, 2);
@@ -73,9 +77,26 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_LLL: return loc_instru("LLL", code, offset, 2);
       case OP_SLL: return loc_instru("SLL", code, offset, 2);
 
-      case OP_JMP: return jmp_instru("JMP", code, offset);
-      case OP_JBF: return jmp_instru("JBF", code, offset);
-      case OP_JPF: return jmp_instru("JPF", code, offset);
+      /* 0x5_ */
+#define JMP(op, name, size) \
+    case op: return jmp_instru(name, code, offset, size);
+      JMP(OP_JJS, "JJS", 1)
+      JMP(OP_JJL, "JJL", 2)
+      JMP(OP_JBT, "JBT", 1)
+      JMP(OP_JBF, "JBF", 1)
+      JMP(OP_JTS, "JTS", 1)
+      JMP(OP_JTL, "JTL", 2)
+      JMP(OP_JFS, "JFS", 1)
+      JMP(OP_JFL, "JFL", 2)
+      JMP(OP_JES, "JES", 1)
+      JMP(OP_JEL, "JEL", 2)
+      JMP(OP_JNS, "JNS", 1)
+      JMP(OP_JNL, "JNL", 2)
+      JMP(OP_JLT, "JLT", 2)
+      case OP_JLE: return jmp_instru("JLE", code, offset, 2);
+      case OP_JGT: return jmp_instru("JGT", code, offset, 2);
+      case OP_JGE: return jmp_instru("JGE", code, offset, 2);
+#undef JMP
 
       case OP_RET: return simple_instru("RET", offset);
       case OP_DUP: return simple_instru("DUP", offset);
@@ -94,22 +115,27 @@ static uint simple_instru(const char *name, uint offset)
     return offset + 1;
 }
 
-static uint ctn_instru(const char *name, struct Norris *n, uint offset)
+static uint lk_instru(size_t len, struct Norris *n, uint offset)
 {
-    uchar c = n->cod[offset+1];
+    uchar c;
+    const char *name;
+    offset++;
+    switch (len) {
+      case 1:
+        c = n->cod[offset];
+        name = "LKS";
+        break;
+      case 2:
+        c = b2tohu(&n->cod[offset]);
+        name = "LKL";
+        break;
+      default:
+        panic("size in lk_instru is not 1 or 2");
+    }
     printf("%-8s %4d (", name, c);
     values_print(&n->ctn.arr[c]);
     printf(")\n");
-    return offset + 2;
-}
-
-static uint ctl_instru(const char *name, struct Norris *n, uint offset)
-{
-    uint c = b2tohu(&n->cod[offset+1]);
-    printf("%-8s %4d (", name, c);
-    values_print(&n->ctn.arr[c]);
-    printf(")\n");
-    return offset + 3;
+    return offset + len;
 }
 
 static uint glo_instru(
@@ -154,9 +180,22 @@ static uint loc_instru(
     return offset + argsize;
 }
 
-static uint jmp_instru(const char *name, struct Norris *n, uint offset)
+static uint jmp_instru(
+    const char *name,
+    struct Norris *n,
+    uint offset,
+    uint argsize)
 {
-    short c = b2tohi(&n->cod[offset+1]);
+    int c;
+    offset++;
+    switch (argsize) {
+      case 1: c = b1toc(&n->cod[offset]); break;
+      case 2: c = b2tohi(&n->cod[offset]); break;
+      default:
+        fputs("something went rrong in loc_instru\n", stderr);
+        exit(1);
+        break;
+    }
     printf("%-8s %+4hi\n", name, c);
-    return offset + 3;
+    return offset + argsize;
 }

@@ -7,7 +7,9 @@
 #include "alzhmr.h"
 
 static void grow(struct Norris *, uint);
+static int check_magic_df(const uchar *);
 static const uchar * push_val_n(struct Norris *, const uchar *);
+static const uchar * push_val_z(struct Norris *, const uchar *);
 static const uchar * push_val_r(struct Norris *, const uchar *);
 static const uchar * push_idf  (struct Norris *, const uchar *);
 
@@ -30,17 +32,35 @@ int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
     if (nor == NULL || buf == NULL || len == 0)
         return FALSE;
     rp = buf;
+    if (!check_magic_df(rp)) {
+        fputs("magic number err\n", stderr);
+        return FALSE;
+    }
+    rp += 8;
+#ifdef DEBUG
+    puts("read goodly magic numbr");
+#endif
     idflen = b2tohi(rp);
     rp += 2;
+#ifdef DEBUG
+    printf("gonna read %hu identifier(s)\n", (ushort)idflen);
+#endif
     for (i = 0; i < idflen; ++i)
         rp = push_idf(nor, rp);
+#ifdef DEBUG
+    puts("read goodly idents");
+#endif
     /* read constants */
     ctnlen = b2tohi(rp);
     rp += 2;
+#ifdef DEBUG
+    printf("gonna read %hu constant(s)\n", (ushort)ctnlen);
+#endif
     for (i = 0; i < ctnlen; ++i) {
         uchar type = *rp++;
         switch (type) {
           case VAL_N: rp = push_val_n(nor, rp); break;
+          case VAL_Z: rp = push_val_z(nor, rp); break;
           case VAL_R: rp = push_val_r(nor, rp); break;
           default:
             fprintf(stderr, "found constant of type %c\n",
@@ -91,12 +111,31 @@ static void grow(struct Norris *n, uint newcap)
     n->cap = newcap;
 }
 
+static int check_magic_df(const uchar *buff)
+{
+    static uchar magic[8] = {0xDF, 'D', 'R', 'Y', 'F', 'A', 'R', 'T'};
+    for (uint i = 0; i < 8; ++i) {
+        if (buff[i] != magic[i])
+            return FALSE;
+    }
+    return TRUE;
+}
+
 static const uchar * push_val_n(struct Norris *nor, const uchar *rp)
 {
     struct DfVal valn;
     valn.type = VAL_N;
     valn.as.n = b4tou(rp);
     norris_push_ctn(nor, valn);
+    return rp + 4;
+}
+
+static const uchar * push_val_z(struct Norris *nor, const uchar *rp)
+{
+    struct DfVal valz;
+    valz.type = VAL_N;
+    valz.as.z = b4toi(rp);
+    norris_push_ctn(nor, valz);
     return rp + 4;
 }
 
@@ -116,6 +155,11 @@ static const uchar * push_idf(struct Norris *nor, const uchar *rp)
     len = *rp++;
     obj.type = VAL_O;
     obj.as.o = (struct Object *) objidf_new((char *) rp, len);
+    if (rp[len] != '\0') /* check null terminator */
+        panic("\\0 not found at end of identifier");
     values_push(&nor->idf, obj);
-    return rp + len;
+#ifdef DEBUG
+    printf("read goodly ident: \"%s\"\n", (char *)rp);
+#endif /* DEBUG */
+    return rp + len + 1;
 }

@@ -7,18 +7,22 @@
 #include "values.h"
 
 enum OpCode {
-    OP_CTN = 0x00, /* load constant */
-    OP_CTL = 0x01, /* load constant long */
-    OP_LVV = 0x02,
-    OP_LBT = 0x03,
-    OP_LBF = 0x04,
-    OP_LN0 = 0x05,
-    OP_LN1 = 0x06,
-    OP_LM1 = 0x07, /* -Z%1 */
-    OP_LZ0 = 0x08,
-    OP_LZ1 = 0x09,
+    OP_NOP = 0x00,
+    OP_LVV = 0x01,
+    OP_LBT = 0x02,
+    OP_LBF = 0x03,
+    OP_LN0 = 0x04,
+    OP_LN1 = 0x05,
+    OP_LN2 = 0x06,
+    OP_LN3 = 0x07,
+    OP_LM1 = 0x08,
+    OP_LZ0 = 0x09,
+    OP_LZ1 = 0x0A,
+    OP_LZ2 = 0x0B,
     OP_LR0 = 0x0C,
     OP_LR1 = 0x0D,
+    OP_LKS = 0x0E,
+    OP_LKL = 0x0F,
 
     OP_NEG = 0x10, /* unary int negate */
     OP_ADD = 0x11,
@@ -54,9 +58,22 @@ enum OpCode {
     OP_CAR = 0xEA,
     OP_CAT = 0xEE, /* cast a value into its type */
 
-    OP_JMP = 0x50,
-    OP_JBF = 0x52,
-    OP_JPF = 0x54,
+    OP_JJS = 0x50,
+    OP_JJL = 0x51,
+    OP_JBT = 0x52,
+    OP_JBF = 0x53,
+    OP_JTS = 0x54,
+    OP_JTL = 0x55,
+    OP_JFS = 0x56,
+    OP_JFL = 0x57,
+    OP_JES = 0x58,
+    OP_JEL = 0x59,
+    OP_JNS = 0x5A,
+    OP_JNL = 0x5B,
+    OP_JLT = 0x5C,
+    OP_JLE = 0x5D,
+    OP_JGT = 0x5E,
+    OP_JGE = 0x5F,
 
     OP_RET = 0xF0, /* return from current function */
     OP_DUP = 0xF1,

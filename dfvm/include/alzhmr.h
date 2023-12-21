@@ -11,10 +11,12 @@
 #define GROW_CAP(c) ((c) < 8 ? 8 : (c) * 2)
 
 void *realloc_or_free(void *, size_t);
-short          b2tohi(const uchar *); /* BIG ENDIAN */
-unsigned short b2tohu(const uchar *);
-int            b4toi (const uchar *);
-uint           b4tou (const uchar *);
-float          b4tof (const uchar *);
+char   b1toc (const uchar *);
+short  b2tohi(const uchar *); /* BIG ENDIAN */
+ushort b2tohu(const uchar *);
+int    b4toi (const uchar *);
+uint   b4tou (const uchar *);
+float  b4tof (const uchar *);
+void panic(const char *);
 
 #endif /* DFVM_ALZHMR_H */

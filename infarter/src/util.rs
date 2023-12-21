@@ -166,8 +166,20 @@ where T: Eq + std::fmt::Debug
     }
 
     #[inline]
+    pub fn iter(&self) -> std::slice::Iter<'_, T>
+    {
+        return self.set.iter();
+    }
+
+    #[inline]
     pub fn size(&self) -> usize
     {
         return self.set.len();
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool
+    {
+        return self.set.is_empty();
     }
 }

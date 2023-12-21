@@ -18,20 +18,19 @@ static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
 void err_cant_op  (const char *, enum ValType);
 void err_dif_types(const char *, enum ValType, enum ValType);
-static ushort read_u16(uchar **);
-static short  read_i16(uchar **);
+
+static int8_t   read_i8 (struct VirMac *);
+static uint16_t read_u16(struct VirMac *);
+static int16_t  read_i16(struct VirMac *);
+static int dfval_eq(struct DfVal *, struct DfVal *);
+static int dfval_ne(struct DfVal *, struct DfVal *);
 
 /* pre-built constant loading */
-static void op_lvv(struct VirMac *vm);
-static void op_lbt(struct VirMac *vm);
-static void op_lbf(struct VirMac *vm);
-static void op_ln0(struct VirMac *vm);
-static void op_ln1(struct VirMac *vm);
-static void op_lm1(struct VirMac *vm);
-static void op_lz0(struct VirMac *vm);
-static void op_lz1(struct VirMac *vm);
-static void op_lr0(struct VirMac *vm);
-static void op_lr1(struct VirMac *vm);
+static void op_lvv(struct VirMac *);
+static void op_lb(struct VirMac *, int);
+static void op_ln(struct VirMac *, uint32_t);
+static void op_lz(struct VirMac *, int32_t);
+static void op_lr(struct VirMac *, float);
 
 /* numeric */
 static int op_neg(struct VirMac *);
@@ -42,12 +41,12 @@ static int op_div(struct VirMac *);
 static int op_inv(struct VirMac *);
 
 /* comparison */
-static int op_ceq(struct VirMac *);
-static int op_cne(struct VirMac *);
-static int op_clt(struct VirMac *);
-static int op_cle(struct VirMac *);
-static int op_cgt(struct VirMac *);
-static int op_cge(struct VirMac *);
+static void op_ceq(struct VirMac *);
+static void op_cne(struct VirMac *);
+static int  op_clt(struct VirMac *);
+static int  op_cle(struct VirMac *);
+static int  op_cgt(struct VirMac *);
+static int  op_cge(struct VirMac *);
 
 /* boolean & bitwise */
 static int op_not(struct VirMac *);
@@ -55,6 +54,7 @@ static int op_and(struct VirMac *);
 static int op_ior(struct VirMac *);
 
 /* casts */
+static int op_caz(struct VirMac *);
 static int op_car(struct VirMac *);
 static int op_cat(struct VirMac *);
 
@@ -65,7 +65,8 @@ static void op_sls(struct VirMac *);
 static void op_uls(struct VirMac *);
 
 static int op_jbf(struct VirMac *);
-static int op_jpf(struct VirMac *);
+static int op_jfl(struct VirMac *);
+static int op_jfs(struct VirMac *);
 
 static void reset_stack(struct VirMac *vm)
 {
@@ -98,65 +99,89 @@ enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
 
 void virmac_push(struct VirMac *vm, struct DfVal *v)
 {
+#ifdef SAFE
     if (vm->sp == &vm->stack[STACK_MAX]) {
         fputs("ERROR: stack overflow\n", stderr);
         exit(1);
     }
+#endif /* SAFE */
     *vm->sp = *v;
     vm->sp++;
 }
 
 struct DfVal virmac_pop(struct VirMac *vm)
 {
+#ifdef SAFE
     if (vm->sp == vm->stack) {
         fputs("ERROR: empty stack\n", stderr);
         exit(1);
     }
+#endif /* SAFE */
     vm->sp--;
     return *vm->sp;
 }
 
 struct DfVal * virmac_peek(struct VirMac *vm)
 {
+#ifdef SAFE
     if (vm->sp == vm->stack) {
         fputs("ERROR: empty stack\n", stderr);
         exit(1);
     }
+#endif /* SAFE */
     return &vm->sp[-1];
 }
 
 static enum ItpRes run(struct VirMac *vm)
 {
     while (1) {
+        uchar ins;
 #ifdef DEBUG
         print_stack(vm);
         disasm_instru(vm->norris, (uint) (vm->ip - vm->norris->cod));
-#endif
-        switch (READ_BYTE()) {
-          case OP_CTN:
-            virmac_push(vm, &vm->norris->ctn.arr[READ_BYTE()]);
-            break;
-          case OP_CTL:
-            virmac_push(vm, &vm->norris->ctn.arr[read_u16(&vm->ip)]);
-            break;
+#endif /* DEBUG */
+        ins = READ_BYTE();
+        switch (ins) {
+          case OP_NOP: break;
 
 /* void ops */
 #define DO_OP(op, fn) case op: fn(vm); break;
           DO_OP(OP_LVV, op_lvv)
-          DO_OP(OP_LBT, op_lbt)
-          DO_OP(OP_LBF, op_lbf)
-          DO_OP(OP_LN0, op_ln0)
-          DO_OP(OP_LN1, op_ln1)
-          DO_OP(OP_LM1, op_lm1)
-          DO_OP(OP_LZ0, op_lz0)
-          DO_OP(OP_LZ1, op_lz1)
-          DO_OP(OP_LR0, op_lr0)
-          DO_OP(OP_LR1, op_lr1)
 
           DO_OP(OP_LLS, op_lls)
           DO_OP(OP_SLS, op_sls)
           DO_OP(OP_ULS, op_uls)
+
+          DO_OP(OP_CEQ, op_ceq)
+          DO_OP(OP_CNE, op_cne)
 #undef DO_OP
+
+/* consts */
+#define DO_L(op, fn, val) case op: fn(vm, val); break;
+          DO_L(OP_LBT, op_lb, TRUE)
+          DO_L(OP_LBF, op_lb, FALSE)
+          DO_L(OP_LN0, op_ln, 0)
+          DO_L(OP_LN1, op_ln, 1)
+          DO_L(OP_LN2, op_ln, 2)
+          DO_L(OP_LN3, op_ln, 3)
+          DO_L(OP_LM1, op_lz, -1)
+          DO_L(OP_LZ0, op_lz, 0)
+          DO_L(OP_LZ1, op_lz, 1)
+          DO_L(OP_LZ2, op_lz, 2)
+          DO_L(OP_LR0, op_lr, 0.0f)
+          DO_L(OP_LR1, op_lr, 1.0f)
+#undef DO_L
+
+          case OP_LKS: {
+            uchar idx = READ_BYTE();
+            virmac_push(vm, &vm->norris->ctn.arr[idx]);
+            break;
+          }
+          case OP_LKL: {
+            ushort idx = read_u16(vm);
+            virmac_push(vm, &vm->norris->ctn.arr[idx]);
+            break;
+          }
 
 /* fallible ops */
 #define DO_OP(op, fn) case op: if (!fn(vm)) return ITP_RUNTIME_ERR; break;
@@ -167,8 +192,6 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_DIV, op_div)
           DO_OP(OP_INV, op_inv)
 
-          DO_OP(OP_CEQ, op_ceq)
-          DO_OP(OP_CNE, op_cne)
           DO_OP(OP_CLT, op_clt)
           DO_OP(OP_CLE, op_cle)
           DO_OP(OP_CGT, op_cgt)
@@ -178,6 +201,7 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_AND, op_and)
           DO_OP(OP_IOR, op_ior)
 
+          DO_OP(OP_CAZ, op_caz)
           DO_OP(OP_CAR, op_car)
           DO_OP(OP_CAT, op_cat)
 
@@ -185,11 +209,17 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_SGL, op_sgl)
 
           DO_OP(OP_JBF, op_jbf)
-          DO_OP(OP_JPF, op_jpf)
+          DO_OP(OP_JFS, op_jfs)
+          DO_OP(OP_JFL, op_jfl)
 #undef DO_OP
 
-          case OP_JMP: {
-            short dist = read_i16(&vm->ip);
+          case OP_JJS: {
+            int dist = read_i8(vm);
+            vm->ip += dist;
+            break;
+          }
+          case OP_JJL: {
+            int dist = read_i16(vm);
             vm->ip += dist;
             break;
           }
@@ -214,7 +244,7 @@ static enum ItpRes run(struct VirMac *vm)
             return ITP_OK;
 
           default:
-            fprintf(stderr, "unknown instruction 02x\n");
+            fprintf(stderr, "unknown instruction %02x\n", ins);
         }
     }
 }
@@ -225,7 +255,7 @@ static void print_stack(struct VirMac *vm)
     for (slot = &vm->stack[0];
          slot != vm->sp;
          slot++) {
-        printf("[");
+        printf("[%c%%", values_type_to_char(slot->type));
         values_print(slot);
         printf("]");
     }
@@ -245,24 +275,65 @@ void err_dif_types(const char *op, enum ValType t1, enum ValType t2)
         op, values_type_to_char(t1), values_type_to_char(t2));
 }
 
-static ushort read_u16(uchar **ip)
+static uint16_t read_u16(struct VirMac *vm)
 {
-    uchar *aux;
-    uchar b0, b1;
-    aux = *ip;
-    b0 = *aux++;
-    b1 = *aux++;
-    *ip = aux;
+    uint8_t b0, b1;
+    b0 = READ_BYTE();
+    b1 = READ_BYTE();
     return (b0 << 8) | b1;
 }
 
-static short read_i16(uchar **ip)
+static int16_t read_i16(struct VirMac *vm)
 {
-    union {ushort u; short s;} aux;
-    aux.u = read_u16(ip);
+    union {uint16_t u; int16_t s;} aux;
+    aux.u = read_u16(vm);
     return aux.s;
 }
 
+static int8_t read_i8(struct VirMac *vm)
+{
+    union {uint8_t u; int8_t s;} aux;
+    aux.u = READ_BYTE();
+    return aux.s;
+}
+
+static int dfval_eq(struct DfVal *v, struct DfVal *w)
+{
+    if (v->type != w->type)
+        return FALSE;
+    switch (v->type) {
+      case VAL_V: return TRUE;
+      case VAL_B: return !!v->as.b == !!w->as.b; /* for oþer non-0 values */
+      case VAL_C: return v->as.c == w->as.c;
+      case VAL_N: return v->as.n == w->as.n;
+      case VAL_Z: return v->as.z == w->as.z;
+      case VAL_R: return FALSE;
+      case VAL_O: return object_eq(v->as.o, w->as.o);
+      case VAL_T: return v->as.t == w->as.t; /* TODO: check for user types*/
+      default:
+        fputs("unknown type in dfval_eq\n", stderr);
+        return FALSE;
+    }
+}
+
+static int dfval_ne(struct DfVal *v, struct DfVal *w)
+{
+    if (v->type != w->type)
+        return TRUE;
+    switch (v->type) {
+      case VAL_V: return FALSE;
+      case VAL_B: return v->as.b != w->as.b;
+      case VAL_C: return v->as.c != w->as.c;
+      case VAL_N: return v->as.n != w->as.n;
+      case VAL_Z: return v->as.z != w->as.z;
+      case VAL_R: return TRUE;
+      case VAL_O: return !object_eq(v->as.o, w->as.o); /* ! eq */
+      case VAL_T: return v->as.t != w->as.t; /* TODO: check for user types*/
+      default:
+        fputs("unknown type in dfval_ne\n", stderr);
+        return TRUE;
+    }
+}
 
 /* most funcs */
 
@@ -273,76 +344,36 @@ static void op_lvv(struct VirMac *vm)
     virmac_push(vm, &v);
 }
 
-static void op_lbt(struct VirMac *vm)
+static void op_lb(struct VirMac *vm, int b)
 {
-    struct DfVal bt;
-    bt.type = VAL_B;
-    bt.as.b = TRUE;
-    virmac_push(vm, &bt);
+    struct DfVal vb;
+    vb.type = VAL_B;
+    vb.as.b = b;
+    virmac_push(vm, &vb);
 }
 
-static void op_lbf(struct VirMac *vm)
+static void op_ln(struct VirMac *vm, uint32_t n)
 {
-    struct DfVal bf;
-    bf.type = VAL_B;
-    bf.as.b = FALSE;
-    virmac_push(vm, &bf);
+    struct DfVal vn;
+    vn.type = VAL_N;
+    vn.as.n = n;
+    virmac_push(vm, &vn);
 }
 
-static void op_ln0(struct VirMac *vm)
+static void op_lz(struct VirMac *vm, int32_t z)
 {
-    struct DfVal n0;
-    n0.type = VAL_N;
-    n0.as.n = 0;
-    virmac_push(vm, &n0);
+    struct DfVal vz;
+    vz.type = VAL_Z;
+    vz.as.z = z;
+    virmac_push(vm, &vz);
 }
 
-static void op_ln1(struct VirMac *vm)
+static void op_lr(struct VirMac *vm, float r)
 {
-    struct DfVal n1;
-    n1.type = VAL_N;
-    n1.as.n = 1;
-    virmac_push(vm, &n1);
-}
-
-static void op_lm1(struct VirMac *vm)
-{
-    struct DfVal m1;
-    m1.type = VAL_Z;
-    m1.as.z = 1;
-    virmac_push(vm, &m1);
-}
-
-static void op_lz0(struct VirMac *vm)
-{
-    struct DfVal z0;
-    z0.type = VAL_Z;
-    z0.as.z = 0;
-    virmac_push(vm, &z0);
-}
-
-static void op_lz1(struct VirMac *vm)
-{
-    struct DfVal z1;
-    z1.type = VAL_Z;
-    z1.as.z = 1;
-    virmac_push(vm, &z1);
-}
-
-static void op_lr0(struct VirMac *vm)
-{
-    struct DfVal r0;
-    r0.type = VAL_R;
-    r0.as.r = 0.0;
-    virmac_push(vm, &r0);
-}
-
-static void op_lr1(struct VirMac *vm)
-{
-    struct DfVal r1;
-    r1.type = VAL_R;
-    r1.as.r = 1.0;
-    virmac_push(vm, &r1);
+    struct DfVal vr;
+    vr.type = VAL_R;
+    vr.as.r = r;
+    virmac_push(vm, &vr);
 }
 
 static int op_neg(struct VirMac *vm)
@@ -437,7 +468,13 @@ static int op_div(struct VirMac *vm)
     }
     res.type = lhs.type;
     switch (lhs.type) {
-      case VAL_R: res.as.r = lhs.as.r / rhs.as.r; break;
+      case VAL_R:
+#ifdef SAFE
+        if (rhs.as.r == 0.0f)
+            panic("ERROR: Division by 0.0");
+#endif /* SAFE */
+        res.as.r = lhs.as.r / rhs.as.r;
+        break;
       default:
         err_cant_op("/", lhs.type);
         return FALSE;
@@ -446,72 +483,34 @@ static int op_div(struct VirMac *vm)
     return TRUE;
 }
 
+/* TODO: why is þis slower þan LR1 [expr] DIV ? */
 static int op_inv(struct VirMac *vm)
 {
-    struct DfVal val, res;
-    val = virmac_pop(vm);
-    res.type = val.type;
-    switch (val.type) {
-      case VAL_R: res.as.r = 1.0f / val.as.r; break;
-      default:
-        err_cant_op("unary /", val.type);
+    struct DfVal *val = virmac_peek(vm);
+    if (val->type != VAL_R) {
+        err_cant_op("unary /", val->type);
         return FALSE;
     }
-    virmac_push(vm, &res);
+    val->as.r = 1.0f / val->as.r;
     return TRUE;
 }
 
-static int op_ceq(struct VirMac *vm)
+static void op_ceq(struct VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
+    struct DfVal *lhs, rhs;
     rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type) {
-        err_dif_types("==", lhs.type, rhs.type);
-        return FALSE;
-    }
-    res.type = VAL_B;
-    switch (lhs.type) {
-      case VAL_B: res.as.b = (lhs.as.b == rhs.as.b); break;
-      case VAL_C: res.as.b = (lhs.as.c == rhs.as.c); break;
-      case VAL_N: res.as.b = (lhs.as.n == rhs.as.n); break;
-      case VAL_Z: res.as.b = (lhs.as.z == rhs.as.z); break;
-      /*case VAL_O: res.as.b = object_eq(lhs.as.o, rhs.as.o); break;*/
-      case VAL_R:
-        fputs("ERROR: use an epsilon to compare R% values u idiot\n", stderr);
-        return FALSE;
-      default:
-        err_cant_op("==", lhs.type);
-        return FALSE;
-    }
-    virmac_push(vm, &res);
-    return TRUE;
+    lhs = virmac_peek(vm);
+    lhs->as.b = dfval_eq(lhs, &rhs);
+    lhs->type = VAL_B;
 }
 
-static int op_cne(struct VirMac *vm)
+static void op_cne(struct VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
+    struct DfVal *lhs, rhs;
     rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type) {
-        err_dif_types("~=", lhs.type, rhs.type);
-        return FALSE;
-    }
-    res.type = VAL_B;
-    switch (lhs.type) {
-      case VAL_B: res.as.b = (lhs.as.b != rhs.as.b); break;
-      case VAL_C: res.as.b = (lhs.as.c != rhs.as.c); break;
-      case VAL_N: res.as.b = (lhs.as.n != rhs.as.n); break;
-      case VAL_Z: res.as.b = (lhs.as.z != rhs.as.z); break;
-      case VAL_R:
-        fputs("ERROR: use an epsilon to compare R% values u idiot\n", stderr);
-        return FALSE;
-      default:
-        err_cant_op("~=", lhs.type);
-        return FALSE;
-    }
-    virmac_push(vm, &res);
-    return TRUE;
+    lhs = virmac_peek(vm);
+    lhs->as.b = dfval_ne(lhs, &rhs); /* ! eq */
+    lhs->type = VAL_B;
 }
 
 static int op_clt(struct VirMac *vm)
@@ -656,20 +655,41 @@ static int op_ior(struct VirMac *vm)
     return TRUE;
 }
 
-static int op_car(struct VirMac *vm)
+static int op_caz(struct VirMac *vm)
 {
-    struct DfVal val, res;
-    val = virmac_pop(vm);
-    res.type = VAL_R;
-    switch (val.type) {
-      case VAL_N: res.as.r = (float) val.as.n; break;
-      case VAL_Z: res.as.r = (float) val.as.z; break;
+    struct DfVal *val = virmac_peek(vm);
+    switch (val->type) {
+      case VAL_N:
+#ifdef SAFE
+        if (val->as.n > (uint32_t) INT32_MAX) {
+            fputs("ERROR: Overflow casting to Z\n", stderr);
+            return FALSE;
+        }
+#endif /* SAFE */
+        val->as.z = (int32_t) val->as.n; break;
+      case VAL_Z: return TRUE; /* do noþing */
       default:
         /*err_cast(from.type, VAL_R);*/
         printf("err cast");
         return FALSE;
     }
-    virmac_push(vm, &res);
+    val->type = VAL_Z;
+    return TRUE;
+}
+
+static int op_car(struct VirMac *vm)
+{
+    struct DfVal *val = virmac_peek(vm);
+    switch (val->type) {
+      case VAL_N: val->as.r = (float) val->as.n; break;
+      case VAL_Z: val->as.r = (float) val->as.z; break;
+      case VAL_R: return TRUE; /* do noþing */
+      default:
+        /*err_cast(from.type, VAL_R);*/
+        printf("err cast R");
+        return FALSE;
+    }
+    val->type = VAL_R;
     return TRUE;
 }
 
@@ -688,7 +708,7 @@ static int op_lgl(struct VirMac *vm)
     struct ObjIdf *idf;
     struct DfVal   ret_val;
     /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[read_u16(&vm->ip)];
+    idf_val = &vm->norris->idf.arr[read_u16(vm)];
     if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
         fprintf(stderr, "ERROR: not an identifier\n");
         return FALSE;
@@ -707,7 +727,7 @@ static int op_sgl(struct VirMac *vm)
     struct DfVal  *idf_val;
     struct ObjIdf *idf;
     /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[read_u16(&vm->ip)];
+    idf_val = &vm->norris->idf.arr[read_u16(vm)];
     if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
         fprintf(stderr, "ERROR: not an identifier\n");
         return FALSE;
@@ -740,28 +760,48 @@ static void op_uls(struct VirMac *vm)
 
 static int op_jbf(struct VirMac *vm)
 {
-    short dist;
     struct DfVal *b = virmac_peek(vm);
-    dist = read_i16(&vm->ip);
     if (b->type != VAL_B) {
         fputs("condition is not B\n", stderr);
         return FALSE;
     }
-    if (!b->as.b)
+    if (!b->as.b) {
+        int dist = read_i16(vm);
         vm->ip += dist;
+    } else {
+        vm->ip += 2;
+    }
     return TRUE;
 }
 
-static int op_jpf(struct VirMac *vm)
+static int op_jfs(struct VirMac *vm)
 {
-    short dist;
     struct DfVal b = virmac_pop(vm);
-    dist = read_i16(&vm->ip);
     if (b.type != VAL_B) {
         fputs("condition is not B\n", stderr);
         return FALSE;
     }
-    if (!b.as.b)
+    if (!b.as.b) {
+        int dist = read_i8(vm);
         vm->ip += dist;
+    } else {
+        vm->ip++;
+    }
+    return TRUE;
+}
+
+static int op_jfl(struct VirMac *vm)
+{
+    struct DfVal b = virmac_pop(vm);
+    if (b.type != VAL_B) {
+        fputs("condition is not B\n", stderr);
+        return FALSE;
+    }
+    if (!b.as.b) {
+        int dist = read_i16(vm);
+        vm->ip += dist;
+    } else {
+        vm->ip += 2;
+    }
     return TRUE;
 }

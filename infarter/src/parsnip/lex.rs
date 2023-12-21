@@ -58,9 +58,7 @@ impl<'src> Luthor<'src>
     {
         if !self.is_at_end() {
             self.next_pos += 1;
-        }/* else {
-            panic!("found EOF when advancing");
-        }*/
+        }
     }
 
     // skips whitespaces and updates self.line when finding '\n'
@@ -154,7 +152,7 @@ impl<'src> Luthor<'src>
                 b'=' => self.from_equal(),  // =, ==, =>
                 b'<' => self.from_langle(), // <, <=
                 b'>' => self.from_rangle(), // >, >=
-                b'0'..=b'9' => self.get_num(), // N or R
+                b'0'..=b'9' => self.get_num(), // N, Z or R
                 b'a'..=b'z' | b'A'..=b'Z' => self.get_ident(),
                 b'"' => self.get_string(),
                 b'\'' => self.comment(),
@@ -246,10 +244,15 @@ impl<'src> Luthor<'src>
                  break;
             }
         }
-        // til here we'll have a N% "\d+" number
+        if self.matches::<0>(b'U') || self.matches::<0>(b'u') {
+            let n = Token::parse_valn(self.lexeme());
+            self.advance(); // [Uu]
+            return n;
+        }
+        // til here we'll have a "\d+" number
         // þen check weþr it's a R% "\d+\.\d+"
         if !(self.matches::<0>(b'.') && self.has_digit_next()) {
-            return Token::parse_valn(self.lexeme());
+            return Token::parse_valz(self.lexeme());
         }
         self.advance(); // get past þe dot '.'
         while let Some(c) = self.peek::<0>() {

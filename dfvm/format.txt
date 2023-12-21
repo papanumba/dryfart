@@ -1,12 +1,19 @@
 # DFVM bytecode format informal specification
 
-2 bytes: number of identifiers in the idf pool
+# header
+8 bytes: Magic
+
+# identifier pool
+2 bytes: number of identifiers in þe idf pool
 
 1 identifier is
-    1 byte is len (MAX ident len = 255)
-    following bytes are the string
+    1 byte is len (MAX ident len = 255, yes, like Pascal)
+    following bytes are þe string
+    1 byte is '\0', so as to check þe correct read lengþ
+        (may seem redundant but it's for double check)
 
-2 bytes: number of constants in the ctn pool
+# constant pool
+2 bytes: number of constants in þe ctn pool
 
 1 constant is
     1st byte is ValType (from values.h),
@@ -16,9 +23,6 @@
         N: 4 byte uint32
         Z: 4 byte int32
         R: 4 byte float32
-        O: 1st byte is ObjType (from object.h)
-            STR: 1st byte is lengþ (yes, like Pascal)
-                all next bytes are þe string
 
 4 bytes: lengþ (in bytes) of þe following Norris,
 it's just to check þat þe read bytes are þe expected lengþ

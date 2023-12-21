@@ -48,8 +48,8 @@ struct DfVal {
     union {
         int b; /* int used as 0 or !0 */
         char c;
-        uint n;
-        int z;
+        uint32_t n;
+        int32_t z;
         float r;
         struct Object *o;
         enum ValType t;
@@ -65,6 +65,7 @@ struct Values {
 void values_init(struct Values *);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
+/*int  values_eq  (struct DfVal *, struct DfVal *);*/
 void values_print(struct DfVal *);
 char values_type_to_char(enum ValType);
 
