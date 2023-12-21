@@ -1,7 +1,7 @@
 /* common.h */
 
-#ifndef DFVM_COMMON_H
-#define DFVM_COMMON_H
+#ifndef FLATVM_COMMON_H
+#define FLATVM_COMMON_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -20,4 +20,4 @@ typedef unsigned short ushort;
 typedef unsigned int   uint;
 typedef unsigned long  ulong;
 
-#endif /* DFVM_COMMON_H */
+#endif /* FLATVM_COMMON_H */

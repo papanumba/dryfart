@@ -1,7 +1,7 @@
 /* virmac.h */
 
-#ifndef DFVM_VIRMAC_H
-#define DFVM_VIRMAC_H
+#ifndef FLATVM_VIRMAC_H
+#define FLATVM_VIRMAC_H
 
 #include "common.h"
 #include "norris.h"
@@ -32,4 +32,4 @@ void          virmac_push(struct VirMac *, struct DfVal *);
 struct DfVal  virmac_pop (struct VirMac *);
 struct DfVal *virmac_peek(struct VirMac *);
 
-#endif /* DFVM_VIRMAC_H */
+#endif /* FLATVM_VIRMAC_H */

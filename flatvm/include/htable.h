@@ -1,7 +1,7 @@
 /* htable.h */
 
-#ifndef DFVM_HTABLE_H
-#define DFVM_HTABLE_H
+#ifndef FLATVM_HTABLE_H
+#define FLATVM_HTABLE_H
 
 #include "common.h"
 #include "object.h"
@@ -26,4 +26,4 @@ void htable_print(struct Htable *);
 /*int  htable_del (struct Htable *, struct ObjIdf *);*/
 
 
-#endif /* DFVM_HTABLE_H */
+#endif /* FLATVM_HTABLE_H */

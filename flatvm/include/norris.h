@@ -1,7 +1,7 @@
 /* norris.h */
 
-#ifndef DFVM_NORRIS_H
-#define DFVM_NORRIS_H
+#ifndef FLATVM_NORRIS_H
+#define FLATVM_NORRIS_H
 
 #include "common.h"
 #include "values.h"
@@ -97,4 +97,4 @@ void norris_free     (struct Norris *);
 void norris_push_byte(struct Norris *, uchar);
 uint norris_push_ctn (struct Norris *, struct DfVal);
 
-#endif /* DFVM_NORRIS_H */
+#endif /* FLATVM_NORRIS_H */

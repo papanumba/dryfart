@@ -1,7 +1,7 @@
 /* values.h */
 
-#ifndef DFVM_VALUES_H
-#define DFVM_VALUES_H
+#ifndef FLATVM_VALUES_H
+#define FLATVM_VALUES_H
 
 #include "common.h"
 
@@ -69,4 +69,4 @@ void values_push(struct Values *, struct DfVal);
 void values_print(struct DfVal *);
 char values_type_to_char(enum ValType);
 
-#endif /* DFVM_VALUES_H */
+#endif /* FLATVM_VALUES_H */

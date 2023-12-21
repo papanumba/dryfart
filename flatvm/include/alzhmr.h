@@ -1,7 +1,7 @@
 /* alzhmr.h */
 
-#ifndef DFVM_ALZHMR_H
-#define DFVM_ALZHMR_H
+#ifndef FLATVM_ALZHMR_H
+#define FLATVM_ALZHMR_H
 
 #include "common.h"
 
@@ -19,4 +19,4 @@ uint   b4tou (const uchar *);
 float  b4tof (const uchar *);
 void panic(const char *);
 
-#endif /* DFVM_ALZHMR_H */
+#endif /* FLATVM_ALZHMR_H */

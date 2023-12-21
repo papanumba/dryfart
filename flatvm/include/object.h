@@ -1,7 +1,7 @@
 /* object.h */
 
-#ifndef DFVM_OBJECT_H
-#define DFVM_OBJECT_H
+#ifndef FLATVM_OBJECT_H
+#define FLATVM_OBJECT_H
 
 #include "common.h"
 #include "values.h"
@@ -26,4 +26,4 @@ int  object_eq   (struct Object *, struct Object *);
 void object_free (struct Object *);
 struct ObjIdf * objidf_new(const char *, size_t);
 
-#endif /* DFVM_OBJECT_H */
+#endif /* FLATVM_OBJECT_H */
