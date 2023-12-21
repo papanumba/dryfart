@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import *
 import hieliter
 
 
-INFARTER_PATH_STR = "../infarter/target/release/infarter"
+INFARTER_PATH_STR = "../infarter/target/debug/infarter"
 
 def get_name(f):
     if f is None:
@@ -48,6 +48,9 @@ class Main(QMainWindow):
         self.button_new.clicked.connect(self.new_file)
         # set analize() to the button_analize
         self.button_analize.clicked.connect(self.analize)
+        # shortcuts
+        self.sc_run = QShortcut(QtGui.QKeySequence("Ctrl+R"), self)
+        self.sc_run.activated.connect(self.analize)
         self.sc_save = QShortcut(QtGui.QKeySequence("Ctrl+S"), self)
         self.sc_save.activated.connect(self.save_file)
 
