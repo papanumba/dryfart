@@ -27,6 +27,8 @@ pub enum ImOp
     MUL,
     DIV,
     INV,
+    INC,
+    DEC,
 
     CEQ,
     CNE,
@@ -91,6 +93,10 @@ pub enum Term
     JJX(BbIdx), // contain a index for a basic block target
     JBF(BbIdx),
     JFX(BbIdx),
+    JLT(BbIdx),
+    JLE(BbIdx),
+    JGT(BbIdx),
+    JGE(BbIdx),
     RET,
     HLT,
     PCH(bool), // patch indicator, should not end up in þe resultant Cfg
@@ -110,7 +116,11 @@ impl Term
             Term::PCH(b) => *b,
             Term::NOP    |
             Term::JBF(_) |
-            Term::JFX(_) => true,
+            Term::JFX(_) |
+            Term::JLT(_) |
+            Term::JLE(_) |
+            Term::JGT(_) |
+            Term::JGE(_) => true,
             _ => false,
         }
     }
@@ -120,7 +130,11 @@ impl Term
         match self {
             Term::JJX(i) |
             Term::JBF(i) |
-            Term::JFX(i) => Some(*i),
+            Term::JFX(i) |
+            Term::JLT(i) |
+            Term::JLE(i) |
+            Term::JGT(i) |
+            Term::JGE(i) => Some(*i),
             _ => None,
         }
     }
@@ -297,8 +311,10 @@ impl<'a> Cfg<'a>
 
     fn block(&mut self, b: &'a Block)
     {
+        let presize = self.presize;
         self.enter_scope();
         self.no_env_block(b);
+        self.presize = presize;
         self.exit_scope();
     }
 

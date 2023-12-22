@@ -49,6 +49,8 @@ pub enum Op
     MUL = 0x13,
     DIV = 0x14,
     INV = 0x15,
+    INC = 0x16,
+    DEC = 0x17,
 
     CEQ = 0x18,
     CNE = 0x19,
@@ -76,6 +78,10 @@ pub enum Op
     JBF = 0x53,
     JFS = 0x56,
     JFL = 0x57,
+    JLT = 0x5C,
+    JLE = 0x5D,
+    JGT = 0x5E,
+    JGE = 0x5F,
 
     CAZ = 0xE8,
     CAR = 0xEA, // CAst Real
@@ -110,6 +116,10 @@ impl Op
         match j {
             Term::JJX(_) => Some(Op::JJL),
             Term::JFX(_) => Some(Op::JFL),
+            Term::JLT(_) => Some(Op::JLT),
+            Term::JLE(_) => Some(Op::JLE),
+            Term::JGT(_) => Some(Op::JGT),
+            Term::JGE(_) => Some(Op::JGE),
             _ => None,
         }
     }
@@ -142,6 +152,8 @@ impl TryFrom<ImOp> for Op
             ImOp::MUL => Ok(Op::MUL),
             ImOp::DIV => Ok(Op::DIV),
             ImOp::INV => Ok(Op::INV),
+            ImOp::INC => Ok(Op::INC),
+            ImOp::DEC => Ok(Op::DEC),
 
             ImOp::CEQ => Ok(Op::CEQ),
             ImOp::CNE => Ok(Op::CNE),

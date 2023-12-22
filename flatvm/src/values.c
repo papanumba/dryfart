@@ -58,8 +58,8 @@ void values_print(struct DfVal *value)
       case VAL_V: fputs("Void", stdout);         break;
       case VAL_B: putchar(value->as.b?'T':'F');  break;
       case VAL_C: putchar(value->as.c);          break;
-      case VAL_N: printf("%lu", (ulong)value->as.n);     break;
-      case VAL_Z: printf("%ld", (long)value->as.z);     break;
+      case VAL_N: printf("%luu", (ulong)value->as.n);     break;
+      case VAL_Z: printf("%ld",   (long)value->as.z);     break;
       case VAL_R: printf("%f", value->as.r);     break;
       case VAL_O: object_print(value->as.o);     break;
       case VAL_T: putchar(values_type_to_char(value->as.t)); break;

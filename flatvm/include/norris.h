@@ -24,12 +24,14 @@ enum OpCode {
     OP_LKS = 0x0E,
     OP_LKL = 0x0F,
 
-    OP_NEG = 0x10, /* unary int negate */
+    OP_NEG = 0x10,
     OP_ADD = 0x11,
     OP_SUB = 0x12,
     OP_MUL = 0x13,
     OP_DIV = 0x14,
-    OP_INV = 0x15, /* unary float invert */
+    OP_INV = 0x15,
+    OP_INC = 0x16,
+    OP_DEC = 0x17,
 
     OP_CEQ = 0x18,
     OP_CNE = 0x19,

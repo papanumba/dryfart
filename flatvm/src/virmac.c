@@ -11,6 +11,7 @@
 #endif
 
 #define READ_BYTE() (*vm->ip++)
+#define CMP_ERR     2
 
 /* static functions */
 static void print_stack(struct VirMac *);
@@ -24,6 +25,12 @@ static uint16_t read_u16(struct VirMac *);
 static int16_t  read_i16(struct VirMac *);
 static int dfval_eq(struct DfVal *, struct DfVal *);
 static int dfval_ne(struct DfVal *, struct DfVal *);
+static int dfval_lt(struct DfVal *, struct DfVal *);
+static int dfval_le(struct DfVal *, struct DfVal *);
+static int dfval_gt(struct DfVal *, struct DfVal *);
+static int dfval_ge(struct DfVal *, struct DfVal *);
+static void vm_js_if(struct VirMac *, int);
+static void vm_jl_if(struct VirMac *, int);
 
 /* pre-built constant loading */
 static void op_lvv(struct VirMac *);
@@ -39,6 +46,8 @@ static int op_sub(struct VirMac *);
 static int op_mul(struct VirMac *);
 static int op_div(struct VirMac *);
 static int op_inv(struct VirMac *);
+static int op_inc(struct VirMac *);
+static int op_dec(struct VirMac *);
 
 /* comparison */
 static void op_ceq(struct VirMac *);
@@ -67,6 +76,10 @@ static void op_uls(struct VirMac *);
 static int op_jbf(struct VirMac *);
 static int op_jfl(struct VirMac *);
 static int op_jfs(struct VirMac *);
+static int op_jlt(struct VirMac *);
+static int op_jle(struct VirMac *);
+static int op_jgt(struct VirMac *);
+static int op_jge(struct VirMac *);
 
 static void reset_stack(struct VirMac *vm)
 {
@@ -191,6 +204,8 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_MUL, op_mul)
           DO_OP(OP_DIV, op_div)
           DO_OP(OP_INV, op_inv)
+          DO_OP(OP_INC, op_inc)
+          DO_OP(OP_DEC, op_dec)
 
           DO_OP(OP_CLT, op_clt)
           DO_OP(OP_CLE, op_cle)
@@ -211,6 +226,10 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_JBF, op_jbf)
           DO_OP(OP_JFS, op_jfs)
           DO_OP(OP_JFL, op_jfl)
+          DO_OP(OP_JLT, op_jlt)
+          DO_OP(OP_JLE, op_jle)
+          DO_OP(OP_JGT, op_jgt)
+          DO_OP(OP_JGE, op_jge)
 #undef DO_OP
 
           case OP_JJS: {
@@ -332,6 +351,50 @@ static int dfval_ne(struct DfVal *v, struct DfVal *w)
       default:
         fputs("unknown type in dfval_ne\n", stderr);
         return TRUE;
+    }
+}
+
+/* see C99's §6.5.8 Relational Operators ¶6 */
+
+#define DFVAL_CMP_FN(name, cmpop) \
+static int name(struct DfVal *lhs, struct DfVal *rhs) \
+{                                                   \
+    if (lhs->type != rhs->type)                     \
+        return CMP_ERR;                             \
+    switch (lhs->type) {                            \
+      case VAL_N: return lhs->as.n cmpop rhs->as.n; \
+      case VAL_Z: return lhs->as.z cmpop rhs->as.z; \
+      case VAL_R: return lhs->as.r cmpop rhs->as.r; \
+      default:    return CMP_ERR;                   \
+    }                                               \
+}
+
+DFVAL_CMP_FN(dfval_lt, <)
+DFVAL_CMP_FN(dfval_le, <=)
+DFVAL_CMP_FN(dfval_gt, >)
+DFVAL_CMP_FN(dfval_ge, >=)
+
+#undef DFVAL_CMP_FN
+
+/* jump short if `cond` */
+static void vm_js_if(struct VirMac *vm, int cond)
+{
+    if (cond) {
+        int dist = read_i8(vm);
+        vm->ip += dist;
+    } else {
+        vm->ip += 1;
+    }
+}
+
+/* jump long if `cond` */
+static void vm_jl_if(struct VirMac *vm, int cond)
+{
+    if (cond) {
+        int dist = read_i16(vm);
+        vm->ip += dist;
+    } else {
+        vm->ip += 2;
     }
 }
 
@@ -495,6 +558,32 @@ static int op_inv(struct VirMac *vm)
     return TRUE;
 }
 
+static int op_inc(struct VirMac *vm)
+{
+    struct DfVal *val = virmac_peek(vm);
+    switch (val->type) {
+        case VAL_N: val->as.n += 1; break;
+        case VAL_Z: val->as.z += 1; break;
+        default:
+            err_cant_op("1 +", val->type);
+            return FALSE;
+    }
+    return TRUE;
+}
+
+static int op_dec(struct VirMac *vm)
+{
+    struct DfVal *val = virmac_peek(vm);
+    switch (val->type) {
+/*        case VAL_N: val->as.n += 1; break;*/
+        case VAL_Z: val->as.z -= 1; break;
+        default:
+            err_cant_op("1 +", val->type);
+            return FALSE;
+    }
+    return TRUE;
+}
+
 static void op_ceq(struct VirMac *vm)
 {
     struct DfVal *lhs, rhs;
@@ -515,7 +604,20 @@ static void op_cne(struct VirMac *vm)
 
 static int op_clt(struct VirMac *vm)
 {
+    int ord;
     struct DfVal lhs, rhs, res;
+    rhs = virmac_pop(vm);
+    lhs = virmac_pop(vm);
+    ord = dfval_lt(&lhs, &rhs);
+    if (ord == CMP_ERR) {
+        err_dif_types("<", lhs.type, rhs.type);
+        return FALSE;
+    }
+    res.type = VAL_B;
+    res.as.b = ord;
+    virmac_push(vm, &res);
+    return TRUE;
+/*    struct DfVal lhs, rhs, res;
     rhs = virmac_pop(vm);
     lhs = virmac_pop(vm);
     if (lhs.type != rhs.type) {
@@ -532,7 +634,7 @@ static int op_clt(struct VirMac *vm)
         return FALSE;
     }
     virmac_push(vm, &res);
-    return TRUE;
+    return TRUE;*/
 }
 
 static int op_cle(struct VirMac *vm)
@@ -765,12 +867,7 @@ static int op_jbf(struct VirMac *vm)
         fputs("condition is not B\n", stderr);
         return FALSE;
     }
-    if (!b->as.b) {
-        int dist = read_i16(vm);
-        vm->ip += dist;
-    } else {
-        vm->ip += 2;
-    }
+    vm_js_if(vm, !b->as.b);
     return TRUE;
 }
 
@@ -781,12 +878,7 @@ static int op_jfs(struct VirMac *vm)
         fputs("condition is not B\n", stderr);
         return FALSE;
     }
-    if (!b.as.b) {
-        int dist = read_i8(vm);
-        vm->ip += dist;
-    } else {
-        vm->ip++;
-    }
+    vm_js_if(vm, !b.as.b);
     return TRUE;
 }
 
@@ -797,11 +889,30 @@ static int op_jfl(struct VirMac *vm)
         fputs("condition is not B\n", stderr);
         return FALSE;
     }
-    if (!b.as.b) {
-        int dist = read_i16(vm);
-        vm->ip += dist;
-    } else {
-        vm->ip += 2;
-    }
+    vm_jl_if(vm, !b.as.b);
     return TRUE;
 }
+
+#define OP_J_CMP(name, cmp_fn, msg) \
+static int name(struct VirMac *vm)      \
+{                                       \
+    int cmp;                            \
+    struct DfVal lhs, rhs;              \
+    rhs = virmac_pop(vm);               \
+    lhs = virmac_pop(vm);               \
+    switch ((cmp = cmp_fn(&lhs, &rhs))) { \
+      case CMP_ERR:                     \
+        err_dif_types(msg, lhs.type, rhs.type); \
+        return FALSE;                   \
+      default:                          \
+        vm_jl_if(vm, cmp);              \
+        return TRUE;                    \
+    }                                   \
+}
+
+OP_J_CMP(op_jlt, dfval_lt, "<")
+OP_J_CMP(op_jle, dfval_le, "<=")
+OP_J_CMP(op_jgt, dfval_gt, ">")
+OP_J_CMP(op_jge, dfval_ge, ">=")
+
+#undef OP_J_CMP

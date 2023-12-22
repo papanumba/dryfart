@@ -1,4 +1,4 @@
-# DFVM bytecode format informal specification
+# FlatVM bytecode format informal specification
 
 # header
 8 bytes: Magic

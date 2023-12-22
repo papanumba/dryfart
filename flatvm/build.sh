@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CFLAGS="-std=c99 -Wpedantic -Wall -Wextra -Iinclude"
+CFLAGS="-std=c99 -Wpedantic -Wall -Wextra -Iinclude -o flatvm"
 
 if [ "$1" = "-g" ];
 then

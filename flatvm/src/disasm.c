@@ -54,6 +54,8 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_MUL: return simple_instru("MUL", offset);
       case OP_DIV: return simple_instru("DIV", offset);
       case OP_INV: return simple_instru("INV", offset);
+      case OP_INC: return simple_instru("INC", offset);
+      case OP_DEC: return simple_instru("DEC", offset);
 
       case OP_CEQ: return simple_instru("CEQ", offset);
       case OP_CNE: return simple_instru("CNE", offset);
@@ -93,9 +95,9 @@ uint disasm_instru(struct Norris *code, uint offset)
       JMP(OP_JNS, "JNS", 1)
       JMP(OP_JNL, "JNL", 2)
       JMP(OP_JLT, "JLT", 2)
-      case OP_JLE: return jmp_instru("JLE", code, offset, 2);
-      case OP_JGT: return jmp_instru("JGT", code, offset, 2);
-      case OP_JGE: return jmp_instru("JGE", code, offset, 2);
+      JMP(OP_JLE, "JLE", 2)
+      JMP(OP_JGT, "JGT", 2)
+      JMP(OP_JGE, "JGE", 2)
 #undef JMP
 
       case OP_RET: return simple_instru("RET", offset);

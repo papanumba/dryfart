@@ -3,7 +3,7 @@ lines=0
 cd infarter
 lines=$(($lines+$(./lines.sh)))
 cd ..
-cd dfvm
+cd flatvm
 lines=$(($lines+$(./lines.sh)))
 cd ..
 cd dfarted
