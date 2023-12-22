@@ -602,106 +602,31 @@ static void op_cne(struct VirMac *vm)
     lhs->type = VAL_B;
 }
 
-static int op_clt(struct VirMac *vm)
-{
-    int ord;
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
-    ord = dfval_lt(&lhs, &rhs);
-    if (ord == CMP_ERR) {
-        err_dif_types("<", lhs.type, rhs.type);
-        return FALSE;
-    }
-    res.type = VAL_B;
-    res.as.b = ord;
-    virmac_push(vm, &res);
-    return TRUE;
-/*    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type) {
-        err_dif_types("<", lhs.type, rhs.type);
-        return FALSE;
-    }
-    res.type = VAL_B;
-    switch (lhs.type) {
-      case VAL_N: res.as.b = (lhs.as.n < rhs.as.n); break;
-      case VAL_Z: res.as.b = (lhs.as.z < rhs.as.z); break;
-      case VAL_R: res.as.b = (lhs.as.r < rhs.as.r); break;
-      default:
-        err_cant_op("<", lhs.type);
-        return FALSE;
-    }
-    virmac_push(vm, &res);
-    return TRUE;*/
+#define OP_CMP(name, cmp_fn, msg) \
+static int name(struct VirMac *vm)      \
+{                                       \
+    int cmp;                            \
+    struct DfVal lhs, rhs, res;         \
+    rhs = virmac_pop(vm);               \
+    lhs = virmac_pop(vm);               \
+    switch ((cmp = cmp_fn(&lhs, &rhs))) { \
+      case CMP_ERR:                     \
+        err_dif_types(msg, lhs.type, rhs.type); \
+        return FALSE;                   \
+      default:                          \
+        res.type = VAL_B;               \
+        res.as.b = cmp;                 \
+        virmac_push(vm, &res);          \
+        return TRUE;                    \
+    }                                   \
 }
 
-static int op_cle(struct VirMac *vm)
-{
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type) {
-        err_dif_types("<=", lhs.type, rhs.type);
-        return FALSE;
-    }
-    res.type = VAL_B;
-    switch (lhs.type) {
-      case VAL_N: res.as.b = (lhs.as.n <= rhs.as.n); break;
-      case VAL_Z: res.as.b = (lhs.as.z <= rhs.as.z); break;
-      case VAL_R: res.as.b = (lhs.as.r <= rhs.as.r); break;
-      default:
-        err_cant_op("<=", lhs.type);
-        return FALSE;
-    }
-    virmac_push(vm, &res);
-    return TRUE;
-}
+OP_CMP(op_clt, dfval_lt, "<")
+OP_CMP(op_cle, dfval_le, "<=")
+OP_CMP(op_cgt, dfval_gt, ">")
+OP_CMP(op_cge, dfval_ge, ">=")
 
-static int op_cgt(struct VirMac *vm)
-{
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type) {
-        err_dif_types(">", lhs.type, rhs.type);
-        return FALSE;
-    }
-    res.type = VAL_B;
-    switch (lhs.type) {
-      case VAL_N: res.as.b = (lhs.as.n > rhs.as.n); break;
-      case VAL_Z: res.as.b = (lhs.as.z > rhs.as.z); break;
-      case VAL_R: res.as.b = (lhs.as.r > rhs.as.r); break;
-      default:
-        err_cant_op(">", lhs.type);
-        return FALSE;
-    }
-    virmac_push(vm, &res);
-    return TRUE;
-}
-
-static int op_cge(struct VirMac *vm)
-{
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type) {
-        err_dif_types(">=", lhs.type, rhs.type);
-        return FALSE;
-    }
-    res.type = VAL_B;
-    switch (lhs.type) {
-      case VAL_N: res.as.b = (lhs.as.n >= rhs.as.n); break;
-      case VAL_Z: res.as.b = (lhs.as.z >= rhs.as.z); break;
-      case VAL_R: res.as.b = (lhs.as.r >= rhs.as.r); break;
-      default:
-        err_cant_op(">=", lhs.type);
-        return FALSE;
-    }
-    virmac_push(vm, &res);
-    return TRUE;
-}
+#undef OP_CMP
 
 static int op_not(struct VirMac *vm)
 {
@@ -910,9 +835,9 @@ static int name(struct VirMac *vm)      \
     }                                   \
 }
 
-OP_J_CMP(op_jlt, dfval_lt, "<")
-OP_J_CMP(op_jle, dfval_le, "<=")
-OP_J_CMP(op_jgt, dfval_gt, ">")
-OP_J_CMP(op_jge, dfval_ge, ">=")
+OP_J_CMP(op_jlt, dfval_lt, ">=")
+OP_J_CMP(op_jle, dfval_le, ">")
+OP_J_CMP(op_jgt, dfval_gt, "<=")
+OP_J_CMP(op_jge, dfval_ge, "<")
 
 #undef OP_J_CMP
