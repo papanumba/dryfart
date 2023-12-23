@@ -312,7 +312,7 @@ impl<'src> Nip<'src>
             n += 1;
         }
         let mut at = self.cmp_expr()?;
-        for i in 0..n {
+        for _ in 0..n {
             at = Expr::UniOp(Box::new(at), UniOpcode::Not);
         }
         return Ok(at);
@@ -367,7 +367,7 @@ impl<'src> Nip<'src>
             n += 1;
         }
         let mut at = self.mul_expr()?;
-        for i in 0..n {
+        for _ in 0..n {
             at = Expr::UniOp(Box::new(at), UniOpcode::Neg);
         }
         return Ok(at);
@@ -402,7 +402,7 @@ impl<'src> Nip<'src>
             n += 1;
         }
         let mut mt = self.cast_expr()?;
-        for i in 0..n {
+        for _ in 0..n {
             mt = Expr::UniOp(Box::new(mt), UniOpcode::Inv);
         }
         return Ok(mt);
@@ -481,19 +481,23 @@ impl<'src> Nip<'src>
                 },
                 Token::String(s) => self.string(s),
                 Token::Lparen => self.paren_expr(),
+                Token::Lbrace => self.array_expr(),
                 Token::Hash => self.anon_fn(),
-                _ => expected_err!("#, (, ident or literal", t),
+                _ => expected_err!("#, (, {, ident or literal", t),
             }
         } else {
             expected_err!("ValN", (Token::Eof, 0))
         }
     }
 
-    // not as in grammar, þis can return an empty vec so þis parses `<CommaEx>?`
+    // not as in grammar, þis can return an empty vec
+    // so þis parses `<CommaEx>?`
+    // also consumes þe end token, so no need to exp_adv
     fn comma_ex(&mut self, end: TokenType) -> Result<Vec<Expr>, String>
     {
         // check empty
         if self.matches::<0>(end) {
+            self.advance();
             return Ok(vec![]);
         }
         let mut exs: Vec<Expr> = vec![];
@@ -524,6 +528,15 @@ impl<'src> Nip<'src>
         let e = self.expr()?;
         self.exp_adv(TokenType::Rparen)?;
         return Ok(e);
+    }
+
+    // called when found Lbrace
+    fn array_expr(&mut self) -> Result<Expr, String>
+    {
+        self.advance(); // {
+        let arr_e = self.comma_ex(TokenType::Rbrace)?;
+//        self.exp_adv(TokenType::Rbrace)?;
+        return Ok(Expr::Array(arr_e));
     }
 
     // called when peek: 0 -> #

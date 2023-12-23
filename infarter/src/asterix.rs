@@ -1,56 +1,59 @@
 /* src/asterix.rs */
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+macro_rules! format_err {
+    ($($args:expr),+) => (
+        Err(String::from(format!($($args),+)))
+    )
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Type
 {
+    V, // void
     B, // bool
     C, // char
     N, // natural
     Z, // zahl
     R, // real
     F, // func
-    A(ArrType, usize),
-    // array: elem type, dim (>0)
-}
-
-// arrayable types
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum ArrType { B, C, N, Z, R, F }
-
-impl std::fmt::Display for ArrType
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-    {
-        match self {
-            Self::B => write!(f, "B%"),
-            Self::C => write!(f, "C%"),
-            Self::N => write!(f, "N%"),
-            Self::Z => write!(f, "Z%"),
-            Self::R => write!(f, "R%"),
-            Self::F => write!(f, "#%"),
-        }
-    }
+    A, // array
 }
 
 impl Type
 {
     pub fn is_num(&self) -> bool
     {
-        return match self {
+        match self {
             Self::N | Self::Z | Self::R => true,
             _ => false,
         }
     }
 
+    pub fn is_copy(&self) -> bool
+    {
+        match self {
+            Self::V |
+            Self::B |
+            Self::C |
+            Self::N |
+            Self::Z |
+            Self::R => true,
+            Self::A |
+            Self::F => false,
+        }
+    }
+
     pub fn default_val(&self) -> Val
     {
-        return match self {
+        match self {
+            Self::V => Val::V,
             Self::B => Val::B(false),
             Self::C => Val::C('\0'),
             Self::N => Val::N(0),
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
-            _ => todo!(),
+            Self::F => panic!("cannot default function"),
+            Self::A => Val::A(Array::new()),
         }
     }
 }
@@ -59,16 +62,16 @@ impl std::convert::From<&Val> for Type
 {
     fn from(v: &Val) -> Self
     {
-        return match v {
-            Val::V    => todo!(),
+        match v {
+            Val::V    => Type::V,
             Val::B(_) => Type::B,
             Val::C(_) => Type::C,
             Val::N(_) => Type::N,
             Val::Z(_) => Type::Z,
             Val::R(_) => Type::R,
             Val::F(_) => Type::F,
-            Val::A(a) => Type::A(a.get_type(), a.dim()),
-        };
+            Val::A(_) => Type::A,
+        }
     }
 }
 
@@ -77,18 +80,14 @@ impl std::fmt::Display for Type
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
         match self {
+            Self::V => write!(f, "V%"),
             Self::B => write!(f, "B%"),
             Self::C => write!(f, "C%"),
             Self::N => write!(f, "N%"),
             Self::Z => write!(f, "Z%"),
             Self::R => write!(f, "R%"),
             Self::F => write!(f, "#%"),
-            Self::A(a, d) => {
-                for _ in 0..*d { write!(f, "{{")?; }
-                write!(f, "{}", a)?;
-                for _ in 0..*d { write!(f, "}}")?; }
-                Ok(())
-            },
+            Self::A => write!(f, "{{}}"),
         }
     }
 }
@@ -96,6 +95,8 @@ impl std::fmt::Display for Type
 #[derive(Debug, Clone, PartialEq)]
 pub enum Array
 {
+    E,          // Empty array: unknown type until a val is pushed
+    V(usize),   // array of V has just a len
     B(Vec<bool>),
     C(Vec<char>),
     N(Vec<u32>),
@@ -105,34 +106,62 @@ pub enum Array
 
 impl Array
 {
-    pub fn new(t: &Type) -> Self
+    #[inline]
+    pub fn new() -> Self
+    {
+        Self::E
+    }
+
+    pub fn singleton(v: &Val) -> Self
+    {
+        match v {
+            Val::V => Self::V(1),
+            Val::B(b) => Self::B(vec![*b]),
+            Val::C(c) => Self::C(vec![*c]),
+            Val::N(n) => Self::N(vec![*n]),
+            Val::Z(z) => Self::Z(vec![*z]),
+            Val::R(r) => Self::R(vec![*r]),
+            _ => panic!("cannot create array from {:?}", v),
+        }
+    }
+
+    #[inline]
+    pub fn with_type(t: &Type) -> Self
     {
         return Self::with_capacity(t, 0);
     }
 
+    // þis can be empty, but will have a concrete Type & expected cap
     #[inline]
     fn with_capacity(t: &Type, c: usize) -> Self
     {
-        return match t {
+        match t {
+            Type::V => Self::V(c),
             Type::B => Self::B(Vec::<bool>::with_capacity(c)),
             Type::C => Self::C(Vec::<char>::with_capacity(c)),
             Type::N => Self::N(Vec::<u32> ::with_capacity(c)),
             Type::Z => Self::Z(Vec::<i32> ::with_capacity(c)),
             Type::R => Self::R(Vec::<f32> ::with_capacity(c)),
             _ => todo!(),
-        };
+        }
     }
 
-    fn try_push(&mut self, v: &Val)
+    fn try_push(&mut self, v: &Val) -> Result<(), String>
     {
-        match (self, v) {
+        match (&mut *self, v) {
+            (Self::E, _) => *self = Self::singleton(v),
+            (Self::V(s), Val::V) => *s += 1,
             (Self::B(a), Val::B(b)) => a.push(*b),
             (Self::C(a), Val::C(c)) => a.push(*c),
             (Self::N(a), Val::N(n)) => a.push(*n),
-            (Self::Z(a), Val::Z(n)) => a.push(*n),
-            (Self::R(a), Val::R(n)) => a.push(*n),
-            _ => todo!(),
+            (Self::Z(a), Val::Z(z)) => a.push(*z),
+            (Self::R(a), Val::R(r)) => a.push(*r),
+            _ => return format_err!(
+                "cannot push {} value into {} array",
+                Type::from(v), self.get_type().unwrap()
+            ),
         }
+        Ok(())
     }
 
     // helper for Self::from<&str> kinda
@@ -147,15 +176,17 @@ impl Array
             .replace("$$",  "$");
     }
 
-    pub fn get_type(&self) -> ArrType
+    pub fn get_type(&self) -> Option<Type>
     {
-        return match self {
-            Self::B(_) => ArrType::B,
-            Self::C(_) => ArrType::C,
-            Self::N(_) => ArrType::N,
-            Self::Z(_) => ArrType::Z,
-            Self::R(_) => ArrType::R,
-        };
+        match self {
+            Self::E => None,
+            Self::V(_) => Some(Type::V),
+            Self::B(_) => Some(Type::B),
+            Self::C(_) => Some(Type::C),
+            Self::N(_) => Some(Type::N),
+            Self::Z(_) => Some(Type::Z),
+            Self::R(_) => Some(Type::R),
+        }
     }
 
     pub fn dim(&self) -> usize
@@ -163,42 +194,61 @@ impl Array
         return 1; // TODO: multidim arrs
     }
 
-    pub fn get(&self, i: u32) -> Val
+    pub fn get(&self, i: usize) -> Option<Val>
     {
-        return match self {
-            Self::B(a) => Val::B(a[i as usize]),
-            Self::C(a) => Val::C(a[i as usize]),
-            Self::N(a) => Val::N(a[i as usize]),
-            Self::Z(a) => Val::Z(a[i as usize]),
-            Self::R(a) => Val::R(a[i as usize]),
-        };
+        if i >= self.len() {
+            return None;
+        }
+        Some(match self {
+            Self::E => unreachable!(),
+            Self::V(_) => Val::V,
+            Self::B(a) => Val::B(a[i]),
+            Self::C(a) => Val::C(a[i]),
+            Self::N(a) => Val::N(a[i]),
+            Self::Z(a) => Val::Z(a[i]),
+            Self::R(a) => Val::R(a[i]),
+        })
     }
 
-    pub fn len(&self) -> Val
+    #[inline]
+    pub fn len(&self) -> usize
     {
-        return match self {
-            Self::B(a) => Val::N(a.len() as u32),
-            Self::C(a) => Val::N(a.len() as u32),
-            Self::N(a) => Val::N(a.len() as u32),
-            Self::Z(a) => Val::N(a.len() as u32),
-            Self::R(a) => Val::N(a.len() as u32),
-        };
+        match self {
+            Self::E => 0,
+            Self::V(u) => *u,
+            Self::B(a) => a.len(),
+            Self::C(a) => a.len(),
+            Self::N(a) => a.len(),
+            Self::Z(a) => a.len(),
+            Self::R(a) => a.len(),
+        }
+    }
+
+    pub fn len_val_n(&self) -> Val
+    {
+        if let Ok(u) = u32::try_from(self.len()) {
+            return Val::N(u);
+        } else {
+            panic!("array too long to fit in u32");
+        }
     }
 }
 
 // TryInto is automatically implemented
 impl std::convert::TryFrom<&[Val]> for Array
 {
-    type Error = &'static str;
+    type Error = String;
     fn try_from(vals: &[Val]) -> Result<Self, Self::Error>
     {
         if vals.is_empty() {
-            return Err("empty array");
+            return Ok(Array::E);
         }
-        // set self.typ as þe type of þe 1st element, þen try to push þe oþers
-        let mut res = Self::with_capacity(&Type::from(&vals[0]), vals.len());
+        // set array's type as þe type of þe 0st element,
+        // þen try to push þe oþers & see if þey're þe same type
+        let arr_type = Type::from(&vals[0]);
+        let mut res = Self::with_capacity(&arr_type, vals.len());
         for v in vals {
-            res.try_push(&v);
+            res.try_push(&v)?;
         }
         return Ok(res);
     }
@@ -224,37 +274,48 @@ impl std::fmt::Display for Array
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
-        // special case for strings {C%}
+        // special case for strings (C)
         if let Self::C(a) = self {
+            write!(f, "\"")?;
             for c in a {
                 write!(f, "{c}")?;
             };
+            write!(f, "\"")?;
             return Ok(());
         }
         write!(f, "{{")?;
+        // TODO: do not print tailing comma?
         match self {
-            Self::B(a) => for b in a { write!(f, "{}, ", *b)?; },
+            Self::E => {}, // empty
+            Self::V(n) => for _ in 0..*n { write!(f, "V, ")?; },
+            Self::B(a) => for b in a {
+                if *b {write!(f, "T, ",)?;}
+                else  {write!(f, "F, ",)?;}
+            },
+            Self::C(_) => {}, // done
             Self::N(a) => for n in a { write!(f, "{n}, ")?; },
             Self::Z(a) => for z in a { write!(f, "{z}, ")?; },
             Self::R(a) => for r in a { write!(f, "{r}, ")?; },
-            Self::C(_) => {}, // done
         }
         write!(f, "}}")?;
         return Ok(());
     }
 }
 
-pub fn try_arr_el(a: &Val, i: &Val) -> Val
+pub fn try_arr_el(a: &Val, i: &Val) -> Result<Val, String>
 {
     let arr: &Array = match a {
         Val::A(arr_val) => arr_val,
-        _ => panic!("not indexable"),
+        _ => return format_err!("{:?} not indexable", a),
     };
     let idx: u32 = match i {
         Val::N(idx_val) => *idx_val,
-        _ => panic!("not an index"),
+        _ => return format_err!("{:?} cannot be used as index", i),
     };
-    return arr.get(idx);
+    match arr.get(idx as usize) {
+        Some(v) => Ok(v),
+        None => format_err!("{} out of bounds (len = {})", idx, arr.len()),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -397,7 +458,7 @@ impl Func
 impl PartialEq for Func
 {
     // Required method
-    fn eq(&self, other: &Self) -> bool
+    fn eq(&self, _other: &Self) -> bool
     {
         return false;
     }

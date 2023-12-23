@@ -95,8 +95,8 @@ enum BlockAction
 pub fn anal_check<'a>(prog: &'a Block)
 {
     let mut root_scope = Scope::<'a>::new();
-    if let Some(ba) = do_block(&mut root_scope, prog) {
-        panic!("ERROR: at main script: cannot return or break");
+    if let Some(_) = do_block(&mut root_scope, prog) {
+        panic!("ERROR: at main script: cannot return, exit or break");
     }
 }
 
@@ -436,7 +436,7 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
         Expr::ArrEl(a, i) => try_arr_el(
             &eval_expr(scope, a),
             &eval_expr(scope, i)
-        ),
+        ).unwrap(),
         Expr::Array(a) => Val::A(eval_args(scope, a)
                                     .as_slice()
                                     .try_into()
