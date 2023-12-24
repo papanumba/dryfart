@@ -246,6 +246,7 @@ impl<'a> Cfg<'a>
             BinOpcode::Div => ImOp::DIV,
             BinOpcode::And => ImOp::AND,
             BinOpcode::Or  => ImOp::IOR,
+            BinOpcode::Xor => ImOp::XOR,
             BinOpcode::Eq  => ImOp::CEQ,
             BinOpcode::Ne  => ImOp::CNE,
             BinOpcode::Lt  => ImOp::CLT,
@@ -541,6 +542,9 @@ impl<'a> Cfg<'a>
 
     fn e_binop(&mut self, l: &'a Expr, o: &BinOpcode, r: &'a Expr)
     {
+        if o.is_sce() {
+            todo!("short circuits");
+        }
         self.expr(l);
         self.expr(r);
         self.push_binop(o);

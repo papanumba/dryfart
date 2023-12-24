@@ -172,7 +172,7 @@ fn do_operon<'a>(
     }
     // calculate new value
     let value: Val = eval_expr(sc, ex);
-    let value: Val = eval_binop(idval, op, &value);
+    let value: Val = eval_binop_val(idval, op, &value);
     sc.vars.insert(id, value); // id exists
 }
 
@@ -375,11 +375,7 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
         Expr::Const(c) => (*c).clone(),
         Expr::Ident(i) => eval_ident(scope, i),
         Expr::Tcast(t, e) => do_cast(t, &eval_expr(scope, e)),
-        Expr::BinOp(l, o, r) => eval_binop(
-            &eval_expr(scope, l),
-            o,
-            &eval_expr(scope, r)
-        ),
+        Expr::BinOp(l, o, r) => eval_binop(scope, l, o, r),
         Expr::UniOp(t, o) => eval_uniop(&eval_expr(scope, t), o),
         Expr::CmpOp(f, o) => eval_cmpop(scope, f, o),
         Expr::Fdefn(f) => Val::F((*f).clone()),
@@ -426,7 +422,7 @@ fn eval_cmpop(
     return Val::B(terms
         .windows(2)
         .enumerate()
-        .map(|(i, w)| match eval_binop(&w[0], &others[i].0, &w[1]) {
+        .map(|(i, w)| match eval_binop_val(&w[0], &others[i].0, &w[1]) {
             Val::B(b) => b,
             _ => unreachable!(), // all cmp give B%
         })
@@ -452,7 +448,52 @@ fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
     }
 }
 
-fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
+fn eval_binop(
+    s: &Scope,
+    l: &Expr,
+    o: &BinOpcode,
+    r: &Expr)
+ -> Val
+{
+    if o.is_sce() {
+        eval_sce(s, l, o, r)
+    } else {
+        eval_binop_val(
+            &eval_expr(s, l),
+            o,
+            &eval_expr(s, r),
+        )
+    }
+}
+
+// Short Circuit Evaluation: l must be B, r can be any value
+fn eval_sce(
+    s: &Scope,
+    l: &Expr,
+    o: &BinOpcode,
+    r: &Expr)
+ -> Val
+{
+    let lval = match eval_expr(s, l) {
+        Val::B(b) => b,
+        _ => panic!("lhs value of {:?} expr is not B", o),
+    };
+    match o {
+        BinOpcode::Cand => if  lval {
+            eval_expr(s, r)
+        } else {
+            Val::B(false)
+        },
+        BinOpcode::Cor  => if !lval {
+            eval_expr(s, r)
+        } else {
+            Val::B(true)
+        },
+        _ => unreachable!(),
+    }
+}
+
+fn eval_binop_val(l: &Val, o: &BinOpcode, r: &Val) -> Val
 {
     let lt: Type = l.into();
     let rt: Type = r.into();
@@ -502,11 +543,18 @@ fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
 
     // then, check num & bool operations
     return match (l, r) {
+        (Val::B(vl), Val::B(vr)) => match o {
+            BinOpcode::And => Val::B(*vl && *vr),
+            BinOpcode::Or  => Val::B(*vl || *vr),
+            BinOpcode::Xor => Val::B(*vl ^ *vr),
+            _ => panic!("unknown op btwin B%"),
+        },
         (Val::N(vl), Val::N(vr)) => match o {
             BinOpcode::Add => Val::N(vl + vr),
             BinOpcode::Mul => Val::N(vl * vr),
             BinOpcode::And => Val::N(*vl & *vr),
             BinOpcode::Or  => Val::N(*vl | *vr),
+            BinOpcode::Xor => Val::N(*vl ^ *vr),
             _ => panic!("not valid operation btwin N%"),
         },
         (Val::Z(vl), Val::Z(vr)) => match o {
@@ -521,11 +569,6 @@ fn eval_binop(l: &Val, o: &BinOpcode, r: &Val) -> Val
             BinOpcode::Mul => Val::R(vl * vr),
             BinOpcode::Div => Val::R(vl / vr),
             _ => panic!("not valid operation btwin R%"),
-        },
-        (Val::B(vl), Val::B(vr)) => match o {
-            BinOpcode::And => Val::B(*vl && *vr),
-            BinOpcode::Or  => Val::B(*vl || *vr),
-            _ => panic!("unknown op btwin B%"),
         },
         _ => panic!("not valid operation btwin {:?} and {:?}", l, r),
     }

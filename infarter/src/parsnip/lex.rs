@@ -146,6 +146,7 @@ impl<'src> Luthor<'src>
                 b']' => Token::RsqBra,
                 b'{' => Token::Lbrace,
                 b'}' => Token::Rbrace,
+                b'^' => Token::Caret,
                 b'+' | b'-' | b'*' | b'/' | b'@' |
                 b'&' | b'|' | b'#' | b'!' => self.maybe_2ble(*c),
                 b'~' => self.from_tilde(),  // ~, ~~, ~=

@@ -346,7 +346,7 @@ impl Val
 pub enum BinOpcode {
     Add, Sub, Mul, Div,
     Eq, Ne, Lt, Gt, Le, Ge,
-    And, Or, Band, Bor
+    And, Or, Xor, Cand, Cor
 }
 
 impl BinOpcode
@@ -366,36 +366,44 @@ impl BinOpcode
             ">=" => Self::Ge,
             "&"  => Self::And,
             "|"  => Self::Or,
-            "&&" => Self::Band,
-            "||" => Self::Bor,
+            "&&" => Self::Cand,
+            "||" => Self::Cor,
             _ => panic!("unknown binop"),
         }
     }
 
     pub fn is_num(&self) -> bool
     {
-        return match self {
+        match self {
             Self::Add |
             Self::Sub |
             Self::Mul |
             Self::Div => true,
             _ => false,
-        };
+        }
     }
 
-    pub fn is_bool(&self) -> bool
+    pub fn is_bit(&self) -> bool
     {
-        todo!();
-/*        return match self {
+        match self {
             Self::And |
-            Self::Or => true,
+            Self::Or  |
+            Self::Xor => true,
             _ => false,
-        };*/
+        }
+    }
+
+    pub fn is_sce(&self) -> bool
+    {
+        match self {
+            Self::Cand | Self::Cor => true,
+            _ => false,
+        }
     }
 
     pub fn is_cmp(&self) -> bool
     {
-        return match self {
+        match self {
             Self::Eq |
             Self::Ne |
             Self::Lt |
@@ -403,7 +411,7 @@ impl BinOpcode
             Self::Le |
             Self::Ge => true,
             _ => false,
-        };
+        }
     }
 }
 

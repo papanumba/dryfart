@@ -272,42 +272,42 @@ impl<'src> Nip<'src>
 
     fn expr(&mut self) -> Result<Expr, String>
     {
-        return self.bor_expr();
+        return self.cor_expr();
     }
 
-    fn bor_expr(&mut self) -> Result<Expr, String>
+    fn cor_expr(&mut self) -> Result<Expr, String>
     {
-        let mut oe = self.band_expr()?;
+        let mut e = self.cand_expr()?;
         while self.matches::<0>(TokenType::Vbar2) {
             self.advance();
-            let rhs = self.band_expr()?;
-            oe = Expr::BinOp(
-                Box::new(oe),
-                BinOpcode::Bor,
+            let rhs = self.cand_expr()?;
+            e = Expr::BinOp(
+                Box::new(e),
+                BinOpcode::Cor,
                 Box::new(rhs),
             );
         }
-        Ok(oe)
+        Ok(e)
     }
 
-    fn band_expr(&mut self) -> Result<Expr, String>
+    fn cand_expr(&mut self) -> Result<Expr, String>
     {
-        let mut ae = self.cmp_expr()?;
+        let mut e = self.cmp_expr()?;
         while self.matches::<0>(TokenType::And2) {
             self.advance();
             let rhs = self.cmp_expr()?;
-            ae = Expr::BinOp(
-                Box::new(ae),
-                BinOpcode::Band,
+            e = Expr::BinOp(
+                Box::new(e),
+                BinOpcode::Cand,
                 Box::new(rhs),
             );
         }
-        Ok(ae)
+        Ok(e)
     }
 
     fn cmp_expr(&mut self) -> Result<Expr, String>
     {
-        let first = self.add_expr()?;
+        let first = self.or_expr()?;
         let mut others: Vec<(BinOpcode, Expr)> = vec![];
         while let Some(pop) = self.peek::<0>() {
             if !pop.0.is_cmp() {
@@ -315,7 +315,7 @@ impl<'src> Nip<'src>
             }
             let op = BinOpcode::try_from(&pop.0).unwrap();
             self.advance();
-            let rhs = self.add_expr()?;
+            let rhs = self.or_expr()?;
             others.push((op, rhs));
         }
         if others.is_empty() {
@@ -323,6 +323,51 @@ impl<'src> Nip<'src>
         } else {
             Ok(Expr::CmpOp(Box::new(first), others))
         }
+    }
+
+    fn or_expr(&mut self) -> Result<Expr, String>
+    {
+        let mut e = self.xor_expr()?;
+        while self.matches::<0>(TokenType::Vbar) {
+            self.advance();
+            let rhs = self.xor_expr()?;
+            e = Expr::BinOp(
+                Box::new(e),
+                BinOpcode::Or,
+                Box::new(rhs),
+            );
+        }
+        Ok(e)
+    }
+
+    fn xor_expr(&mut self) -> Result<Expr, String>
+    {
+        let mut e = self.and_expr()?;
+        while self.matches::<0>(TokenType::Caret) {
+            self.advance();
+            let rhs = self.and_expr()?;
+            e = Expr::BinOp(
+                Box::new(e),
+                BinOpcode::Xor,
+                Box::new(rhs),
+            );
+        }
+        Ok(e)
+    }
+
+    fn and_expr(&mut self) -> Result<Expr, String>
+    {
+        let mut e = self.add_expr()?;
+        while self.matches::<0>(TokenType::And) {
+            self.advance();
+            let rhs = self.add_expr()?;
+            e = Expr::BinOp(
+                Box::new(e),
+                BinOpcode::And,
+                Box::new(rhs),
+            );
+        }
+        Ok(e)
     }
 
     fn add_expr(&mut self) -> Result<Expr, String>
