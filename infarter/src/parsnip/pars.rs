@@ -18,6 +18,46 @@ macro_rules! eof_err {
     )) };
 }
 
+// left associative binop exprs þat have only 1 operator
+macro_rules! left_binop_expr {
+    ($name:ident, $term:ident, $ttype:ident, $binop:ident) => {
+        fn $name(&mut self) -> Result<Expr, String>
+        {
+            let mut e = self.$term()?;
+            while self.matches::<0>(TokenType::$ttype) {
+                self.advance(); // þe binop
+                let t = self.$term()?;
+                e = Expr::BinOp(
+                    Box::new(e),
+                    BinOpcode::$binop,
+                    Box::new(t),
+                );
+            }
+            return Ok(e);
+        }
+    };
+}
+
+// riȝt associative unary exprs þat hace only 1 operator
+macro_rules! rite_uniop_expr {
+    ($name:ident, $base:ident, $ttype:ident, $uniop:ident) => {
+        fn $name(&mut self) -> Result<Expr, String>
+        {
+            // count all unary Ops
+            let mut n = 0;
+            while self.matches::<0>(TokenType::$ttype) {
+                self.advance();
+                n += 1;
+            }
+            let mut e = self.$base()?;
+            for _ in 0..n {
+                e = Expr::UniOp(Box::new(e), UniOpcode::$uniop);
+            }
+            return Ok(e);
+        }
+    };
+}
+
 type LnToken<'a> = (Token<'a>, usize);
 
 pub struct Nip<'src>
@@ -248,15 +288,15 @@ impl<'src> Nip<'src>
     {
         self.advance(); // @@
         let mut level: u32 = 1;
-        if let Some(t) = self.peek::<0>() {
-            match t.0 {
-                Token::ValN(n) => {level = n; self.advance();},
-                Token::Period  => {}, // implicit level 1
-                _ => return expected_err!("ValN or .", t),
-            }
-        } else {
-            return eof_err!("ValN");
+        let t = match self.peek::<0>() {
+            Some(tok) => tok,
+            None => return eof_err!("ValN"),
         };
+        match t.0 {
+            Token::ValN(n) => {level = n; self.advance();},
+            Token::Period  => {}, // implicit level 1
+            _ => return expected_err!("ValN or .", t),
+        }
         self.exp_adv(TokenType::Period)?;
         return Ok(Stmt::BreakL(level));
     }
@@ -275,35 +315,8 @@ impl<'src> Nip<'src>
         return self.cor_expr();
     }
 
-    fn cor_expr(&mut self) -> Result<Expr, String>
-    {
-        let mut e = self.cand_expr()?;
-        while self.matches::<0>(TokenType::Vbar2) {
-            self.advance();
-            let rhs = self.cand_expr()?;
-            e = Expr::BinOp(
-                Box::new(e),
-                BinOpcode::Cor,
-                Box::new(rhs),
-            );
-        }
-        Ok(e)
-    }
-
-    fn cand_expr(&mut self) -> Result<Expr, String>
-    {
-        let mut e = self.cmp_expr()?;
-        while self.matches::<0>(TokenType::And2) {
-            self.advance();
-            let rhs = self.cmp_expr()?;
-            e = Expr::BinOp(
-                Box::new(e),
-                BinOpcode::Cand,
-                Box::new(rhs),
-            );
-        }
-        Ok(e)
-    }
+    left_binop_expr!( cor_expr, cand_expr, Vbar2,  Cor);
+    left_binop_expr!(cand_expr,  cmp_expr,  And2, Cand);
 
     fn cmp_expr(&mut self) -> Result<Expr, String>
     {
@@ -325,50 +338,9 @@ impl<'src> Nip<'src>
         }
     }
 
-    fn or_expr(&mut self) -> Result<Expr, String>
-    {
-        let mut e = self.xor_expr()?;
-        while self.matches::<0>(TokenType::Vbar) {
-            self.advance();
-            let rhs = self.xor_expr()?;
-            e = Expr::BinOp(
-                Box::new(e),
-                BinOpcode::Or,
-                Box::new(rhs),
-            );
-        }
-        Ok(e)
-    }
-
-    fn xor_expr(&mut self) -> Result<Expr, String>
-    {
-        let mut e = self.and_expr()?;
-        while self.matches::<0>(TokenType::Caret) {
-            self.advance();
-            let rhs = self.and_expr()?;
-            e = Expr::BinOp(
-                Box::new(e),
-                BinOpcode::Xor,
-                Box::new(rhs),
-            );
-        }
-        Ok(e)
-    }
-
-    fn and_expr(&mut self) -> Result<Expr, String>
-    {
-        let mut e = self.add_expr()?;
-        while self.matches::<0>(TokenType::And) {
-            self.advance();
-            let rhs = self.add_expr()?;
-            e = Expr::BinOp(
-                Box::new(e),
-                BinOpcode::And,
-                Box::new(rhs),
-            );
-        }
-        Ok(e)
-    }
+    left_binop_expr!( or_expr, xor_expr,  Vbar,  Or);
+    left_binop_expr!(xor_expr, and_expr, Caret, Xor);
+    left_binop_expr!(and_expr, add_expr,   And, And);
 
     fn add_expr(&mut self) -> Result<Expr, String>
     {
@@ -390,20 +362,7 @@ impl<'src> Nip<'src>
         return Ok(ae);
     }
 
-    fn neg_expr(&mut self) -> Result<Expr, String>
-    {
-        // count all unary Minuses
-        let mut n = 0;
-        while self.matches::<0>(TokenType::Minus) {
-            self.advance();
-            n += 1;
-        }
-        let mut at = self.mul_expr()?;
-        for _ in 0..n {
-            at = Expr::UniOp(Box::new(at), UniOpcode::Neg);
-        }
-        return Ok(at);
-    }
+    rite_uniop_expr!(neg_expr, mul_expr, Minus, Neg);
 
     fn mul_expr(&mut self) -> Result<Expr, String>
     {
@@ -425,35 +384,8 @@ impl<'src> Nip<'src>
         return Ok(me);
     }
 
-    fn inv_expr(&mut self) -> Result<Expr, String>
-    {
-        // count all unary Slashes
-        let mut n = 0;
-        while self.matches::<0>(TokenType::Slash) {
-            self.advance();
-            n += 1;
-        }
-        let mut mt = self.not_expr()?;
-        for _ in 0..n {
-            mt = Expr::UniOp(Box::new(mt), UniOpcode::Inv);
-        }
-        return Ok(mt);
-    }
-
-    fn not_expr(&mut self) -> Result<Expr, String>
-    {
-        // count all unary Negations
-        let mut n = 0;
-        while self.matches::<0>(TokenType::Tilde) {
-            self.advance();
-            n += 1;
-        }
-        let mut at = self.idx_expr()?;
-        for _ in 0..n {
-            at = Expr::UniOp(Box::new(at), UniOpcode::Not);
-        }
-        return Ok(at);
-    }
+    rite_uniop_expr!(inv_expr, not_expr, Slash, Inv);
+    rite_uniop_expr!(not_expr, idx_expr, Tilde, Not);
 
     fn idx_expr(&mut self) -> Result<Expr, String>
     {
