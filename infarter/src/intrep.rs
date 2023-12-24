@@ -318,6 +318,7 @@ impl<'a> Cfg<'a>
         self.exit_scope();
     }
 
+    #[inline]
     fn no_env_block(&mut self, b: &'a Block) //-> Patches
     {
         for s in b {
@@ -379,7 +380,6 @@ impl<'a> Cfg<'a>
         self.patch_jump(branch, Term::JFX(self.curr_idx()));
         if let Some(eb) = elbl {
             self.block(eb);
-            let end_else = self.term_curr(Term::NOP);
             self.patch_jump(end_true, Term::JJX(self.curr_idx()));
         } else {
             self.blocks[end_true].term = Term::NOP;
@@ -393,9 +393,7 @@ impl<'a> Cfg<'a>
         self.lvv_loop(lo);
         match lo {
             Loop::Inf(b)       => self.s_inf_loop(b),
-            Loop::Ini(   e, b) => self.s_cdt_loop(None,    e, Some(b)),
-            Loop::Mid(p, e, b) => self.s_cdt_loop(Some(p), e, Some(b)),
-            Loop::Fin(p, e   ) => self.s_cdt_loop(Some(p), e, None),
+            Loop::Cdt(p, e, b) => self.s_cdt_loop(p, e, b),
         }
         self.exit_scope();
     }
@@ -406,12 +404,10 @@ impl<'a> Cfg<'a>
     {
         let block = match lo {
             Loop::Inf(b) => b,
-            Loop::Ini(_, b) => b,
-            Loop::Mid(b, _, _) => b, // will check 2nd block later
-            Loop::Fin(b, _) => b,
+            Loop::Cdt(b, _, _) => b, // will check 2nd block later
         };
         self.lvv_in_block(block);
-        if let Loop::Mid(_, _, b) = lo {
+        if let Loop::Cdt(_, _, b) = lo {
             self.lvv_in_block(b);
         }
     }
@@ -442,9 +438,9 @@ impl<'a> Cfg<'a>
     }
 
     fn s_cdt_loop(&mut self,
-        b0: Option<&'a Block>,
+        b0:   &'a Block,    // miȝt be empty
         cond: &'a Expr,
-        b1: Option<&'a Block>)
+        b1:   &'a Block)
     {
         /*
         **  [b0]<--+
@@ -456,14 +452,10 @@ impl<'a> Cfg<'a>
         */
         self.term_curr(Term::NOP);
         let loop_start = self.curr_idx();
-        if let Some(b) = b0 {
-            self.no_env_block(b); // no new bblock
-        }
+        self.no_env_block(b0);
         self.expr(cond);
         let branch = self.term_curr(Term::PCH(true));
-        if let Some(b) = b1 {
-            self.no_env_block(b);
-        }
+        self.no_env_block(b1);
         self.term_curr(Term::JJX(loop_start));
         self.patch_jump(branch, Term::JFX(self.curr_idx()));
     }

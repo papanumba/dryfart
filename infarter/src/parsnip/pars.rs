@@ -96,6 +96,7 @@ impl<'src> Nip<'src>
         }
     }
 
+    #[allow(dead_code)]
     #[inline]
     fn print_peek(&self)
     {
@@ -232,13 +233,7 @@ impl<'src> Nip<'src>
         self.exp_adv(TokenType::Rparen)?;
         let post = self.block()?;
         self.exp_adv(TokenType::Period)?;
-        return if pre.is_empty() { // even if post is empty
-            Ok(Stmt::LoopIf(Loop::Ini(cond, post)))
-        } else if post.is_empty() {
-            Ok(Stmt::LoopIf(Loop::Fin(pre, cond)))
-        } else {
-            Ok(Stmt::LoopIf(Loop::Mid(pre, cond, post)))
-        }
+        return Ok(Stmt::LoopIf(Loop::Cdt(pre, cond, post)));
     }
 
     // called when peek: 0 -> @@

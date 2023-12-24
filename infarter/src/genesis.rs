@@ -421,7 +421,7 @@ impl Phil
     {
         let mut lblocks = vec![];
         // compile all bblocks separately
-        for (i, b) in main.iter().enumerate() {
+        for b in main {
             lblocks.push(LowerBlock::from_imops(&b.code));
         }
         // compute þe rel jumps

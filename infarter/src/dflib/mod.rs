@@ -19,7 +19,7 @@ pub fn do_fncall(name: &str, raw_args: &Vec<Val>) -> Val
     };
 }
 
-pub fn do_pccall(scope: &mut Scope, name: &str, raw_args: &Vec<Val>)
+pub fn do_pccall(_scope: &mut Scope, name: &str, raw_args: &Vec<Val>)
 {
     match name {
         "put" => procs::put(raw_args),

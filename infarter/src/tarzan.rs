@@ -32,7 +32,7 @@ impl<'a> Scope<'a>
             println!("{} {} = {:?}.", Type::from(v).to_string(), i, v);
         }
         for (i, p) in &self.pros {
-            println!("{}!", i);
+            println!("{}! = {:?}", i, p);
         }
     }
 }
@@ -82,7 +82,7 @@ impl<'a, 's> BlockScope<'a, 's>
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum BlockAction
 {
     Return(Val),
@@ -210,12 +210,9 @@ fn do_loopif<'a>(
     lo: &'a Loop)
  -> Option<BlockAction>
 {
-    // i know it's horrible code, but may be efficienter
     match lo {
         Loop::Inf(b      ) => do_inf_loop(sc, b),
-        Loop::Ini(   c, b) => do_ini_loop(sc, c, b),
-        Loop::Mid(b, c, f) => do_mid_loop(sc, b, c, f),
-        Loop::Fin(b, c   ) => do_fin_loop(sc, b, c),
+        Loop::Cdt(b, c, f) => do_cdt_loop(sc, b, c, f),
     }
 }
 
@@ -235,30 +232,7 @@ fn do_inf_loop<'a>(
     }
 }
 
-fn do_ini_loop<'a>(
-    scope: &mut Scope::<'a>,
-    condt: &Expr,
-    block: &'a Block)
- -> Option<BlockAction>
-{
-    // code adapted from do_block, so as not to alloc a blockScope every loop
-    let mut loop_bs = BlockScope::from_scope(scope);
-    loop {
-        if !eval_cond(loop_bs.outer, condt) {
-            break;
-        }
-        for s in block {
-            if let Some(ba) = do_stmt(&mut loop_bs, s) {
-                loop_bs.clean();
-                return eval_loop_ba(&ba);
-            }
-        }
-    }
-    loop_bs.clean();
-    return None;
-}
-
-fn do_mid_loop<'a>(
+fn do_cdt_loop<'a>(
     scope: &mut Scope::<'a>,
     bloq0: &'a Block,
     condt: &Expr,
@@ -282,29 +256,6 @@ fn do_mid_loop<'a>(
                 loop_bs.clean();
                 return eval_loop_ba(&ba);
             }
-        }
-    }
-    loop_bs.clean();
-    return None;
-}
-
-fn do_fin_loop<'a>(
-    scope: &mut Scope::<'a>,
-    block: &'a Block,
-    condt: &Expr)
- -> Option<BlockAction>
-{
-    // code adapted from do_block, so as not to alloc a blockScope every loop
-    let mut loop_bs = BlockScope::from_scope(scope);
-    loop {
-        for s in block {
-            if let Some(ba) = do_stmt(&mut loop_bs, s) {
-                loop_bs.clean();
-                return eval_loop_ba(&ba);
-            }
-        }
-        if !eval_cond(loop_bs.outer, condt) {
-            break;
         }
     }
     loop_bs.clean();

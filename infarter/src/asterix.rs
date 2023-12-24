@@ -407,14 +407,6 @@ pub enum UniOpcode {
     Not, // boolean negation
 }
 
-#[derive(Debug, Clone)]
-pub enum BlockAction
-{
-    Return(Val),
-    PcExit,
-    BreakL,
-}
-
 #[derive(Clone)]
 pub struct Func
 {
@@ -524,9 +516,7 @@ impl Proc
 pub enum Loop
 {
     Inf(Block),
-    Ini(       Expr, Block),
-    Mid(Block, Expr, Block),
-    Fin(Block, Expr       ),
+    Cdt(Block, Expr, Block),
 }
 
 pub type Block = Vec<Stmt>;
