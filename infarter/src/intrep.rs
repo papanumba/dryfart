@@ -252,6 +252,7 @@ impl<'a> Cfg<'a>
             BinOpcode::Le  => ImOp::CLE,
             BinOpcode::Gt  => ImOp::CGT,
             BinOpcode::Ge  => ImOp::CGE,
+            _ => unreachable!(),
         });
     }
 

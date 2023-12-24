@@ -1,5 +1,7 @@
 /* src/parsnip/pars.rs */
 
+#![allow(dead_code)]
+
 use super::toki::{Token, TokenType, PrimType};
 use crate::asterix::*;
 
@@ -7,6 +9,12 @@ macro_rules! expected_err {
     ($e:expr, $f:expr) => { Err(String::from(
         format!("ParsnipError: Expected {} but found {:?} at line {}",
             $e, $f.0, $f.1)
+    )) };
+}
+
+macro_rules! eof_err {
+    ($e:expr) => { Err(String::from(
+        format!("ParsnipError: Expected {} but found EOF", $e)
     )) };
 }
 
@@ -96,6 +104,7 @@ impl<'src> Nip<'src>
         }
     }
 
+    // debug only
     #[allow(dead_code)]
     #[inline]
     fn print_peek(&self)
@@ -132,7 +141,7 @@ impl<'src> Nip<'src>
             Token::LsqBra  => Some(self.if_stmt()),
             Token::AtSign  => Some(self.loop_stmt()),
             Token::AtSign2 => Some(self.break_stmt()),
-            Token::Hash2   => Some(self.return_stmt()),
+            Token::Hash2   => todo!(), //Some(self.return_stmt()),
             _ => None,
         }
     }
@@ -146,9 +155,7 @@ impl<'src> Nip<'src>
                 Token::Plus2 |
                 Token::Minus2 |
                 Token::Asterisk2 |
-                Token::Slash2 |
-                Token::And2 |
-                Token::Vbar2 => Some(self.operon(id, t.0)),
+                Token::Slash2 => todo!(), //Some(self.operon(id, t.0)),
                 _ => None,
             }
         } else {
@@ -248,7 +255,7 @@ impl<'src> Nip<'src>
                 _ => return expected_err!("ValN or .", t),
             }
         } else {
-            return expected_err!("ValN", ("EOF", "end"));
+            return eof_err!("ValN");
         };
         self.exp_adv(TokenType::Period)?;
         return Ok(Stmt::BreakL(level));
@@ -265,52 +272,37 @@ impl<'src> Nip<'src>
 
     fn expr(&mut self) -> Result<Expr, String>
     {
-        return self.or_expr();
+        return self.bor_expr();
     }
 
-    fn or_expr(&mut self) -> Result<Expr, String>
+    fn bor_expr(&mut self) -> Result<Expr, String>
     {
-        let mut oe = self.and_expr()?;
-        while self.matches::<0>(TokenType::Vbar) {
+        let mut oe = self.band_expr()?;
+        while self.matches::<0>(TokenType::Vbar2) {
             self.advance();
-            let rhs = self.and_expr()?;
+            let rhs = self.band_expr()?;
             oe = Expr::BinOp(
                 Box::new(oe),
-                BinOpcode::Or,
+                BinOpcode::Bor,
                 Box::new(rhs),
             );
         }
         Ok(oe)
     }
 
-    fn and_expr(&mut self) -> Result<Expr, String>
+    fn band_expr(&mut self) -> Result<Expr, String>
     {
-        let mut ae = self.and_term()?;
-        while self.matches::<0>(TokenType::And) {
+        let mut ae = self.cmp_expr()?;
+        while self.matches::<0>(TokenType::And2) {
             self.advance();
-            let rhs = self.and_term()?;
+            let rhs = self.cmp_expr()?;
             ae = Expr::BinOp(
                 Box::new(ae),
-                BinOpcode::And,
+                BinOpcode::Band,
                 Box::new(rhs),
             );
         }
         Ok(ae)
-    }
-
-    fn and_term(&mut self) -> Result<Expr, String>
-    {
-        // count all unary Negations before CmpExpr
-        let mut n = 0;
-        while self.matches::<0>(TokenType::Tilde) {
-            self.advance();
-            n += 1;
-        }
-        let mut at = self.cmp_expr()?;
-        for _ in 0..n {
-            at = Expr::UniOp(Box::new(at), UniOpcode::Not);
-        }
-        return Ok(at);
     }
 
     fn cmp_expr(&mut self) -> Result<Expr, String>
@@ -335,11 +327,11 @@ impl<'src> Nip<'src>
 
     fn add_expr(&mut self) -> Result<Expr, String>
     {
-        let mut ae = self.add_term()?;
+        let mut ae = self.neg_expr()?;
         while self.matches::<0>(TokenType::Plus)
            || self.matches::<0>(TokenType::Minus) {
             let op = self.read_token().unwrap().0.clone(); // +, -
-            let rhs = self.add_term()?;
+            let rhs = self.neg_expr()?;
             ae = Expr::BinOp(
                 Box::new(ae),
                 match op {
@@ -353,9 +345,9 @@ impl<'src> Nip<'src>
         return Ok(ae);
     }
 
-    fn add_term(&mut self) -> Result<Expr, String>
+    fn neg_expr(&mut self) -> Result<Expr, String>
     {
-        // count all unary Minuses before MulExpr
+        // count all unary Minuses
         let mut n = 0;
         while self.matches::<0>(TokenType::Minus) {
             self.advance();
@@ -370,11 +362,11 @@ impl<'src> Nip<'src>
 
     fn mul_expr(&mut self) -> Result<Expr, String>
     {
-        let mut me = self.mul_term()?;
+        let mut me = self.inv_expr()?;
         while self.matches::<0>(TokenType::Asterisk)
            || self.matches::<0>(TokenType::Slash) {
             let op = self.read_token().unwrap().0.clone(); // +, -
-            let rhs = self.mul_term()?;
+            let rhs = self.inv_expr()?;
             me = Expr::BinOp(
                 Box::new(me),
                 match op {
@@ -388,136 +380,168 @@ impl<'src> Nip<'src>
         return Ok(me);
     }
 
-    fn mul_term(&mut self) -> Result<Expr, String>
+    fn inv_expr(&mut self) -> Result<Expr, String>
     {
-        // count all unary Slashes before AtomExpr
+        // count all unary Slashes
         let mut n = 0;
         while self.matches::<0>(TokenType::Slash) {
             self.advance();
             n += 1;
         }
-        let mut mt = self.cast_expr()?;
+        let mut mt = self.not_expr()?;
         for _ in 0..n {
             mt = Expr::UniOp(Box::new(mt), UniOpcode::Inv);
         }
         return Ok(mt);
     }
 
-    fn cast_expr(&mut self) -> Result<Expr, String>
+    fn not_expr(&mut self) -> Result<Expr, String>
     {
-        if let Some(t) = self.peek::<0>() {
-            match t.0 {
-                Token::PrimType(pt) => {
-                    self.advance();
-                    let casted = self.cast_expr()?;
-                    Ok(Expr::Tcast(pt.into(), Box::new(casted)))
-                }
-                _ => self.idx_expr(),
-            }
-        } else {
-            expected_err!(
-                "prim type, fn call, anon fn, ident or literal",
-                ("EOF", "end"))
+        // count all unary Negations
+        let mut n = 0;
+        while self.matches::<0>(TokenType::Tilde) {
+            self.advance();
+            n += 1;
         }
+        let mut at = self.idx_expr()?;
+        for _ in 0..n {
+            at = Expr::UniOp(Box::new(at), UniOpcode::Not);
+        }
+        return Ok(at);
     }
 
     fn idx_expr(&mut self) -> Result<Expr, String>
     {
-        let root = self.idx_term()?;
-        if self.matches::<0>(TokenType::Uscore) {
-            todo!()
+        let mut ie = self.cast_expr()?;
+        while self.matches::<0>(TokenType::Uscore) {
+            self.advance();
+            let idx = self.cast_expr()?;
+            ie = Expr::ArrEl(
+                Box::new(ie),
+                Box::new(idx),
+            );
         }
-        return Ok(root);
+        Ok(ie)
     }
 
-    fn idx_term(&mut self) -> Result<Expr, String>
+    fn cast_expr(&mut self) -> Result<Expr, String>
     {
-        let mut nucle = self.nucle()?;
+        match self.peek::<0>() {
+            Some(t) => match t.0 {
+                Token::PrimType(pt) => {
+                    self.advance(); // þe primtype
+                    let casted = self.cast_expr()?;
+                    Ok(Expr::Tcast(pt.into(), Box::new(casted)))
+                }
+                _ => self.nucle(),
+            },
+            _ => eof_err!("type%, ident or literal"),
+        }
+    }
+
+/* TODO: fncall
         while self.matches::<0>(TokenType::Hash) {
             self.advance(); // #
             let args = self.comma_ex(TokenType::Semic)?;
             nucle = Expr::Fcall(Box::new(nucle), args);
-        }
-        return Ok(nucle);
-    }
+        }*/
 
     fn nucle(&mut self) -> Result<Expr, String>
     {
-        if let Some(t) = self.peek::<0>() {
-            match t.0 {
-                Token::ValB(b) => {
-                    let ret = Expr::Const(Val::B(b));
-                    self.advance();
-                    return Ok(ret);
-                },
-                Token::ValN(n) => {
-                    let ret = Expr::Const(Val::N(n));
-                    self.advance();
-                    return Ok(ret);
-                },
-                Token::ValZ(z) => {
-                    let ret = Expr::Const(Val::Z(z));
-                    self.advance();
-                    return Ok(ret);
-                },
-                Token::ValR(r) => {
-                    let ret = Expr::Const(Val::R(r));
-                    self.advance();
-                    return Ok(ret);
-                },
-                Token::Ident(id) => {
-                    self.advance();
-                    return Ok(Expr::Ident(std::str::from_utf8(id)
-                        .unwrap().to_owned()));
-                },
-                Token::AtSign => { // recurse ident
-                    self.advance();
-                    return Ok(Expr::Ident("@".to_string()));
-                },
-                Token::String(s) => self.string(s),
-                Token::Lparen => self.paren_expr(),
-                Token::Lbrace => self.array_expr(),
-                Token::Hash => self.anon_fn(),
-                _ => expected_err!("#, (, {, ident or literal", t),
-            }
-        } else {
-            expected_err!("ValN", (Token::Eof, 0))
+        let tok = match self.peek::<0>() {
+            Some(t) => t,
+            None => return eof_err!("(, ident or literal"),
+        };
+        match tok.0 {
+            Token::Lparen => self.parented(),
+            Token::Ident(id) => {
+                self.advance();
+                return Ok(Expr::Ident(std::str::from_utf8(id)
+                    .unwrap().to_owned()))
+            },
+            Token::AtSign => { // recurse ident
+                self.advance(); // @
+                Ok(Expr::Ident("@".to_string()))
+            },
+            Token::ValB(b) => Ok(self.valb(b)),
+            Token::ValN(n) => Ok(self.valn(n)),
+            Token::ValZ(z) => Ok(self.valz(z)),
+            Token::ValR(r) => Ok(self.valr(r)),
+            Token::String(s) =>  self.string(s),
+            Token::Uscore =>     self.arrlit(),
+            Token::Hash => todo!(), //self.anon_fn(),
+            _ => expected_err!("(, ident or literal", tok),
         }
     }
 
-    // not as in grammar, þis can return an empty vec
-    // so þis parses `<CommaEx>?`
-    // also consumes þe end token, so no need to exp_adv
+    // called when peek: 0 -> B
+    #[inline]
+    fn valb(&mut self, b: bool) -> Expr
+    {
+        let val = Expr::Const(Val::B(b));
+        self.advance();
+        return val;
+    }
+
+    // called when peek: 0 -> N
+    #[inline]
+    fn valn(&mut self, n: u32) -> Expr
+    {
+        let val = Expr::Const(Val::N(n));
+        self.advance();
+        return val;
+    }
+
+    // called when peek: 0 -> Z
+    #[inline]
+    fn valz(&mut self, z: i32) -> Expr
+    {
+        let val = Expr::Const(Val::Z(z));
+        self.advance();
+        return val;
+    }
+
+    // called when peek: 0 -> R
+    #[inline]
+    fn valr(&mut self, r: f32) -> Expr
+    {
+        let val = Expr::Const(Val::R(r));
+        self.advance();
+        return val;
+    }
+
+    // parses comma separated exprs which end in a specific token
+    // it also consumes þe end token, so no need to exp_adv after
     fn comma_ex(&mut self, end: TokenType) -> Result<Vec<Expr>, String>
     {
         // check empty
         if self.matches::<0>(end) {
-            self.advance();
+            self.advance(); // end
             return Ok(vec![]);
         }
+        let comma_or_end = format!(", or {:?}", end);
         let mut exs: Vec<Expr> = vec![];
         loop {
             let ex = self.expr()?;
             exs.push(ex);
-            if let Some(t) = self.peek::<0>() {
-                let tt = TokenType::from(&t.0);
-                if tt == end {
-                    self.advance();
-                    return Ok(exs);
-                }
-                if tt != TokenType::Comma {
-                    return expected_err!(format!(", or {:?}", end), t);
-                }
-            } else {
-                return expected_err!(format!(", or {:?}", end),
-                    self.peek::<0>().unwrap());
+            let tok = match self.peek::<0>() {
+                Some(t) => t,
+                None => return eof_err!(comma_or_end),
+            };
+            let tt = TokenType::from(&tok.0);
+            if tt == end {
+                self.advance(); // consume end
+                return Ok(exs);
+            }
+            if tt != TokenType::Comma {
+                return expected_err!(comma_or_end, tok);
             }
             self.advance();
         }
     }
 
-    // called when found Lparen
-    fn paren_expr(&mut self) -> Result<Expr, String>
+    // called when peek: 0 -> (
+    fn parented(&mut self) -> Result<Expr, String>
     {
         self.advance(); // (
         let e = self.expr()?;
@@ -525,12 +549,11 @@ impl<'src> Nip<'src>
         return Ok(e);
     }
 
-    // called when found Lbrace
-    fn array_expr(&mut self) -> Result<Expr, String>
+    // called when peek: 0 -> _
+    fn arrlit(&mut self) -> Result<Expr, String>
     {
-        self.advance(); // {
-        let arr_e = self.comma_ex(TokenType::Rbrace)?;
-//        self.exp_adv(TokenType::Rbrace)?;
+        self.advance(); // _
+        let arr_e = self.comma_ex(TokenType::Semic)?;
         return Ok(Expr::Array(arr_e));
     }
 
@@ -565,15 +588,15 @@ impl<'src> Nip<'src>
 
     fn consume_ident(&mut self) -> Result<&'src [u8], String>
     {
-        if let Some(t) = self.peek::<0>() {
-            if let Token::Ident(i) = t.0 {
-                self.advance();
-                return Ok(i);
-            } else {
-                expected_err!("Ident", t)
-            }
+        let tok = match self.peek::<0>() {
+            Some(t) => t,
+            None => return eof_err!("Ident"),
+        };
+        if let Token::Ident(i) = tok.0 {
+            self.advance();
+            Ok(i)
         } else {
-            Err(String::from("expected Ident, found EOF"))
+            expected_err!("Ident", tok)
         }
     }
 

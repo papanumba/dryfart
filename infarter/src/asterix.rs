@@ -343,7 +343,11 @@ impl Val
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BinOpcode { Add, Sub, Mul, Div, Eq, Ne, Lt, Gt, Le, Ge, And, Or }
+pub enum BinOpcode {
+    Add, Sub, Mul, Div,
+    Eq, Ne, Lt, Gt, Le, Ge,
+    And, Or, Band, Bor
+}
 
 impl BinOpcode
 {
@@ -362,6 +366,8 @@ impl BinOpcode
             ">=" => Self::Ge,
             "&"  => Self::And,
             "|"  => Self::Or,
+            "&&" => Self::Band,
+            "||" => Self::Bor,
             _ => panic!("unknown binop"),
         }
     }
@@ -379,11 +385,12 @@ impl BinOpcode
 
     pub fn is_bool(&self) -> bool
     {
-        return match self {
+        todo!();
+/*        return match self {
             Self::And |
             Self::Or => true,
             _ => false,
-        };
+        };*/
     }
 
     pub fn is_cmp(&self) -> bool

@@ -1,69 +1,77 @@
 use https://bnfplayground.pauliankline.com/;
 
-<Block>   ::= <Stmt>+
+<Block>   ::= <Stmt>*
 <Stmt>    ::= <Assign>
             | <IfElse>
             | <Loop>
             | <Break>
-            | <Return>
-            | <PcCall> /* beware: lookahead bcoz of assign */
-            | <EndProc>
+/*            | <Return>*/
+/*            | <PcCall> /* beware: lookahead bcoz of assign */
+/*            | <EndProc>*/
 
-<Assign>  ::= <Ident> ("_" <Index>)* "=" <Expr> "."
+<Assign>  ::= <Expr> "=" <Expr> "."
 
 <IfElse>  ::= "[" <Expr> "=>" <Block>    /* if */
             ( "|" <Expr> "=>" <Block> )* /* else if */
             ( "|"        "=>" <Block> )? /* else */
               "]"
 
-<Loop>    ::= "@"    (                <Block>   /* inf loop */
-            | <Block>? "(" <Expr> ")" <Block>?) /* cdt loop */
-            "."
+<Loop>    ::= "@" <Block> ("(" <Expr> ")" <Block>)? "."
 <Break>   ::= "@@" <N>? "." /* break Nth level loop, default = 0 */
 
-<Return>  ::= "##" <Expr> "."
+/*<Return>  ::= "##" <Expr> "."*/
 
-<PcCall>  ::= <Ident> "!" <CommaEx>? "."
-<EndProc> ::= "!!" <N>? "." /* end Nth level proc call */
+/*<PcCall>  ::= <Ident> "!" <CommaEx>? "."*/
+/*<EndProc> ::= "!!" <N>? "." /* end Nth level proc call */*/
 
-<Expr>    ::= <OrExpr>
-<OrExpr>  ::= <AndExpr> ("|" <AndExpr>)*
-<AndExpr> ::= <AndTerm> ("&" <AndTerm>)*
-<AndTerm> ::= "~"* <CmpExpr> /* yes: ~ neg has weaker precedence than == */
+/*
+    TODO: $
+    TODO: #;
+    T%
+    _
+    unary /
+    * / TODO: %
+    unary -
+    + -
+    MAYBE: << >>
+    TODO: &
+    TODO: ^
+    TODO: |
+    == ~= < <= > >=
+    &&
+    ||
+*/
 
-<CmpExpr> ::= <AddExpr> (("[=~]=" | "[<>]=?") <AddExpr>)?
-
+<Expr>    ::= <BOrExpr>
+<BOrExpr> ::= <BAndExpr> ("||" <BAndExpr>)*
+<BAndExpr> ::= <CmpExpr> ("&&" <CmpExpr>)*
+<CmpExpr> ::= <AddExpr> (<CmpOp> <AddExpr>)*
+<CmpOp>   ::= r"([=~<>]=|<|>)"
 <AddExpr> ::= <AddTerm> (("+" | "-") <AddTerm>)*
-<AddTerm> ::= "-"* <MulExpr>
-
+<NegExpr> ::= "-"* <MulExpr>
 <MulExpr> ::= <MulTerm> (("*" | "/") <MulTerm>)*
-<MulTerm> ::= "/"* <CastExpr>
+<InvExpr> ::= "/"* <NotExpr>
+<NotExpr> ::= "~"* <IdxExpr>
+<IdxExpr> ::= <CastExpr> ("_" <CastExpr>)*
+<CastExpr> ::= <PrimType>* <Nucle>
+<PrimType> ::= r"[BCNZR]%"
 
-<CastExpr> ::= <PrimType>* <IdxExpr>
+/*<FnArgs>  ::= "#" <CommaEx>? ";"*/
 
-/** Indexed or FnCall expr */
-<IdxExpr> ::= <IdxTerm> ("_" <IdxTerm>)*
-<IdxTerm> ::= <Nucle> <FnArgs>*
-<FnArgs>  ::= "#" <CommaEx>? ";"
-<CommaEx> ::= <Expr> ("," <Expr>)*
+/*<AnonFn>  ::= "#" <FnPars>? ";" <Block> "."*/
+/*<FnPars>  ::= <Ident> ("," <Ident>)**/
 
-/** AnonFn */
-<AnonFn>  ::= "#" <FnPars>? ";" <Block> "."
-<FnPars>  ::= <Ident> ("," <Ident>)*
+<Nucle>   ::= /*<AnonFn> |*/
+            <Parented> | <Literal> | <Ident> /*| "@" /* recurs */
 
-/** Nucle */
-<Nucle>   ::= <AnonFn> | <PrimLit> | <Ident> | <Parented> | "@" /* recurs */
-<Ident>   ::= "[A-Za-z][A-Za-z0-9]*"
 <Parented> ::= "(" <Expr> ")"
+<Ident>   ::= "[A-Za-z][A-Za-z0-9]*"
 
-/* Type */
-<ArrType>  ::= <PrimType> | "#%"
-<PrimType> ::= "[BCNZR]%"
-
-/* Literals */
-<ArrLit>  ::= "{" <CommaEx>? "}"
+<Literal> ::= <B> | <C> | <N> | <Z> | <R> | <String> | <ArrLit>
 <String>  ::= "check implementation"
-<PrimLit> ::= <B> | <N> | <R>
-<B> ::= "[TF]"
-<N> ::= "[0-9]+"
-<R> ::= "[0-9]+\.[0-9]+"
+<B> ::= r"[TF]"
+<N> ::= r"[0-9]+u"
+<Z> ::= r"[0-9]+"
+<R> ::= r"[0-9]+\.[0-9]+"
+<ArrLit>  ::= "_" <CommaEx> ";"
+<CommaEx> ::= (<Expr> ("," <Expr>)*)?
