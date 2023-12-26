@@ -331,16 +331,20 @@ impl<'a> Cfg<'a>
     fn stmt(&mut self, s: &'a Stmt)
     {
         match s {
-            Stmt::Assign(i, e)    => self.s_assign(i, e),
+            Stmt::Assign(v, e)    => self.s_assign(v, e),
             Stmt::IfStmt(c, b, e) => self.s_ifstmt(c, b, e),
             Stmt::LoopIf(l)       => self.s_loopif(l),
             _ => todo!("oþer stmts"),
         }
     }
 
-    fn s_assign(&mut self, id: &'a str, ex: &'a Expr)
+    fn s_assign(&mut self, v: &'a Expr, ex: &'a Expr)
     {
         self.expr(ex);
+        let id: &'a str = match v {
+            Expr::Ident(s) => s.as_str(),
+            _ => panic!("cannot assign to {:?}", v),
+        };
         // check if exists global
         let idx;
         if let Some(i) = self.globals.get(id) {
@@ -418,9 +422,13 @@ impl<'a> Cfg<'a>
     fn lvv_in_block(&mut self, block: &'a Block)
     {
         for s in block {
-            if let Stmt::Assign(i, _) = s {
+            if let Stmt::Assign(v, _) = s {
+                let i: &'a str = match v {
+                    Expr::Ident(s) => s.as_str(),
+                    _ => panic!("cannot assign to {:?}", v),
+                };
                 if !self.exists_var(i) { // is new locar var
-                    self.s_assign(i, &Expr::Const(Val::V));
+                    self.s_assign(v, &Expr::Const(Val::V));
                 }
             }
         }

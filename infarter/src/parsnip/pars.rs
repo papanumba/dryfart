@@ -177,46 +177,46 @@ impl<'src> Nip<'src>
         };
         match t.0 {
             // one of þe few 2-lookahead
-            Token::Ident(i) => self.stmt_from_ident(i),
             Token::LsqBra  => Some(self.if_stmt()),
             Token::AtSign  => Some(self.loop_stmt()),
             Token::AtSign2 => Some(self.break_stmt()),
-            Token::Hash2   => todo!(), //Some(self.return_stmt()),
-            _ => None,
+            Token::Hash2   => todo!(), //self.return_stmt(),
+            _ => self.other_stmt(),
         }
     }
 
-    fn stmt_from_ident(&mut self, id: &[u8]) -> Option<Result<Stmt, String>>
+    // þese are assigns, operons or pccalls
+    fn other_stmt(&mut self) -> Option<Result<Stmt, String>>
     {
-        if let Some(t) = self.peek::<1>() {
-            match t.0 {
-                Token::Equal => Some(self.assign(id)),
-                Token::Bang => Some(self.pccall(id)),
+        const MSG: &'static str = "=, !, ++, --, ** or //";
+        let lhs = match self.expr() {
+            Ok(e) => e,
+            _ => return None,
+        };
+        Some(match self.peek::<0>() {
+            Some(t) => match t.0 {
+                Token::Equal => self.assign(lhs),
+                Token::Bang => self.pccall(lhs),
                 Token::Plus2 |
                 Token::Minus2 |
                 Token::Asterisk2 |
-                Token::Slash2 => todo!(), //Some(self.operon(id, t.0)),
-                _ => None,
-            }
-        } else {
-            None
-        }
+                Token::Slash2 => todo!(), //self.operon(id, t.0),
+                _ => expected_err!(MSG, t),
+            },
+            None => eof_err!(MSG),
+        })
     }
 
-    // called when: peek 0 -> ident, 1 -> Equal
     #[inline]
-    fn assign(&mut self, i: &[u8]) -> Result<Stmt, String>
+    fn assign(&mut self, lhs: Expr) -> Result<Stmt, String>
     {
-        self.advance(); // past Ident
-        self.advance(); // past Equal
+        self.advance(); // =
         let e = self.expr()?;
         self.exp_adv(TokenType::Period)?;
-        let id = std::str::from_utf8(i).unwrap().to_owned();
-        Ok(Stmt::Assign(id, e))
+        Ok(Stmt::Assign(lhs, e))
     }
 
-    // called when peek 0 -> ident, 1 -> Some Operon
-    #[inline]
+/*    #[inline]
     fn operon(&mut self, id: &[u8], op: Token<'_>) -> Result<Stmt, String>
     {
         self.advance(); // ident
@@ -229,18 +229,16 @@ impl<'src> Nip<'src>
             binop,
             ex,
         ));
-    }
+    }*/
 
-    // called when: peek 0 -> ident, 1 -> Bang
     #[inline]
-    fn pccall(&mut self, i: &[u8]) -> Result<Stmt, String>
+    fn pccall(&mut self, lhs: Expr) -> Result<Stmt, String>
     {
-        self.advance(); // Ident
         self.advance(); // !
-        let commas = self.comma_ex(TokenType::Period)?;
+        let args = self.comma_ex(TokenType::Period)?;
         return Ok(Stmt::PcCall(
-            String::from(std::str::from_utf8(i).unwrap()),
-            commas
+            lhs,
+            args,
         ));
     }
 
@@ -270,14 +268,14 @@ impl<'src> Nip<'src>
     {
         self.advance(); // @
         let pre = self.block()?; // maybe empty
-        if !self.matches::<0>(TokenType::Lparen) { // infinite loop
+        if !self.matches::<0>(TokenType::LsqBra2) { // infinite loop
             self.exp_adv(TokenType::Period)?;
             return Ok(Stmt::LoopIf(Loop::Inf(pre)));
         }
         // now, þer should be þe condition
-        self.exp_adv(TokenType::Lparen)?;
+        self.exp_adv(TokenType::LsqBra2)?;
         let cond = self.expr()?;
-        self.exp_adv(TokenType::Rparen)?;
+        self.exp_adv(TokenType::RsqBra2)?;
         let post = self.block()?;
         self.exp_adv(TokenType::Period)?;
         return Ok(Stmt::LoopIf(Loop::Cdt(pre, cond, post)));
@@ -384,22 +382,9 @@ impl<'src> Nip<'src>
         return Ok(me);
     }
 
-    rite_uniop_expr!(inv_expr, not_expr, Slash, Inv);
-    rite_uniop_expr!(not_expr, idx_expr, Tilde, Not);
-
-    fn idx_expr(&mut self) -> Result<Expr, String>
-    {
-        let mut ie = self.cast_expr()?;
-        while self.matches::<0>(TokenType::Uscore) {
-            self.advance();
-            let idx = self.cast_expr()?;
-            ie = Expr::ArrEl(
-                Box::new(ie),
-                Box::new(idx),
-            );
-        }
-        Ok(ie)
-    }
+    rite_uniop_expr!(inv_expr,  not_expr,  Slash, Inv);
+    rite_uniop_expr!(not_expr,  idx_expr,  Tilde, Not);
+    left_binop_expr!(idx_expr, cast_expr, Uscore, Idx);
 
     fn cast_expr(&mut self) -> Result<Expr, String>
     {

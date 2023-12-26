@@ -61,6 +61,8 @@ pub enum Token<'src>
     Hash2,
     Bang2,
     AtSign2,
+    LsqBra2,
+    RsqBra2,
     // 2 different char
     Ne,   // ~=
     Ge,   // >=
@@ -148,6 +150,8 @@ impl Token<'_>
             b'#' => Ok(Token::Hash2),
             b'!' => Ok(Token::Bang2),
             b'@' => Ok(Token::AtSign2),
+            b'[' => Ok(Token::LsqBra2),
+            b']' => Ok(Token::RsqBra2),
             _ => Err(String::from(
                 format!("unknown double char token {0}{0}", char::from(b))
             )),
@@ -172,10 +176,11 @@ impl<'src> TryFrom<&u8> for Token<'src>
             b'#' => Ok(Token::Hash),
             b'!' => Ok(Token::Bang),
             b'@' => Ok(Token::AtSign),
-/*            b'_' => Ok(Token::Uscore),
+            b'[' => Ok(Token::LsqBra),
+            b']' => Ok(Token::RsqBra),
+            b'_' => Ok(Token::Uscore),
             b'.' => Ok(Token::Period),
             b',' => Ok(Token::Comma),
-            b'#' => Ok(Token::Hash),*/
             _ => Err(String::from(
                 format!("unknown single char token {}", char::from(*b))
             )),
@@ -223,6 +228,8 @@ pub enum TokenType
     Hash2,
     Bang2,
     AtSign2,
+    LsqBra2,
+    RsqBra2,
     // 2 different char
     Ne,   // ~=
     Ge,   // >=
@@ -284,6 +291,8 @@ impl<'src> From<&Token<'src>> for TokenType
             Token::Hash2    => Self::Hash2,
             Token::Bang2    => Self::Bang2,
             Token::AtSign2  => Self::AtSign2,
+            Token::LsqBra2  => Self::LsqBra2,
+            Token::RsqBra2  => Self::RsqBra2,
             // 2 different char
             Token::Ne       => Self::Ne,
             Token::Ge       => Self::Ge,

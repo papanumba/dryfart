@@ -134,34 +134,32 @@ impl<'src> Luthor<'src>
     {
         self.skip_whites();
         self.base_pos = self.next_pos;
-        return if let Some(c) = self.read_char() {
-            Some(match c {
-                b'_' => Token::Uscore,
-                b'.' => Token::Period,
-                b',' => Token::Comma,
-                b';' => Token::Semic,
-                b'(' => Token::Lparen,
-                b')' => Token::Rparen,
-                b'[' => Token::LsqBra,
-                b']' => Token::RsqBra,
-                b'{' => Token::Lbrace,
-                b'}' => Token::Rbrace,
-                b'^' => Token::Caret,
-                b'+' | b'-' | b'*' | b'/' | b'@' |
-                b'&' | b'|' | b'#' | b'!' => self.maybe_2ble(*c),
-                b'~' => self.from_tilde(),  // ~, ~~, ~=
-                b'=' => self.from_equal(),  // =, ==, =>
-                b'<' => self.from_langle(), // <, <=
-                b'>' => self.from_rangle(), // >, >=
-                b'0'..=b'9' => self.get_num(), // N, Z or R
-                b'a'..=b'z' | b'A'..=b'Z' => self.get_ident(),
-                b'"' => self.get_string(),
-                b'\'' => self.comment(),
-                 _ => Token::Unknown(*c),
-            })
-        } else {
-            None
+        let c = match self.read_char() {
+            Some(ch) => ch,
+            None => return None,
         };
+        Some(match c {
+            b'_' => Token::Uscore,
+            b'.' => Token::Period,
+            b',' => Token::Comma,
+            b';' => Token::Semic,
+            b'(' => Token::Lparen,
+            b')' => Token::Rparen,
+            b'{' => Token::Lbrace,
+            b'}' => Token::Rbrace,
+            b'^' => Token::Caret,
+            b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' |
+            b'&' | b'|' | b'#' | b'!' => self.maybe_2ble(*c),
+            b'~' => self.from_tilde(),  // ~, ~~, ~=
+            b'=' => self.from_equal(),  // =, ==, =>
+            b'<' => self.from_langle(), // <, <=
+            b'>' => self.from_rangle(), // >, >=
+            b'0'..=b'9' => self.get_num(), // N, Z or R
+            b'a'..=b'z' | b'A'..=b'Z' => self.get_ident(),
+            b'"' => self.get_string(),
+            b'\'' => self.comment(),
+             _ => Token::Unknown(*c),
+        })
     }
 
     // gets called when some of +-*/&|~

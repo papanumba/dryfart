@@ -130,8 +130,8 @@ fn do_stmt<'a, 's>(
 {
     let sc = &mut bs.outer;
     match s {
-        Stmt::Assign(i, e)    => do_assign(bs, i, e),
-        Stmt::OperOn(i, o, e) => do_operon(sc, i, o, e),
+        Stmt::Assign(v, e)    => do_assign(bs, v, e),
+        Stmt::OperOn(v, o, e) => todo!(), //do_operon(sc, v, o, e),
         Stmt::IfStmt(c, b, e) => return do_ifstmt(sc, c, b, e),
         Stmt::LoopIf(l)       => return do_loopif(sc, l),
         Stmt::BreakL(l)       => return Some(BlockAction::BreakL(*l)),
@@ -139,7 +139,7 @@ fn do_stmt<'a, 's>(
             return Some(BlockAction::Return(eval_expr(sc, e))),
         Stmt::PcDecl(p)       => do_pcdecl(bs, p),
         Stmt::PcExit          => return Some(BlockAction::PcExit),
-        Stmt::PcCall(n, a)    => return do_pccall(sc, n, a),
+        Stmt::PcCall(p, a)    => return do_pccall(sc, p, a),
 //        _ => todo!(),
     }
     return None;
@@ -148,16 +148,20 @@ fn do_stmt<'a, 's>(
 #[inline]
 fn do_assign<'a, 's>(
     bs: &mut BlockScope::<'a, 's>,
-    id: &'a str,
+    va: &'a Expr,
     ex: &Expr)
 {
     let val: Val = eval_expr(bs.outer, ex);
+    let id = match va {
+        Expr::Ident(i) => i.as_str(),
+        _ => panic!("cannot assign to {:?}", va),
+    };
     if (bs.outer.vars.insert(id,  val).is_none()) {
         bs.inner.vars.push(&id); // new id in þe HashMap
     }
 }
 
-#[inline]
+/*#[inline]
 fn do_operon<'a>(
     sc: &mut Scope::<'a>,
     id: &'a str,
@@ -174,7 +178,7 @@ fn do_operon<'a>(
     let value: Val = eval_expr(sc, ex);
     let value: Val = eval_binop_val(idval, op, &value);
     sc.vars.insert(id, value); // id exists
-}
+}*/
 
 fn do_ifstmt<'a>(
     sc: &mut Scope::<'a>,
@@ -294,10 +298,14 @@ fn do_pcdecl<'a, 's>(
 
 fn do_pccall<'a>(
     scope: &mut Scope::<'a>,
-    name: &'a str,
+    pc_val: &'a Expr,
     raw_args: &Vec<Expr>)
  -> Option<BlockAction>
 {
+    let name: &'a str = match pc_val {
+        Expr::Ident(s) => s,
+        _ => panic!("cannot call procedure {:?}", pc_val),
+    };
     let proc: &Proc;
     // eval every arg
     let args: Vec<Val> = eval_args(scope, raw_args);

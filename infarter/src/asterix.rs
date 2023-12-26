@@ -524,15 +524,15 @@ pub type Block = Vec<Stmt>;
 #[derive(Debug, Clone)]
 pub enum Stmt
 {
-    Assign(String, Expr),
-    OperOn(String, BinOpcode, Expr),
+    Assign(Expr, Expr),
+    OperOn(Expr, BinOpcode, Expr),
     IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
     LoopIf(Loop),
     BreakL(u32),
     Return(Expr),
     PcDecl(Proc),
     PcExit,
-    PcCall(String, Vec<Expr>),
+    PcCall(Expr, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]

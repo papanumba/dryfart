@@ -6,7 +6,7 @@ use https://bnfplayground.pauliankline.com/;
             | <Loop>
             | <Break>
 /*            | <Return>*/
-/*            | <PcCall> /* beware: lookahead bcoz of assign */
+            | <PcCall>
 /*            | <EndProc>*/
 
 <Assign>  ::= <Expr> "=" <Expr> "."
@@ -21,7 +21,7 @@ use https://bnfplayground.pauliankline.com/;
 
 /*<Return>  ::= "##" <Expr> "."*/
 
-/*<PcCall>  ::= <Ident> "!" <CommaEx>? "."*/
+<PcCall>  ::= <Expr> "!" <CommaEx>? "."
 /*<EndProc> ::= "!!" <N>? "." /* end Nth level proc call */*/
 
 /*
