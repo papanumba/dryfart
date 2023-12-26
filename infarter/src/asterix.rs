@@ -302,22 +302,6 @@ impl std::fmt::Display for Array
     }
 }
 
-pub fn try_arr_el(a: &Val, i: &Val) -> Result<Val, String>
-{
-    let arr: &Array = match a {
-        Val::A(arr_val) => arr_val,
-        _ => return format_err!("{:?} not indexable", a),
-    };
-    let idx: u32 = match i {
-        Val::N(idx_val) => *idx_val,
-        _ => return format_err!("{:?} cannot be used as index", i),
-    };
-    match arr.get(idx as usize) {
-        Some(v) => Ok(v),
-        None => format_err!("{} out of bounds (len = {})", idx, arr.len()),
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Val
 {
@@ -346,7 +330,8 @@ impl Val
 pub enum BinOpcode {
     Add, Sub, Mul, Div,
     Eq, Ne, Lt, Gt, Le, Ge,
-    And, Or, Xor, Cand, Cor
+    And, Or, Xor, Cand, Cor,
+    Idx
 }
 
 impl BinOpcode
@@ -561,6 +546,5 @@ pub enum Expr
     CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
     Fdefn(Func),
     Fcall(Box<Expr>, Vec<Expr>),
-    ArrEl(Box<Expr>, Box<Expr>),
     Array(Vec<Expr>),
 }

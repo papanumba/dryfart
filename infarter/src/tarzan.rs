@@ -380,10 +380,6 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
         Expr::CmpOp(f, o) => eval_cmpop(scope, f, o),
         Expr::Fdefn(f) => Val::F((*f).clone()),
         Expr::Fcall(c, a) => eval_fncall(scope, &**c, a),
-        Expr::ArrEl(a, i) => try_arr_el(
-            &eval_expr(scope, a),
-            &eval_expr(scope, i)
-        ).unwrap(),
         Expr::Array(a) => Val::A(eval_args(scope, a)
                                     .as_slice()
                                     .try_into()
@@ -457,7 +453,9 @@ fn eval_binop(
 {
     if o.is_sce() {
         eval_sce(s, l, o, r)
-    } else {
+    } else if o == &BinOpcode::Idx { // array-index
+        eval_arr_idx(s, l, r)
+    } else { // classic binops
         eval_binop_val(
             &eval_expr(s, l),
             o,
@@ -490,6 +488,22 @@ fn eval_sce(
             Val::B(true)
         },
         _ => unreachable!(),
+    }
+}
+
+fn eval_arr_idx(s: &Scope, a: &Expr, i: &Expr) -> Val
+{
+    let a_val = match eval_expr(s, a) {
+        Val::A(arr) => arr,
+        _ => panic!("ERROR: {:?} is not indexable", a),
+    };
+    let i_val = match eval_expr(s, i) {
+        Val::N(idx) => idx,
+        _ => panic!("cannot use {:?} as index", i),
+    };
+    match a_val.get(i_val as usize) {
+        Some(v) => v,
+        None => panic!("{} out of bounds (len = {})", i_val, a_val.len()),
     }
 }
 
