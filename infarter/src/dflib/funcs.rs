@@ -9,7 +9,7 @@ pub fn len(args: &Vec<Val>) -> Val
         _ => panic!("not rite numbav args to len#, must be 1"),
     };
     return match a {
-        Val::A(arr) => arr.len_val_n(),
+        Val::A(arr) => arr.borrow().len_val_n(),
         _ => panic!("ERROR@len#: not rite typ'arg: expected array"),
     };
 }

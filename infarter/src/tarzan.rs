@@ -388,7 +388,7 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
         Expr::CmpOp(f, o) => eval_cmpop(scope, f, o),
         Expr::Fdefn(f) => Val::F((*f).clone()),
         Expr::Fcall(c, a) => eval_fncall(scope, &**c, a),
-        Expr::Array(a) => Val::A(eval_args(scope, a)
+        Expr::Array(a) => Val::from_array(eval_args(scope, a)
                                     .as_slice()
                                     .try_into()
                                     .unwrap()),
@@ -509,9 +509,10 @@ fn eval_arr_idx(s: &Scope, a: &Expr, i: &Expr) -> Val
         Val::N(idx) => idx,
         _ => panic!("cannot use {:?} as index", i),
     };
-    match a_val.get(i_val as usize) {
+    let a_ref = a_val.borrow();
+    match a_ref.get(i_val as usize) {
         Some(v) => v,
-        None => panic!("{} out of bounds (len = {})", i_val, a_val.len()),
+        None => panic!("{} out of bounds (len = {})", i_val, a_ref.len()),
     }
 }
 

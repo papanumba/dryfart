@@ -12,7 +12,7 @@ pub fn put(args: &Vec<Val>)
             Val::N(n) => print!("{n}"),
             Val::Z(z) => print!("{z}"),
             Val::R(r) => print!("{r}"),
-            Val::A(a) => print!("{a}"),
+            Val::A(a) => print!("{}", a.borrow()),
             Val::F(_) => print!("#%cannot print func"),
 //            _ => panic!("cannot print"),
         }

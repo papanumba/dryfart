@@ -1,5 +1,7 @@
 /* src/asterix.rs */
 
+use std::rc::Rc;
+use std::cell::RefCell;
 use crate::util;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -49,7 +51,7 @@ impl Type
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
             Self::F => panic!("cannot default function"),
-            Self::A => Val::A(Array::new()),
+            Self::A => Val::from_array(Array::new()),
         }
     }
 }
@@ -307,9 +309,15 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f32),
-    A(Array),
+    A(Rc<RefCell<Array>>),
     F(Func),
 }
+
+/*
+** Note: Val clone is always "shallow":
+**  - for primitives (VBCNZR) it's just a Copy
+**  - for heap objects (AF) it's an Rc::clone
+*/
 
 impl Val
 {
@@ -319,6 +327,11 @@ impl Val
             Some(c) => return Self::C(c),
             None => panic!("not valid char"),
         }
+    }
+
+    pub fn from_array(a: Array) -> Self
+    {
+        Self::A(Rc::new(RefCell::new(a)))
     }
 }
 

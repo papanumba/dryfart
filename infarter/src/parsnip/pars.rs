@@ -570,7 +570,7 @@ impl<'src> Nip<'src>
             .expect("sunþiŋ rroŋ when parsing string to utf8");
         let a = Array::try_from(s)?;
         self.advance();
-        return Ok(Expr::Const(Val::A(a)));
+        return Ok(Expr::Const(Val::from_array(a)));
     }
 }
 
