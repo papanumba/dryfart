@@ -1,8 +1,10 @@
 /* src/tarzan.rs */
 
-#![allow(unused_parens)]
+#![allow(dead_code, unused_variables, unused_parens)]
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap
+};
 use crate::{
     asterix::*,
     util,
@@ -154,10 +156,31 @@ fn do_assign<'a, 's>(
     let val: Val = eval_expr(bs.outer, ex);
     let id = match va {
         Expr::Ident(i) => i.as_str(),
+        Expr::BinOp(a, BinOpcode::Idx, i) =>
+            return do_ass_arr(&bs.outer, a, i, ex),
         _ => panic!("cannot assign to {:?}", va),
     };
     if (bs.outer.vars.insert(id,  val).is_none()) {
         bs.inner.vars.push(&id); // new id in þe HashMap
+    }
+}
+
+// a_i = e.
+fn do_ass_arr(
+    s: &Scope,
+    a: &Expr,
+    i: &Expr,
+    e: &Expr)
+{
+    if let Val::A(arr) = eval_expr(s, a) {
+        if let Val::N(idx) = eval_expr(s, i) {
+            let e_val = eval_expr(s, e);
+            arr.borrow_mut().try_set(idx as usize, e_val).unwrap();
+        } else {
+            panic!("not an index");
+        }
+    } else {
+        panic!("not indexable");
     }
 }
 

@@ -208,6 +208,29 @@ impl Array
         })
     }
 
+    pub fn try_set(&mut self, i: usize, v: Val) -> Result<(), String>
+    {
+        if i >= self.len() {
+            return util::format_err!(
+                "{} out of bounds (len = {}", i, self.len()
+            );
+        }
+        match (&mut *self, &v) {
+            (Self::E, _) => unreachable!(),
+            (Self::V(_), Val::V   ) => {}, // set a V to V array is stupid
+            (Self::B(a), Val::B(b)) => a[i] = *b,
+            (Self::C(a), Val::C(c)) => a[i] = *c,
+            (Self::N(a), Val::N(n)) => a[i] = *n,
+            (Self::Z(a), Val::Z(z)) => a[i] = *z,
+            (Self::R(a), Val::R(r)) => a[i] = *r,
+            _ => return util::format_err!(
+                "{:?} is not of array's type {:?}",
+                v, self.get_type().unwrap()
+            )
+        }
+        Ok(())
+    }
+
     #[inline]
     pub fn len(&self) -> usize
     {
