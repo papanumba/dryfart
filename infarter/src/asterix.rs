@@ -1,10 +1,6 @@
 /* src/asterix.rs */
 
-macro_rules! format_err {
-    ($($args:expr),+) => (
-        Err(String::from(format!($($args),+)))
-    )
-}
+use crate::util;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Type
@@ -156,7 +152,7 @@ impl Array
             (Self::N(a), Val::N(n)) => a.push(*n),
             (Self::Z(a), Val::Z(z)) => a.push(*z),
             (Self::R(a), Val::R(r)) => a.push(*r),
-            _ => return format_err!(
+            _ => return util::format_err!(
                 "cannot push {} value into {} array",
                 Type::from(v), self.get_type().unwrap()
             ),

@@ -1,5 +1,13 @@
 /* src/util.rs */
 
+macro_rules! format_err {
+    ($($args:expr),+) => (
+        Err(String::from(format!($($args),+)))
+    )
+}
+
+pub(crate) use format_err;
+
 #[derive(Debug, Copy, Clone)]
 pub struct StaVec<const N: usize, T>
 where T: Sized + Copy + Clone + Default

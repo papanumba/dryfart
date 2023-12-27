@@ -4,18 +4,19 @@
 
 use super::toki::{Token, TokenType, PrimType};
 use crate::asterix::*;
+use crate::util;
 
 macro_rules! expected_err {
-    ($e:expr, $f:expr) => { Err(String::from(
-        format!("ParsnipError: Expected {} but found {:?} at line {}",
-            $e, $f.0, $f.1)
-    )) };
+    ($e:expr, $f:expr) => { util::format_err!(
+        "ParsnipError: Expected {} but found {:?} at line {}",
+        $e, $f.0, $f.1
+    ) };
 }
 
 macro_rules! eof_err {
-    ($e:expr) => { Err(String::from(
-        format!("ParsnipError: Expected {} but found EOF", $e)
-    )) };
+    ($e:expr) => {
+        util::format_err!("ParsnipError: Expected {} but found EOF", $e)
+    };
 }
 
 // left associative binop exprs þat have only 1 operator
@@ -606,8 +607,9 @@ impl TryFrom<&Token<'_>> for BinOpcode
             Token::Slash2 => Ok(BinOpcode::Div),
             Token::And2   => Ok(BinOpcode::And),
             Token::Vbar2  => Ok(BinOpcode::Or),
-            _ => Err(String::from(format!(
-                "cannot convert token {:?} into a BinOp", t))),
+            _ => util::format_err!(
+                "cannot convert token {:?} into a BinOp", t
+            ),
         }
     }
 }

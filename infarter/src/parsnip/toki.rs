@@ -1,5 +1,7 @@
 /* src/parsnip/toki.rs */
 
+use crate::util;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PrimType { B, C, N, Z, R }
 
@@ -14,9 +16,7 @@ impl TryFrom<&u8> for PrimType
             b'N' => return Ok(Self::N),
             b'Z' => return Ok(Self::Z),
             b'R' => return Ok(Self::R),
-            _ => Err(String::from(
-                format!("{}% is not a dftype", char::from(*b))
-            )),
+            _ => util::format_err!("{}% is not a dftype", char::from(*b)),
         };
     }
 }
@@ -152,9 +152,9 @@ impl Token<'_>
             b'@' => Ok(Token::AtSign2),
             b'[' => Ok(Token::LsqBra2),
             b']' => Ok(Token::RsqBra2),
-            _ => Err(String::from(
-                format!("unknown double char token {0}{0}", char::from(b))
-            )),
+            _ => util::format_err!(
+                "unknown double char token {0}{0}", char::from(b)
+            ),
         }
     }
 }
@@ -181,9 +181,9 @@ impl<'src> TryFrom<&u8> for Token<'src>
             b'_' => Ok(Token::Uscore),
             b'.' => Ok(Token::Period),
             b',' => Ok(Token::Comma),
-            _ => Err(String::from(
-                format!("unknown single char token {}", char::from(*b))
-            )),
+            _ => util::format_err!(
+                "unknown single char token {}", char::from(*b)
+            ),
         }
     }
 }
