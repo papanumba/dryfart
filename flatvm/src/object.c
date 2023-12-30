@@ -9,9 +9,13 @@ static void objidf_print(struct ObjIdf *);
 static void objidf_free (struct ObjIdf *);
 static void objarr_print(struct ObjArr *);
 static void objarr_free (struct ObjArr *);
+static void objarr_grow (struct ObjArr *, uint);
 
 static struct Object * alloc_object(enum ObjType);
 static uint hash_string(const char *, size_t);
+static inline int arr_val_types_eq(enum ArrType, enum ValType);
+static inline size_t sizeof_arr_elem(enum ArrType);
+static inline enum ArrType valt2arrt(enum ValType);
 
 void object_print(struct Object *o)
 {
@@ -61,6 +65,31 @@ struct ObjArr * objarr_new()
     return arr;
 }
 
+int objarr_try_push(struct ObjArr *a, struct DfVal *v)
+{
+    if (a->typ != ARR_E && !arr_val_types_eq(a->typ, v->type)) {
+        fprintf(stderr, "cannot push into array of different types");
+        return FALSE;
+    }
+    if (a->typ == ARR_E)
+        a->typ = valt2arrt(v->type); // checked þat are compatible
+        // here a will have v's type, but size 0
+    if (a->typ == ARR_B)
+        panic("todo: arrb push");
+    if (a->cap < a->len + 1)
+        objarr_grow(a, GROW_CAP(a->cap));
+    switch (a->typ) {
+      case ARR_E: break; // unreachable
+      case ARR_B: break; // todo
+      case ARR_C: a->as.c[a->len] = v->as.c; break;
+      case ARR_N: a->as.n[a->len] = v->as.n; break;
+      case ARR_Z: a->as.z[a->len] = v->as.z; break;
+      case ARR_R: a->as.r[a->len] = v->as.r; break;
+    }
+    a->len++;
+    return TRUE;
+}
+
 static void objidf_free(struct ObjIdf *idf)
 {
     realloc_or_free(idf->str, 0);
@@ -97,15 +126,15 @@ static void objarr_print(struct ObjArr *arr)
       case ARR_C: break; // unreachable
       case ARR_N:
         for (i = 0; i < len; ++i)
-            printf("%lu", (ulong) arr->as.n[i]);
+            printf("%lu, ", (ulong) arr->as.n[i]);
         break;
       case ARR_Z:
         for (i = 0; i < len; ++i)
-            printf("%ld", (long) arr->as.z[i]);
+            printf("%ld, ", (long) arr->as.z[i]);
         break;
       case ARR_R:
         for (i = 0; i < len; ++i)
-            printf("%f", (float) arr->as.r[i]);
+            printf("%f, ", (float) arr->as.r[i]);
         break;
     }
     putchar(';');
@@ -116,6 +145,23 @@ static void objarr_free(struct ObjArr *arr)
     if (arr->typ != ARR_E)
         return;
     realloc_or_free(arr->as.c, 0); // any would do
+}
+
+static void objarr_grow(struct ObjArr *arr, uint newcap)
+{
+    size_t new_size = newcap * sizeof_arr_elem(arr->typ);
+    switch (arr->typ) {
+      case ARR_E: panic("unreachable"); return;
+#define BASURA(t, x) \
+      case t: arr->as.x = realloc_or_free(arr->as.x, new_size); break;
+      BASURA(ARR_B, b)
+      BASURA(ARR_C, c)
+      BASURA(ARR_N, n)
+      BASURA(ARR_Z, z)
+      BASURA(ARR_R, r)
+#undef BASURA
+    }
+    arr->cap = newcap;
 }
 
 static struct Object * alloc_object(enum ObjType type)
@@ -140,4 +186,51 @@ static uint hash_string(const char *str, size_t len)
         hash *= 16777619;
     }
     return hash;
+}
+
+/* return if a is compatible with v,
+** ARR_E is always eq to a val type.
+*/
+static inline int arr_val_types_eq(enum ArrType a, enum ValType v)
+{
+    switch (a) {
+      case ARR_E: return TRUE;
+      case ARR_B: return VAL_B == v;
+      case ARR_C: return VAL_C == v;
+      case ARR_N: return VAL_N == v;
+      case ARR_Z: return VAL_Z == v;
+      case ARR_R: return VAL_R == v;
+    }
+    panic("end of function");
+    return FALSE;
+}
+
+static inline size_t sizeof_arr_elem(enum ArrType a)
+{
+    size_t size = 0;
+    switch (a) {
+      case ARR_E: panic("cannot have sizeof(ARR_E)"); break;
+#define BASURA(at, t) \
+      case at: size = sizeof(t); break;
+      BASURA(ARR_B, uint8_t)
+      BASURA(ARR_C, char)
+      BASURA(ARR_N, uint32_t)
+      BASURA(ARR_Z, int32_t)
+      BASURA(ARR_R, float)
+    }
+    return size;
+}
+
+static inline enum ArrType valt2arrt(enum ValType vt)
+{
+    switch (vt) {
+      case VAL_B: return ARR_B;
+      case VAL_C: return ARR_C;
+      case VAL_N: return ARR_N;
+      case VAL_Z: return ARR_Z;
+      case VAL_R: return ARR_R;
+      default:
+        panic("unreachable");
+        return ARR_E;
+    }
 }

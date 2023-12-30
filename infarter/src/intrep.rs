@@ -49,6 +49,7 @@ pub enum ImOp
     ULX(LocIdx),
 
     MEA, // make empty array
+    TPE, // try push elem (into array)
 
     CAZ,
     CAR,
@@ -574,12 +575,12 @@ impl<'a> Cfg<'a>
         }
     }
 
-    fn e_array(&mut self, a: &[Expr])
+    fn e_array(&mut self, a: &'a [Expr])
     {
-        if !a.is_empty() {
-            todo!("arrays");
-        } else {
-            self.push_op(ImOp::MEA);
+        self.push_op(ImOp::MEA);
+        for e in a {
+            self.expr(e);
+            self.push_op(ImOp::TPE);
         }
     }
 }

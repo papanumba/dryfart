@@ -66,6 +66,8 @@ static int op_ior(struct VirMac *);
 static int op_caz(struct VirMac *);
 static int op_car(struct VirMac *);
 
+static int op_tpe(struct VirMac *);
+
 static int  op_lgl(struct VirMac *);
 static int  op_sgl(struct VirMac *);
 static void op_lls(struct VirMac *);
@@ -101,9 +103,6 @@ enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
 {
     if (vm == NULL || bc == NULL || bc->cod == NULL)
         return ITP_NULLPTR_ERR;
-#ifdef DEBUG
-/*    disasm_norris(bc, "main");*/
-#endif
     vm->norris = bc;
     vm->ip = bc->cod;
     return run(vm);
@@ -217,6 +216,8 @@ static enum ItpRes run(struct VirMac *vm)
 
           DO_OP(OP_CAZ, op_caz)
           DO_OP(OP_CAR, op_car)
+
+          DO_OP(OP_TPE, op_tpe)
 
           DO_OP(OP_LGL, op_lgl)
           DO_OP(OP_SGL, op_sgl)
@@ -721,6 +722,22 @@ static int op_car(struct VirMac *vm)
         return FALSE;
     }
     val->type = VAL_R;
+    return TRUE;
+}
+
+static int op_tpe(struct VirMac *vm)
+{
+    struct DfVal elem = virmac_pop(vm);
+    struct DfVal arr = virmac_pop(vm);
+    if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
+        fprintf(stderr, "ERROR: value is not an array\n");
+        return FALSE;
+    }
+    struct ObjArr *a = (struct ObjArr *) arr.as.o;
+    if (!objarr_try_push(a, &elem)) {
+        fputs("ERROR: some error pushing into array\n", stderr);
+    }
+    virmac_push(vm, &arr);
     return TRUE;
 }
 

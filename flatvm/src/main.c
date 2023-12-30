@@ -75,7 +75,7 @@ static void run_file(struct VirMac *vm, const char *path)
     norris_free(&source);
     switch (res) {
       case ITP_OK:
-        printf("all ok\n");
+//        printf("all ok\n");
         break;
       case ITP_RUNTIME_ERR:
         fprintf(stderr, "Der'z bin a runtime error\n");
