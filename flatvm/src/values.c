@@ -45,7 +45,6 @@ int values_eq(struct DfVal *v, struct DfVal *w)
       case VAL_Z: return v->as.z == w->as.z;
       case VAL_R: return FALSE;
       case VAL_O: return object_eq(v->as.o, w->as.o);
-      case VAL_T: return v->as.t == w->as.t; /* TODO: check for user types*/
       default:
         fputs("unknown type in values_eq\n", stderr);
         return FALSE;
@@ -62,7 +61,6 @@ void values_print(struct DfVal *value)
       case VAL_Z: printf("%ld",   (long)value->as.z);     break;
       case VAL_R: printf("%f", value->as.r);     break;
       case VAL_O: object_print(value->as.o);     break;
-      case VAL_T: putchar(values_type_to_char(value->as.t)); break;
       default:
         fprintf(stderr, "unknown value.type %d\n", value->type);
         break;

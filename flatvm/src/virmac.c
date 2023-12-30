@@ -65,7 +65,6 @@ static int op_ior(struct VirMac *);
 /* casts */
 static int op_caz(struct VirMac *);
 static int op_car(struct VirMac *);
-static int op_cat(struct VirMac *);
 
 static int  op_lgl(struct VirMac *);
 static int  op_sgl(struct VirMac *);
@@ -218,7 +217,6 @@ static enum ItpRes run(struct VirMac *vm)
 
           DO_OP(OP_CAZ, op_caz)
           DO_OP(OP_CAR, op_car)
-          DO_OP(OP_CAT, op_cat)
 
           DO_OP(OP_LGL, op_lgl)
           DO_OP(OP_SGL, op_sgl)
@@ -240,6 +238,14 @@ static enum ItpRes run(struct VirMac *vm)
           case OP_JJL: {
             int dist = read_i16(vm);
             vm->ip += dist;
+            break;
+          }
+
+          case OP_MEA: {
+            struct DfVal val;
+            val.type = VAL_O;
+            val.as.o = (struct Object *) objarr_new();
+            virmac_push(vm, &val);
             break;
           }
 
@@ -328,7 +334,6 @@ static int dfval_eq(struct DfVal *v, struct DfVal *w)
       case VAL_Z: return v->as.z == w->as.z;
       case VAL_R: return FALSE;
       case VAL_O: return object_eq(v->as.o, w->as.o);
-      case VAL_T: return v->as.t == w->as.t; /* TODO: check for user types*/
       default:
         fputs("unknown type in dfval_eq\n", stderr);
         return FALSE;
@@ -347,7 +352,6 @@ static int dfval_ne(struct DfVal *v, struct DfVal *w)
       case VAL_Z: return v->as.z != w->as.z;
       case VAL_R: return TRUE;
       case VAL_O: return !object_eq(v->as.o, w->as.o); /* ! eq */
-      case VAL_T: return v->as.t != w->as.t; /* TODO: check for user types*/
       default:
         fputs("unknown type in dfval_ne\n", stderr);
         return TRUE;
@@ -717,15 +721,6 @@ static int op_car(struct VirMac *vm)
         return FALSE;
     }
     val->type = VAL_R;
-    return TRUE;
-}
-
-static int op_cat(struct VirMac *vm)
-{
-    struct DfVal res;
-    res.type = VAL_T;
-    res.as.t = virmac_pop(vm).type;
-    virmac_push(vm, &res);
     return TRUE;
 }
 

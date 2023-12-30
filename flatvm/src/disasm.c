@@ -70,7 +70,8 @@ uint disasm_instru(struct Norris *code, uint offset)
 
       case OP_CAZ: return simple_instru("CAZ", offset);
       case OP_CAR: return simple_instru("CAR", offset);
-      case OP_CAT: return simple_instru("CAT", offset);
+
+      case OP_MEA: return simple_instru("MEA", offset);
 
       case OP_LGL: return glo_instru("LGL", code, offset, 2);
       case OP_SGL: return glo_instru("SGL", code, offset, 2);

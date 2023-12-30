@@ -83,6 +83,8 @@ pub enum Op
     JGT = 0x5E,
     JGE = 0x5F,
 
+    MEA = 0x60,
+
     CAZ = 0xE8,
     CAR = 0xEA, // CAst Real
 
@@ -167,8 +169,11 @@ impl TryFrom<ImOp> for Op
             ImOp::IOR => Ok(Op::IOR),
             ImOp::XOR => Ok(Op::XOR),
 
+            ImOp::MEA => Ok(Op::MEA),
+
             ImOp::CAZ => Ok(Op::CAZ),
             ImOp::CAR => Ok(Op::CAR),
+
             ImOp::DUP => Ok(Op::DUP),
             ImOp::POP => Ok(Op::POP),
 

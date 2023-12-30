@@ -42,7 +42,7 @@ static void run_example(struct VirMac *vm)
 {
 #define EX_LEN 3
     enum OpCode c[EX_LEN] = {
-        OP_LZ1, OP_CAT, OP_RET
+        OP_LZ1, OP_CAR, OP_RET
     };
     uint i;
     struct Norris code;

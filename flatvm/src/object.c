@@ -5,17 +5,19 @@
 #include "alzhmr.h"
 #include "object.h"
 
-static struct Object * alloc_object(enum ObjType);
-static uint hash_string(const char *, size_t);
 static void objidf_print(struct ObjIdf *);
 static void objidf_free (struct ObjIdf *);
+static void objarr_print(struct ObjArr *);
+static void objarr_free (struct ObjArr *);
+
+static struct Object * alloc_object(enum ObjType);
+static uint hash_string(const char *, size_t);
 
 void object_print(struct Object *o)
 {
     switch (o->type) {
-      case OBJ_IDF:
-        objidf_print((struct ObjIdf *)o);
-        break;
+      case OBJ_IDF: objidf_print((struct ObjIdf *)o); break;
+      case OBJ_ARR: objarr_print((struct ObjArr *)o); break;
     }
 }
 
@@ -32,6 +34,7 @@ void object_free(struct Object *o)
 {
     switch (o->type) {
       case OBJ_IDF: objidf_free((struct ObjIdf *)o); break;
+      case OBJ_ARR: objarr_free((struct ObjArr *)o); break;
     }
 }
 
@@ -47,6 +50,17 @@ struct ObjIdf * objidf_new(const char *str, size_t len)
     return idf;
 }
 
+/* create empty array */
+struct ObjArr * objarr_new()
+{
+    struct ObjArr *arr = (struct ObjArr *) alloc_object(OBJ_ARR);
+    arr->len = 0;
+    arr->cap = 0;
+    arr->typ = ARR_E;
+    arr->as.c = NULL; /* for safety */
+    return arr;
+}
+
 static void objidf_free(struct ObjIdf *idf)
 {
     realloc_or_free(idf->str, 0);
@@ -60,14 +74,58 @@ static void objidf_print(struct ObjIdf *idf)
     printf("%s", idf->str);
 }
 
+static void objarr_print(struct ObjArr *arr)
+{
+    size_t i;
+    size_t len = arr->len;
+    if (arr->typ == ARR_C) { // string special case
+        putchar('"');
+        for (uint i = 0; i < arr->len; ++i)
+            putchar(arr->as.c[i]);
+        putchar('"');
+        return;
+    }
+    putchar('_');
+    switch (arr->typ) {
+      case ARR_E: break;
+      case ARR_B:
+        for (i = 0; i < len; ++i) {
+            int b = arr->as.b[i/8] & (1 << (i%8));
+            printf("%c, ", b?'T':'F');
+        }
+        break;
+      case ARR_C: break; // unreachable
+      case ARR_N:
+        for (i = 0; i < len; ++i)
+            printf("%lu", (ulong) arr->as.n[i]);
+        break;
+      case ARR_Z:
+        for (i = 0; i < len; ++i)
+            printf("%ld", (long) arr->as.z[i]);
+        break;
+      case ARR_R:
+        for (i = 0; i < len; ++i)
+            printf("%f", (float) arr->as.r[i]);
+        break;
+    }
+    putchar(';');
+}
+
+static void objarr_free(struct ObjArr *arr)
+{
+    if (arr->typ != ARR_E)
+        return;
+    realloc_or_free(arr->as.c, 0); // any would do
+}
+
 static struct Object * alloc_object(enum ObjType type)
 {
     size_t size;
-    struct Object *obj;
     switch (type) {
       case OBJ_IDF: size = sizeof(struct ObjIdf); break;
+      case OBJ_ARR: size = sizeof(struct ObjArr); break;
     }
-    obj = realloc_or_free(NULL, size);
+    struct Object *obj = realloc_or_free(NULL, size);
     obj->type = type;
     return obj;
 }

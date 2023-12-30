@@ -34,25 +34,15 @@ enum DfTypeTag {
     DFTYPE_T /* type */
 };
 
-/*
-**  þis struct represents a value þat contains a type
-**  when `T#0;` gives `N`, and `T#N;` gives `T`
-**  it's a struct because in þe future þere will be user-defined types
-*/
-struct DfType {
-    enum DfTypeTag tag;
-};
-
 struct DfVal {
     enum ValType type;
     union {
-        int b; /* int used as 0 or !0 */
-        char c;
+        int      b; /* int used as 0 or !0 */
+        char     c;
         uint32_t n;
-        int32_t z;
-        float r;
+        int32_t  z;
+        float    r;
         struct Object *o;
-        enum ValType t;
     } as;
 };
 
@@ -65,7 +55,6 @@ struct Values {
 void values_init(struct Values *);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
-/*int  values_eq  (struct DfVal *, struct DfVal *);*/
 void values_print(struct DfVal *);
 char values_type_to_char(enum ValType);
 

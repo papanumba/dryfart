@@ -48,6 +48,8 @@ pub enum ImOp
     SLX(LocIdx),
     ULX(LocIdx),
 
+    MEA, // make empty array
+
     CAZ,
     CAR,
 
@@ -479,6 +481,7 @@ impl<'a> Cfg<'a>
             Expr::UniOp(e, o)    => self.e_uniop(e, o),
             Expr::BinOp(l, o, r) => self.e_binop(l, o, r),
             Expr::CmpOp(l, v)    => self.e_cmpop(l, v),
+            Expr::Array(a)       => self.e_array(a),
             _ => todo!("oþer exprs {:?}", ex),
         }
     }
@@ -568,6 +571,15 @@ impl<'a> Cfg<'a>
                 self.push_binop(&v[0].0);
             },
             _ => todo!("multi cmpop"),
+        }
+    }
+
+    fn e_array(&mut self, a: &[Expr])
+    {
+        if !a.is_empty() {
+            todo!("arrays");
+        } else {
+            self.push_op(ImOp::MEA);
         }
     }
 }

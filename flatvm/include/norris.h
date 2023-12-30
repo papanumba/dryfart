@@ -53,13 +53,6 @@ enum OpCode {
     OP_SLL = 0x48, /* Store  Local  Long  (u16) */
     OP_ULL = 0x49, /* Update Local  Long  (u16) */
 
-    OP_CAB = 0xE2,
-    OP_CAC = 0xE4,
-    OP_CAN = 0xE6,
-    OP_CAZ = 0xE8,
-    OP_CAR = 0xEA,
-    OP_CAT = 0xEE, /* cast a value into its type */
-
     OP_JJS = 0x50,
     OP_JJL = 0x51,
     OP_JBT = 0x52,
@@ -76,6 +69,14 @@ enum OpCode {
     OP_JLE = 0x5D,
     OP_JGT = 0x5E,
     OP_JGE = 0x5F,
+
+    OP_MEA = 0x60,
+
+    OP_CAB = 0xE2,
+    OP_CAC = 0xE4,
+    OP_CAN = 0xE6,
+    OP_CAZ = 0xE8,
+    OP_CAR = 0xEA,
 
     OP_RET = 0xF0, /* return from current function */
     OP_DUP = 0xF1,
