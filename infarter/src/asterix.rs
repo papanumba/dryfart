@@ -94,7 +94,6 @@ impl std::fmt::Display for Type
 pub enum Array
 {
     E,          // Empty array: unknown type until a val is pushed
-    V(usize),   // array of V has just a len
     B(Vec<bool>),
     C(Vec<char>),
     N(Vec<u32>),
@@ -113,7 +112,6 @@ impl Array
     pub fn singleton(v: &Val) -> Self
     {
         match v {
-            Val::V => Self::V(1),
             Val::B(b) => Self::B(vec![*b]),
             Val::C(c) => Self::C(vec![*c]),
             Val::N(n) => Self::N(vec![*n]),
@@ -134,7 +132,6 @@ impl Array
     fn with_capacity(t: &Type, c: usize) -> Self
     {
         match t {
-            Type::V => Self::V(c),
             Type::B => Self::B(Vec::<bool>::with_capacity(c)),
             Type::C => Self::C(Vec::<char>::with_capacity(c)),
             Type::N => Self::N(Vec::<u32> ::with_capacity(c)),
@@ -148,7 +145,6 @@ impl Array
     {
         match (&mut *self, v) {
             (Self::E, _) => *self = Self::singleton(v),
-            (Self::V(s), Val::V) => *s += 1,
             (Self::B(a), Val::B(b)) => a.push(*b),
             (Self::C(a), Val::C(c)) => a.push(*c),
             (Self::N(a), Val::N(n)) => a.push(*n),
@@ -178,7 +174,6 @@ impl Array
     {
         match self {
             Self::E => None,
-            Self::V(_) => Some(Type::V),
             Self::B(_) => Some(Type::B),
             Self::C(_) => Some(Type::C),
             Self::N(_) => Some(Type::N),
@@ -199,7 +194,6 @@ impl Array
         }
         Some(match self {
             Self::E => unreachable!(),
-            Self::V(_) => Val::V,
             Self::B(a) => Val::B(a[i]),
             Self::C(a) => Val::C(a[i]),
             Self::N(a) => Val::N(a[i]),
@@ -212,12 +206,11 @@ impl Array
     {
         if i >= self.len() {
             return util::format_err!(
-                "{} out of bounds (len = {}", i, self.len()
+                "{} out of bounds (len = {})", i, self.len()
             );
         }
         match (&mut *self, &v) {
             (Self::E, _) => unreachable!(),
-            (Self::V(_), Val::V   ) => {}, // set a V to V array is stupid
             (Self::B(a), Val::B(b)) => a[i] = *b,
             (Self::C(a), Val::C(c)) => a[i] = *c,
             (Self::N(a), Val::N(n)) => a[i] = *n,
@@ -236,7 +229,6 @@ impl Array
     {
         match self {
             Self::E => 0,
-            Self::V(u) => *u,
             Self::B(a) => a.len(),
             Self::C(a) => a.len(),
             Self::N(a) => a.len(),
@@ -308,7 +300,6 @@ impl std::fmt::Display for Array
         // TODO: do not print tailing comma?
         match self {
             Self::E => {}, // empty
-            Self::V(n) => for _ in 0..*n { write!(f, "V, ")?; },
             Self::B(a) => for b in a {
                 if *b {write!(f, "T, ",)?;}
                 else  {write!(f, "F, ",)?;}
