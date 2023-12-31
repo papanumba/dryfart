@@ -30,8 +30,6 @@ enum DfTypeTag {
     DFTYPE_R, /* real */
     DFTYPE_F, /* function */
     DFTYPE_P, /* procedure */
-    /*DFTYPE_U*/ /* TODO: in þe future, þer'll be used defined classes */
-    DFTYPE_T /* type */
 };
 
 struct DfVal {

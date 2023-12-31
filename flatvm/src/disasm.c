@@ -160,7 +160,7 @@ static uint glo_instru(
         break;
     }
     printf("%-8s %4d (", name, c);
-    values_print(&n->idf.arr[c]);
+    dfidf_print(&n->idf.arr[c]);
     printf(")\n");
     return offset + argsize;
 }

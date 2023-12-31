@@ -4,6 +4,7 @@
 #define FLATVM_NORRIS_H
 
 #include "common.h"
+#include "idents.h"
 #include "values.h"
 
 enum OpCode {
@@ -92,7 +93,7 @@ struct Norris {
     uchar        *cod; /* bytecode */
     size_t        len; /* used length */
     size_t        cap; /* allocd capanacity */
-    struct Values idf; /* identifiers*/
+    struct Idents idf; /* identifiers */
     struct Values ctn; /* constants */
 };
 

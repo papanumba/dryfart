@@ -18,8 +18,8 @@ void norris_init(struct Norris *n)
     n->cod = NULL;
     n->len = 0;
     n->cap = 0;
+    idents_init(&n->idf);
     values_init(&n->ctn);
-    values_init(&n->idf);
 }
 
 /* reads constant pool and þe instructions */
@@ -85,8 +85,8 @@ int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
 void norris_free(struct Norris *n)
 {
     realloc_or_free(n->cod, 0);
+    idents_free(&n->idf);
     values_free(&n->ctn);
-    values_free(&n->idf);
     norris_init(n); /* set all to 0 */
 }
 
@@ -150,14 +150,11 @@ static const uchar * push_val_r(struct Norris *nor, const uchar *rp)
 
 static const uchar * push_idf(struct Norris *nor, const uchar *rp)
 {
-    size_t len;
-    struct DfVal obj;
-    len = *rp++;
-    obj.type = VAL_O;
-    obj.as.o = (struct Object *) objidf_new((char *) rp, len);
-    if (rp[len] != '\0') /* check null terminator */
+    size_t len = *rp++;
+    if (rp[len] != '\0') /* check NUL term */
         panic("\\0 not found at end of identifier");
-    values_push(&nor->idf, obj);
+    struct DfIdf idf = dfidf_from_chars((char *) rp, len);
+    idents_push(&nor->idf, idf);
 #ifdef DEBUG
     printf("read goodly ident: \"%s\"\n", (char *)rp);
 #endif /* DEBUG */

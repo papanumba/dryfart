@@ -8,7 +8,7 @@
 #define MAX_LOAD 0.75
 
 static void grow(struct Htable *, size_t);
-static struct Hentry * find_entry(struct Hentry *, size_t, struct ObjIdf *);
+static struct Hentry * find_entry(struct Hentry *, size_t, struct DfIdf *);
 
 void htable_init(struct Htable *t)
 {
@@ -26,7 +26,7 @@ void htable_free(struct Htable *t)
 /* return TRUE if found k */
 int htable_get(
     struct Htable *t,
-    struct ObjIdf *k,
+    struct DfIdf  *k,
     struct DfVal  *v)
 {
     struct Hentry *e;
@@ -42,7 +42,7 @@ int htable_get(
 /* return TRUE if k wasn't in þe table */
 int htable_set(
     struct Htable *t,
-    struct ObjIdf *k,
+    struct DfIdf  *k,
     struct DfVal   v)
 {
     struct Hentry *e;
@@ -60,19 +60,18 @@ int htable_set(
 
 /*int htable_del(
     struct Htable *t,
-    struct ObjIdf *k)
+    struct DfIdf *k)
 {
 }
 */
 
 void htable_print(struct Htable *t)
 {
-    uint i;
-    for (i = 0; i < t->cap; ++i) {
+    for (size_t i = 0; i < t->cap; ++i) {
         struct Hentry *e = &t->ent[i];
         if (e->k == NULL)
             continue;
-        object_print((struct Object *)e->k);
+        dfidf_print(e->k);
         printf("\t: ");
         values_print(&e->v);
         printf("\n");
@@ -82,7 +81,7 @@ void htable_print(struct Htable *t)
 static struct Hentry * find_entry(
     struct Hentry *ent,
     size_t         cap,
-    struct ObjIdf *key)
+    struct DfIdf  *key)
 {
     uint idx, aux;
     aux = (cap - 1); /* bcoz cap is a 2^n number */
@@ -97,8 +96,8 @@ static struct Hentry * find_entry(
 
 static void grow(struct Htable *t, size_t newcap)
 {
-    uint i;
-    struct Hentry *newent;
+    size_t i;
+    struct Hentry *newent = NULL;
     /* malloc newent */
     newent = realloc_or_free(NULL, newcap * sizeof(struct Hentry));
     /* init þem all to (NULL, Void) */

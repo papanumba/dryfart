@@ -768,35 +768,19 @@ static int op_tge(struct VirMac *vm)
 
 static int op_lgl(struct VirMac *vm)
 {
-    struct DfVal  *idf_val;
-    struct ObjIdf *idf;
-    struct DfVal   ret_val;
-    /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[read_u16(vm)];
-    if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
-        fprintf(stderr, "ERROR: not an identifier\n");
-        return FALSE;
-    }
-    idf = (struct ObjIdf *) idf_val->as.o;
-    if (!htable_get(&vm->globals, idf, &ret_val)) { /* key not found */
+    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
+    struct DfVal glo;
+    if (!htable_get(&vm->globals, idf, &glo)) { /* key not found */
         fprintf(stderr, "global identifier '%s' not found\n", idf->str);
         return FALSE;
     }
-    virmac_push(vm, &ret_val);
+    virmac_push(vm, &glo);
     return TRUE;
 }
 
 static int op_sgl(struct VirMac *vm)
 {
-    struct DfVal  *idf_val;
-    struct ObjIdf *idf;
-    /* its next operand will be a u16 index*/
-    idf_val = &vm->norris->idf.arr[read_u16(vm)];
-    if (idf_val->type != VAL_O && idf_val->as.o->type != OBJ_IDF) {
-        fprintf(stderr, "ERROR: not an identifier\n");
-        return FALSE;
-    }
-    idf = (struct ObjIdf *) idf_val->as.o;
+    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
     htable_set(&vm->globals, idf, virmac_pop(vm));
     return TRUE;
 }

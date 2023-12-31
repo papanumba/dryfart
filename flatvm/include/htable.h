@@ -4,12 +4,12 @@
 #define FLATVM_HTABLE_H
 
 #include "common.h"
-#include "object.h"
+#include "idents.h"
 #include "values.h"
 
 struct Hentry {
-    struct ObjIdf *k; /* key */
-    struct DfVal   v; /* value */
+    struct DfIdf *k; /* key */
+    struct DfVal  v; /* value */
 };
 
 struct Htable {
@@ -20,10 +20,9 @@ struct Htable {
 
 void htable_init (struct Htable *);
 void htable_free (struct Htable *);
-int  htable_get  (struct Htable *, struct ObjIdf *, struct DfVal *);
-int  htable_set  (struct Htable *, struct ObjIdf *, struct DfVal);
+int  htable_get  (struct Htable *, struct DfIdf *, struct DfVal *);
+int  htable_set  (struct Htable *, struct DfIdf *, struct DfVal);
 void htable_print(struct Htable *);
-/*int  htable_del (struct Htable *, struct ObjIdf *);*/
-
+/*int  htable_del (struct Htable *, struct DfIdf *);*/
 
 #endif /* FLATVM_HTABLE_H */
