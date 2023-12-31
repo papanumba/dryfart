@@ -67,6 +67,7 @@ static int op_caz(struct VirMac *);
 static int op_car(struct VirMac *);
 
 static int op_tpe(struct VirMac *);
+static int op_tge(struct VirMac *);
 
 static int  op_lgl(struct VirMac *);
 static int  op_sgl(struct VirMac *);
@@ -218,6 +219,7 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_CAR, op_car)
 
           DO_OP(OP_TPE, op_tpe)
+          DO_OP(OP_TGE, op_tge)
 
           DO_OP(OP_LGL, op_lgl)
           DO_OP(OP_SGL, op_sgl)
@@ -738,6 +740,29 @@ static int op_tpe(struct VirMac *vm)
         fputs("ERROR: some error pushing into array\n", stderr);
     }
     virmac_push(vm, &arr);
+    return TRUE;
+}
+
+static int op_tge(struct VirMac *vm)
+{
+    struct DfVal arr, idx;
+    idx = virmac_pop(vm);
+    arr = virmac_pop(vm);
+    if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
+        eputln("ERROR: value is not an array");
+        return FALSE;
+    }
+    if (idx.type != VAL_N) {
+        eputln("ERROR: index is not N%");
+        return FALSE;
+    }
+    struct ObjArr *a = (struct ObjArr *) arr.as.o;
+    struct DfVal val = objarr_get(a, idx.as.n);
+    if (val.type == VAL_V) {
+        eputln("ERROR: index out of bounds");
+        return FALSE;
+    }
+    virmac_push(vm, &val);
     return TRUE;
 }
 

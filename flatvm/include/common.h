@@ -21,4 +21,10 @@ typedef unsigned short ushort;
 typedef unsigned int   uint;
 typedef unsigned long  ulong;
 
+void eput       (const char *);
+void eputln     (const char *);
+void todo       (const char *);
+void panic      (const char *);
+void unreachable(void);
+
 #endif /* FLATVM_COMMON_H */

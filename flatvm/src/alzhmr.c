@@ -71,9 +71,3 @@ float b4tof(const uchar *b)
          |  b[3];
     return u.f;
 }
-
-void panic(const char *msg)
-{
-    fprintf(stderr, "%s\n", msg);
-    exit(1);
-}

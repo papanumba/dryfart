@@ -50,6 +50,7 @@ int  object_eq   (struct Object *, struct Object *);
 void object_free (struct Object *);
 struct ObjIdf * objidf_new(const char *, size_t);
 struct ObjArr * objarr_new();
+struct DfVal    objarr_get(struct ObjArr *, uint32_t);
 int objarr_try_push(struct ObjArr *, struct DfVal *);
 
 #endif /* FLATVM_OBJECT_H */

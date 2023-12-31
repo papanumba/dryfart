@@ -40,3 +40,7 @@ jumps:
 | 0x5D | `JLE` | 0:i16    |              |             | Jump Less or Equal     |
 | 0x5E | `JGT` | 0:i16    |              |             | Jump Greater Than      |
 | 0x5F | `JGE` | 0:i16    |              |             | Jump Greater or Equal  |
+|      |       |          |              |             |                        |
+| 0x60 | `MEA` |          |              | _;          | Make Empty Array       |
+| 0x61 | `TPE` |          | arr, elem    | arr         | Try Push Element       |
+| 0x62 | `TGE` |          | arr, N%idx   | elem        | Try Get Element        |

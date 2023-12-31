@@ -16,6 +16,7 @@ static uint hash_string(const char *, size_t);
 static inline int arr_val_types_eq(enum ArrType, enum ValType);
 static inline size_t sizeof_arr_elem(enum ArrType);
 static inline enum ArrType valt2arrt(enum ValType);
+static inline enum ValType arrt2valt(enum ArrType at);
 
 void object_print(struct Object *o)
 {
@@ -88,6 +89,28 @@ int objarr_try_push(struct ObjArr *a, struct DfVal *v)
     }
     a->len++;
     return TRUE;
+}
+
+/* returns V (null) is array is empty or idx is out of bounds */
+struct DfVal objarr_get(struct ObjArr *arr, uint32_t idx)
+{
+    struct DfVal val = {.type = VAL_V};
+    if (idx >= arr->len)
+        return val; /* V */
+    val.type = arrt2valt(arr->typ);
+    switch (val.type) {
+      case VAL_V: return val; /* empty array */
+      case VAL_B: todo("get B arr"); return val;
+#define BASURA(vt, x) \
+      case vt: val.as.x = arr->as.x[idx]; break;
+      BASURA(VAL_C, c)
+      BASURA(VAL_N, n)
+      BASURA(VAL_Z, z)
+      BASURA(VAL_R, r)
+#undef BASURA
+      default: unreachable();
+    }
+    return val;
 }
 
 static void objidf_free(struct ObjIdf *idf)
@@ -233,4 +256,18 @@ static inline enum ArrType valt2arrt(enum ValType vt)
         panic("unreachable");
         return ARR_E;
     }
+}
+
+static inline enum ValType arrt2valt(enum ArrType at)
+{
+    switch (at) {
+      case ARR_E: return VAL_V;
+      case ARR_B: return VAL_B;
+      case ARR_C: return VAL_C;
+      case ARR_N: return VAL_N;
+      case ARR_Z: return VAL_Z;
+      case ARR_R: return VAL_R;
+    }
+    unreachable();
+    return VAL_V;
 }

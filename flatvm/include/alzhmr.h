@@ -17,6 +17,5 @@ ushort b2tohu(const uchar *);
 int    b4toi (const uchar *);
 uint   b4tou (const uchar *);
 float  b4tof (const uchar *);
-void panic(const char *);
 
 #endif /* FLATVM_ALZHMR_H */

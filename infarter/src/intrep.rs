@@ -48,8 +48,9 @@ pub enum ImOp
     SLX(LocIdx),
     ULX(LocIdx),
 
-    MEA, // make empty array
-    TPE, // try push elem (into array)
+    MEA,
+    TPE,
+    TGE,
 
     CAZ,
     CAR,
@@ -256,6 +257,7 @@ impl<'a> Cfg<'a>
             BinOpcode::Le  => ImOp::CLE,
             BinOpcode::Gt  => ImOp::CGT,
             BinOpcode::Ge  => ImOp::CGE,
+            BinOpcode::Idx => ImOp::TGE,
             _ => unreachable!(),
         });
     }

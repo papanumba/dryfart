@@ -72,6 +72,7 @@ enum OpCode {
 
     OP_MEA = 0x60,
     OP_TPE = 0x61,
+    OP_TGE = 0x62,
 
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,
