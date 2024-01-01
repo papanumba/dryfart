@@ -10,15 +10,16 @@ static void objarr_free (struct ObjArr *);
 static void objarr_grow (struct ObjArr *, uint);
 
 static struct Object * alloc_object(enum ObjType);
-static inline int arr_val_types_eq(enum ArrType, enum ValType);
+static inline int       arrt_valt_eq(enum ArrType, enum ValType);
 static inline size_t sizeof_arr_elem(enum ArrType);
 static inline enum ArrType valt2arrt(enum ValType);
-static inline enum ValType arrt2valt(enum ArrType at);
+static inline enum ValType arrt2valt(enum ArrType);
+static inline char         arrt2char(enum ArrType);
 
 void object_print(struct Object *o)
 {
     switch (o->type) {
-      case OBJ_ARR: objarr_print((struct ObjArr *)o); break;
+      case OBJ_ARR: objarr_print(OBJ_AS_ARR(o)); break;
     }
 }
 
@@ -35,14 +36,14 @@ int object_eq(struct Object *o0, struct Object *o1)
 void object_free(struct Object *o)
 {
     switch (o->type) {
-      case OBJ_ARR: objarr_free((struct ObjArr *)o); break;
+      case OBJ_ARR: objarr_free(OBJ_AS_ARR(o)); break;
     }
 }
 
 /* create empty array */
 struct ObjArr * objarr_new()
 {
-    struct ObjArr *arr = (struct ObjArr *) alloc_object(OBJ_ARR);
+    struct ObjArr *arr = OBJ_AS_ARR(alloc_object(OBJ_ARR));
     arr->len = 0;
     arr->cap = 0;
     arr->typ = ARR_E;
@@ -52,8 +53,10 @@ struct ObjArr * objarr_new()
 
 int objarr_try_push(struct ObjArr *a, struct DfVal *v)
 {
-    if (a->typ != ARR_E && !arr_val_types_eq(a->typ, v->type)) {
-        fprintf(stderr, "cannot push into array of different types");
+    if (a->typ != ARR_E && !arrt_valt_eq(a->typ, v->type)) {
+        fprintf(stderr, "ERROR: cannot push %c value into %c array\n",
+            values_type_to_char(v->type), arrt2char(a->typ)
+        );
         return FALSE;
     }
     if (a->typ == ARR_E)
@@ -95,6 +98,26 @@ struct DfVal objarr_get(struct ObjArr *arr, uint32_t idx)
       default: unreachable();
     }
     return val;
+}
+
+/* returns NULL if error */
+struct ObjArr * objarr_concat(struct ObjArr *a, struct ObjArr *b)
+{
+    struct ObjArr *ab = objarr_new();
+    /* TODO: more efficient */
+    /* push a */
+    for (uint32_t i = 0; i < a->len; ++i) {
+        struct DfVal elem = objarr_get(a, i);
+        if (!objarr_try_push(ab, &elem))
+            return NULL;
+    }
+    /* push b */
+    for (uint32_t i = 0; i < b->len; ++i) {
+        struct DfVal elem = objarr_get(b, i);
+        if (!objarr_try_push(ab, &elem))
+            return NULL;
+    }
+    return ab;
 }
 
 static void objarr_print(struct ObjArr *arr)
@@ -172,7 +195,7 @@ static struct Object * alloc_object(enum ObjType type)
 /* return if a is compatible with v,
 ** ARR_E is always eq to a val type.
 */
-static inline int arr_val_types_eq(enum ArrType a, enum ValType v)
+static inline int arrt_valt_eq(enum ArrType a, enum ValType v)
 {
     switch (a) {
       case ARR_E: return TRUE;
@@ -228,4 +251,18 @@ static inline enum ValType arrt2valt(enum ArrType at)
     }
     unreachable();
     return VAL_V;
+}
+
+static inline char arrt2char(enum ArrType at)
+{
+    char c = '\0';
+    switch (at) {
+      case ARR_E: c = 'E'; break;
+      case ARR_B: c = 'B'; break;
+      case ARR_C: c = 'C'; break;
+      case ARR_N: c = 'N'; break;
+      case ARR_Z: c = 'Z'; break;
+      case ARR_R: c = 'R'; break;
+    }
+    return c;
 }

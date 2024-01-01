@@ -42,6 +42,10 @@ static void op_lr(struct VirMac *, float);
 /* numeric */
 static int op_neg(struct VirMac *);
 static int op_add(struct VirMac *);
+static int op_add_o(
+    struct Object *,
+    struct Object *,
+    struct DfVal  *);
 static int op_sub(struct VirMac *);
 static int op_mul(struct VirMac *);
 static int op_div(struct VirMac *);
@@ -476,11 +480,39 @@ static int op_add(struct VirMac *vm)
       case VAL_N: res.as.n = lhs.as.n + rhs.as.n; break;
       case VAL_Z: res.as.z = lhs.as.z + rhs.as.z; break;
       case VAL_R: res.as.r = lhs.as.r + rhs.as.r; break;
+      case VAL_O:
+        if (!op_add_o(lhs.as.o, rhs.as.o, &res))
+            return FALSE;
+        break;
       default:
         err_cant_op("+", lhs.type);
         return FALSE;
     }
     virmac_push(vm, &res);
+    return TRUE;
+}
+
+/* helper for object case */
+static int op_add_o(
+    struct Object *lhs,
+    struct Object *rhs,
+    struct DfVal  *res)
+{
+    if (lhs->type != rhs->type) {
+        eputln("objects of different type in + expr");
+        return FALSE;
+    }
+    switch (lhs->type) {
+      case OBJ_ARR: {
+        struct ObjArr *arr = NULL;
+        arr = objarr_concat(OBJ_AS_ARR(lhs), OBJ_AS_ARR(rhs));
+        if (arr == NULL)
+            return FALSE;
+        res->type = VAL_O;
+        res->as.o = (struct Object *) arr;
+        break;
+      }
+    }
     return TRUE;
 }
 
@@ -735,7 +767,7 @@ static int op_tpe(struct VirMac *vm)
         fprintf(stderr, "ERROR: value is not an array\n");
         return FALSE;
     }
-    struct ObjArr *a = (struct ObjArr *) arr.as.o;
+    struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
     if (!objarr_try_push(a, &elem)) {
         fputs("ERROR: some error pushing into array\n", stderr);
     }
@@ -756,7 +788,7 @@ static int op_tge(struct VirMac *vm)
         eputln("ERROR: index is not N%");
         return FALSE;
     }
-    struct ObjArr *a = (struct ObjArr *) arr.as.o;
+    struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
     struct DfVal val = objarr_get(a, idx.as.n);
     if (val.type == VAL_V) {
         eputln("ERROR: index out of bounds");

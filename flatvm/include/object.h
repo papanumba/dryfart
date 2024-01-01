@@ -6,6 +6,8 @@
 #include "common.h"
 #include "values.h"
 
+#define OBJ_AS_ARR(o)   ((struct ObjArr *) (o))
+
 enum ObjType {
     OBJ_ARR
 };
@@ -47,8 +49,9 @@ struct ObjArr {
 void object_print(struct Object *);
 int  object_eq   (struct Object *, struct Object *);
 void object_free (struct Object *);
-struct ObjArr * objarr_new();
-struct DfVal    objarr_get(struct ObjArr *, uint32_t);
-int objarr_try_push(struct ObjArr *, struct DfVal *);
+struct ObjArr * objarr_new     ();
+int             objarr_try_push(struct ObjArr *, struct DfVal *);
+struct DfVal    objarr_get     (struct ObjArr *, uint32_t);
+struct ObjArr * objarr_concat  (struct ObjArr *, struct ObjArr *);
 
 #endif /* FLATVM_OBJECT_H */
