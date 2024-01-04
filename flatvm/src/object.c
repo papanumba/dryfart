@@ -4,6 +4,7 @@
 #include <string.h>
 #include "alzhmr.h"
 #include "object.h"
+#include "falloc.h"
 
 static void objarr_print(struct ObjArr *);
 static void objarr_free (struct ObjArr *);
@@ -38,6 +39,8 @@ void object_free(struct Object *o)
     switch (o->type) {
       case OBJ_ARR: objarr_free(OBJ_AS_ARR(o)); break;
     }
+    falloc_free(o);
+    //realloc_or_free(o, 0);
 }
 
 /* create empty array */
@@ -157,6 +160,7 @@ static void objarr_print(struct ObjArr *arr)
     putchar(';');
 }
 
+/* free only interior array, not þe objarr header */
 static void objarr_free(struct ObjArr *arr)
 {
     if (arr->typ != ARR_E)
@@ -187,7 +191,8 @@ static struct Object * alloc_object(enum ObjType type)
     switch (type) {
       case OBJ_ARR: size = sizeof(struct ObjArr); break;
     }
-    struct Object *obj = realloc_or_free(NULL, size);
+//    struct Object *obj = realloc_or_free(NULL, size);
+    struct Object *obj = falloc_alloc();
     obj->type = type;
     return obj;
 }

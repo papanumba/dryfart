@@ -16,13 +16,6 @@ struct Object {
     enum ObjType type;
 };
 
-struct ObjIdf {
-    struct Object obj;
-    char  *str;
-    size_t len;
-    uint   hsh;
-};
-
 enum ArrType {
     ARR_E,
     ARR_B,
@@ -45,6 +38,12 @@ struct ObjArr {
         float    *r;
     }             as;
 };
+
+/* aux union for þe allocator */
+typedef union {
+    struct ObjArr a;
+    /* eke here */
+} objs_u;
 
 void object_print(struct Object *);
 int  object_eq   (struct Object *, struct Object *);

@@ -5,6 +5,7 @@
 #include "virmac.h"
 #include "object.h"
 #include "alzhmr.h"
+#include "falloc.h"
 
 #ifdef DEBUG
 #include "disasm.h"
@@ -96,12 +97,14 @@ void virmac_init(struct VirMac *vm)
 {
     reset_stack(vm);
     htable_init(&vm->globals);
+    falloc_init();
 }
 
 void virmac_free(struct VirMac *vm)
 {
     reset_stack(vm);
     htable_free(&vm->globals);
+    falloc_exit();
 }
 
 enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
