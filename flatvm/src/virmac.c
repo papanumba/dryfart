@@ -6,6 +6,7 @@
 #include "object.h"
 #include "alzhmr.h"
 #include "falloc.h"
+#include "garcol.h"
 
 #ifdef DEBUG
 #include "disasm.h"
@@ -98,6 +99,7 @@ void virmac_init(struct VirMac *vm)
     reset_stack(vm);
     htable_init(&vm->globals);
     falloc_init();
+    garcol_init();
 }
 
 void virmac_free(struct VirMac *vm)
@@ -105,6 +107,7 @@ void virmac_free(struct VirMac *vm)
     reset_stack(vm);
     htable_free(&vm->globals);
     falloc_exit();
+    garcol_exit();
 }
 
 enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
@@ -817,6 +820,7 @@ static int op_sgl(struct VirMac *vm)
 {
     struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
     htable_set(&vm->globals, idf, virmac_pop(vm));
+    garcol_do(vm);
     return TRUE;
 }
 

@@ -12,7 +12,8 @@ from PyQt5.QtWidgets import *
 import hieliter
 
 
-INFARTER_PATH_STR = "../infarter/target/debug/infarter"
+INFARTER_PATH = "../infarter/target/release/infarter"
+FLATVM_PATH   = "../flatvm/flatvm"
 
 def get_name(f):
     if f is None:
@@ -112,15 +113,22 @@ class Main(QMainWindow):
         tempfile.write(self.editor.toPlainText())
         tempfile.close()
         result = subprocess.run(
-            [INFARTER_PATH_STR, self.temp_file],
+            [INFARTER_PATH, "to", self.temp_file],
             capture_output=True
         )
         if result.stderr == b'':
-            self.output.setPlainText(result.stdout.decode("utf-8"))
-        else:
-            self.output.setPlainText(
-                "ERROR from InFarter\n"+result.stderr.decode("utf-8")
+            fvm = subprocess.run(
+                [FLATVM_PATH, self.temp_file + "c"],
+                capture_output=True
             )
+            if fvm.stderr == b'':
+                self.output.setPlainText(fvm.stdout.decode("utf-8"))
+            else:
+                self.output.setPlainText(fvm.stderr.decode("utf-8"))
+        else:
+            e = "ERROR from InFarter\n"+result.stderr.decode("utf-8")
+            #self.output.clear()
+            self.output.setPlainText(e)
 
 
 if __name__=='__main__':

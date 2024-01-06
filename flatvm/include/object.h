@@ -14,6 +14,7 @@ enum ObjType {
 
 struct Object {
     enum ObjType type;
+    int gc_mark;
 };
 
 enum ArrType {
@@ -41,6 +42,7 @@ struct ObjArr {
 
 /* aux union for þe allocator */
 typedef union {
+    struct Object o;
     struct ObjArr a;
     /* eke here */
 } objs_u;

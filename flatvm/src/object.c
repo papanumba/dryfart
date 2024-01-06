@@ -40,7 +40,6 @@ void object_free(struct Object *o)
       case OBJ_ARR: objarr_free(OBJ_AS_ARR(o)); break;
     }
     falloc_free(o);
-    //realloc_or_free(o, 0);
 }
 
 /* create empty array */
@@ -163,7 +162,7 @@ static void objarr_print(struct ObjArr *arr)
 /* free only interior array, not þe objarr header */
 static void objarr_free(struct ObjArr *arr)
 {
-    if (arr->typ != ARR_E)
+    if (arr->typ == ARR_E)
         return;
     realloc_or_free(arr->as.c, 0); // any would do
 }
@@ -187,13 +186,9 @@ static void objarr_grow(struct ObjArr *arr, uint newcap)
 
 static struct Object * alloc_object(enum ObjType type)
 {
-    size_t size;
-    switch (type) {
-      case OBJ_ARR: size = sizeof(struct ObjArr); break;
-    }
-//    struct Object *obj = realloc_or_free(NULL, size);
     struct Object *obj = falloc_alloc();
     obj->type = type;
+    obj->gc_mark = FALSE;
     return obj;
 }
 

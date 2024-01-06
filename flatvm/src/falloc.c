@@ -4,25 +4,31 @@
 #include <stdlib.h>
 #include "falloc.h"
 
-/*
-** Algoriþm description:
-**  þere's a liked list of pools, each pool is a fixed size block allocator,
-**  wiþ a lengþ of 256 blocks, and implemented wiþ a free list (only inside
-**  each pool), when a pool is full, þe next one starts to fill
-*/
 
-#define BLOCKS_PER_POOL 96
+#define BLOCKS_PER_POOL 64
+
+struct Block {
+    int free;
+    union {
+        struct Block *next; /* free list */
+        objs_u user_space;
+    } val;
+};
+
+#define GET_BLOCK_FROM_US(us) \
+    ((struct Block *) (((uint8_t *)(us)) - offsetof(struct Block, val)))
 
 struct Pool {
     struct Pool *next;
-    objs_u blocks[BLOCKS_PER_POOL];
+    struct Block blocks[BLOCKS_PER_POOL];
 };
 
-static struct Pool *frst_pool = NULL;
-static struct Pool *last_pool = NULL;
-static void *frst_free_block = NULL;    /* free list */
-static void *last_free_block = NULL;
-static uint pool_count = 0;
+static struct Pool  *frst_pool = NULL;
+static struct Pool  *last_pool = NULL;
+static struct Block *frst_free_block = NULL;    /* free list */
+static struct Block *last_free_block = NULL;
+static size_t pool_count = 0;
+static size_t objs_count = 0;
 
 static int append_new_pool(void);
 static inline void init_pool(struct Pool *);
@@ -33,15 +39,21 @@ void * falloc_alloc(void)
         if (!append_new_pool())
             return NULL; /* couldn't malloc pool */
     }
-    void *b = frst_free_block;
-    frst_free_block = *(void **) frst_free_block;
-    return b;
+    struct Block *b = frst_free_block;
+    frst_free_block = frst_free_block->val.next;
+    b->free = FALSE;
+    objs_count++;
+    return &b->val.user_space;
 }
 
-void falloc_free(void *b)
+/* pointer passed is user space */
+void falloc_free(void *us)
 {
-    *(void **)b = frst_free_block;
+    struct Block *b = GET_BLOCK_FROM_US(us);
+    b->free = TRUE;
+    b->val.next = frst_free_block;
     frst_free_block = b;
+    objs_count--;
 }
 
 void falloc_init(void)
@@ -63,6 +75,34 @@ void falloc_exit(void)
     } while (p != NULL);
 }
 
+size_t falloc_objs_num(void)
+{
+    return objs_count;
+}
+
+void falloc_sweep(void)
+{
+    for (struct Pool *p = frst_pool; p != NULL; p = p->next) {
+        for (size_t i = 0; i < BLOCKS_PER_POOL; ++i) {
+            struct Block *b = &p->blocks[i];
+            if (b->free)
+                continue;
+            struct Object *o = &b->val.user_space.o;
+            if (!o->gc_mark) {
+#ifdef DEBUG
+                fprintf(stderr, "freeeing object: ");
+                object_print(o);
+                fputs("\n", stderr);
+#endif
+                object_free(o);
+            } else {
+                o->gc_mark = FALSE;
+            }
+        }
+    }
+}
+
+
 /********** S T A T I C S *************/
 
 /*
@@ -77,13 +117,13 @@ static int append_new_pool(void)
         return FALSE;
     init_pool(new_p);
     /* join to þe free list */
-    void *pools_frst = &new_p->blocks[0];
-    void *pools_last = &new_p->blocks[BLOCKS_PER_POOL-1];
+    struct Block *pools_frst = &new_p->blocks[0];
+    struct Block *pools_last = &new_p->blocks[BLOCKS_PER_POOL-1];
     if (frst_free_block == NULL) {
         frst_free_block = pools_frst;
         last_free_block = pools_last;
     } else {
-        *(void **)last_free_block = pools_frst;
+        last_free_block->val.next = pools_frst;
         last_free_block = pools_last;
     }
     /* append it to þe pool list */
@@ -101,9 +141,10 @@ static int append_new_pool(void)
 static inline void init_pool(struct Pool *p)
 {
     for (size_t i = 0; i < BLOCKS_PER_POOL; ++i) {
-        *(void **)&p->blocks[i] = &p->blocks[i+1];
+        p->blocks[i].free = TRUE;
+        p->blocks[i].val.next = &p->blocks[i+1];
     }
     /* set last to null */
-    *(void **)&p->blocks[BLOCKS_PER_POOL-1] = NULL;
+    p->blocks[BLOCKS_PER_POOL-1].val.next = NULL;
     p->next = NULL;
 }
