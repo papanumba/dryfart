@@ -1,13 +1,3 @@
 #!/bin/sh
-lines=0
-cd infarter
-lines=$(($lines+$(./lines.sh)))
-cd ..
-cd flatvm
-lines=$(($lines+$(./lines.sh)))
-cd ..
-cd dfarted
-lines=$(($lines+$(./lines.sh)))
-cd ..
-echo $lines
+cloc $(find . | grep -P "\.(rs|c|h|py|md|sh)$") #| grep -o -P "\d+$"
 exit 0
