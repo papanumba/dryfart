@@ -57,7 +57,7 @@ int objarr_try_push(struct ObjArr *a, struct DfVal *v)
 {
     if (a->typ != ARR_E && !arrt_valt_eq(a->typ, v->type)) {
         fprintf(stderr, "ERROR: cannot push %c value into %c array\n",
-            values_type_to_char(v->type), arrt2char(a->typ)
+            valt2char(v->type), arrt2char(a->typ)
         );
         return FALSE;
     }
@@ -100,6 +100,33 @@ struct DfVal objarr_get(struct ObjArr *arr, uint32_t idx)
       default: unreachable();
     }
     return val;
+}
+
+int objarr_set(struct ObjArr *arr, uint32_t idx, struct DfVal *val)
+{
+    if (idx >= arr->len) {
+        fprintf(stderr, "ERROR: Index %u out of bounds (len = %u)\n",
+            (uint) idx, (uint) arr->len);
+        return FALSE;
+    }
+    enum ValType at = arrt2valt(arr->typ);
+    if (at != val->type) {
+        fprintf(stderr, "ERROR: cannot set %c%% value into %c%% array\n",
+            valt2char(val->type), valt2char(at));
+        return FALSE;
+    }
+    switch (at) {
+      case VAL_B: todo("get B arr"); return FALSE;
+#define BASURA(vt, x) \
+      case vt: arr->as.x[idx] = val->as.x; break;
+      BASURA(VAL_C, c)
+      BASURA(VAL_N, n)
+      BASURA(VAL_Z, z)
+      BASURA(VAL_R, r)
+#undef BASURA
+      default: unreachable();
+    }
+    return TRUE;
 }
 
 /* returns NULL if error */

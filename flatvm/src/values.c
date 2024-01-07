@@ -67,7 +67,7 @@ void values_print(struct DfVal *value)
     }
 }
 
-char values_type_to_char(enum ValType t)
+char valt2char(enum ValType t)
 {
     switch (t) {
         case VAL_V: return 'V';

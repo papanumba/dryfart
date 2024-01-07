@@ -71,9 +71,10 @@ enum OpCode {
     OP_JGT = 0x5E,
     OP_JGE = 0x5F,
 
-    OP_MEA = 0x60,
-    OP_TPE = 0x61,
-    OP_TGE = 0x62,
+    OP_AMN = 0x60,
+    OP_APE = 0x61,
+    OP_AGE = 0x62,
+    OP_ASE = 0x63,
 
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,

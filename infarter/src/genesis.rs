@@ -83,9 +83,10 @@ pub enum Op
     JGT = 0x5E,
     JGE = 0x5F,
 
-    MEA = 0x60,
-    TPE = 0x61,
-    TGE = 0x62,
+    AMN = 0x60,
+    APE = 0x61,
+    AGE = 0x62,
+    ASE = 0x63,
 
     CAZ = 0xE8,
     CAR = 0xEA, // CAst Real
@@ -171,9 +172,10 @@ impl TryFrom<ImOp> for Op
             ImOp::IOR => Ok(Op::IOR),
             ImOp::XOR => Ok(Op::XOR),
 
-            ImOp::MEA => Ok(Op::MEA),
-            ImOp::TPE => Ok(Op::TPE),
-            ImOp::TGE => Ok(Op::TGE),
+            ImOp::AMN => Ok(Op::AMN),
+            ImOp::APE => Ok(Op::APE),
+            ImOp::AGE => Ok(Op::AGE),
+            ImOp::ASE => Ok(Op::ASE),
 
             ImOp::CAZ => Ok(Op::CAZ),
             ImOp::CAR => Ok(Op::CAR),

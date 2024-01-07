@@ -54,6 +54,6 @@ void values_init(struct Values *);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
 void values_print(struct DfVal *);
-char values_type_to_char(enum ValType);
+char valt2char(enum ValType);
 
 #endif /* FLATVM_VALUES_H */

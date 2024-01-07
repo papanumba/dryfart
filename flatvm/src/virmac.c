@@ -72,8 +72,9 @@ static int op_ior(struct VirMac *);
 static int op_caz(struct VirMac *);
 static int op_car(struct VirMac *);
 
-static int op_tpe(struct VirMac *);
-static int op_tge(struct VirMac *);
+static int op_ape(struct VirMac *);
+static int op_age(struct VirMac *);
+static int op_ase(struct VirMac *);
 
 static int  op_lgl(struct VirMac *);
 static int  op_sgl(struct VirMac *);
@@ -228,8 +229,9 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_CAZ, op_caz)
           DO_OP(OP_CAR, op_car)
 
-          DO_OP(OP_TPE, op_tpe)
-          DO_OP(OP_TGE, op_tge)
+          DO_OP(OP_APE, op_ape)
+          DO_OP(OP_AGE, op_age)
+          DO_OP(OP_ASE, op_ase)
 
           DO_OP(OP_LGL, op_lgl)
           DO_OP(OP_SGL, op_sgl)
@@ -254,7 +256,7 @@ static enum ItpRes run(struct VirMac *vm)
             break;
           }
 
-          case OP_MEA: {
+          case OP_AMN: {
             struct DfVal val;
             val.type = VAL_O;
             val.as.o = (struct Object *) objarr_new();
@@ -293,7 +295,7 @@ static void print_stack(struct VirMac *vm)
     for (slot = &vm->stack[0];
          slot != vm->sp;
          slot++) {
-        printf("[%c%%", values_type_to_char(slot->type));
+        printf("[%c%%", valt2char(slot->type));
         values_print(slot);
         printf("]");
     }
@@ -304,13 +306,13 @@ static void print_stack(struct VirMac *vm)
 void err_cant_op(const char *op, enum ValType ty)
 {
     fprintf(stderr, "ERROR: Cannot operate %s with %c value(s)\n",
-        op, values_type_to_char(ty));
+        op, valt2char(ty));
 }
 
 void err_dif_types(const char *op, enum ValType t1, enum ValType t2)
 {
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
-        op, values_type_to_char(t1), values_type_to_char(t2));
+        op, valt2char(t1), valt2char(t2));
 }
 
 static uint16_t read_u16(struct VirMac *vm)
@@ -765,7 +767,7 @@ static int op_car(struct VirMac *vm)
     return TRUE;
 }
 
-static int op_tpe(struct VirMac *vm)
+static int op_ape(struct VirMac *vm)
 {
     struct DfVal elem = virmac_pop(vm);
     struct DfVal arr = virmac_pop(vm);
@@ -781,7 +783,7 @@ static int op_tpe(struct VirMac *vm)
     return TRUE;
 }
 
-static int op_tge(struct VirMac *vm)
+static int op_age(struct VirMac *vm)
 {
     struct DfVal arr, idx;
     idx = virmac_pop(vm);
@@ -802,6 +804,24 @@ static int op_tge(struct VirMac *vm)
     }
     virmac_push(vm, &val);
     return TRUE;
+}
+
+static int op_ase(struct VirMac *vm)
+{
+    struct DfVal arr, idx, val;
+    val = virmac_pop(vm);
+    idx = virmac_pop(vm);
+    arr = virmac_pop(vm);
+    if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
+        eputln("ERROR: value is not an array");
+        return FALSE;
+    }
+    if (idx.type != VAL_N) {
+        eputln("ERROR: index is not N%");
+        return FALSE;
+    }
+    struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
+    return objarr_set(a, idx.as.n, &val); /* OK or ERR result */
 }
 
 static int op_lgl(struct VirMac *vm)

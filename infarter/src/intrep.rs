@@ -48,9 +48,10 @@ pub enum ImOp
     SLX(LocIdx),
     ULX(LocIdx),
 
-    MEA,
-    TPE,
-    TGE,
+    AMN,
+    APE,
+    AGE,
+    ASE,
 
     CAZ,
     CAR,
@@ -257,7 +258,7 @@ impl<'a> Cfg<'a>
             BinOpcode::Le  => ImOp::CLE,
             BinOpcode::Gt  => ImOp::CGT,
             BinOpcode::Ge  => ImOp::CGE,
-            BinOpcode::Idx => ImOp::TGE,
+            BinOpcode::Idx => ImOp::AGE,
             _ => unreachable!(),
         });
     }
@@ -345,13 +346,14 @@ impl<'a> Cfg<'a>
 
     fn s_assign(&mut self, v: &'a Expr, ex: &'a Expr)
     {
-        self.expr(ex);
         let id: &'a str = match v {
             Expr::Ident(s) => s.as_str(),
+            Expr::BinOp(a, BinOpcode::Idx, i) =>
+                return self.s_arrass(a, i, ex),
             _ => panic!("cannot assign to {:?}", v),
         };
+        self.expr(ex);
         // check if exists global
-        let idx;
         if let Some(i) = self.globals.get(id) {
             self.curr.push(ImOp::SGX(*i));
             return;
@@ -363,12 +365,24 @@ impl<'a> Cfg<'a>
         }
         // declar eiþer global or local by scope depþ
         if self.scpdpt == 0 {
-            idx = self.push_ident(id);
+            let idx = self.push_ident(id);
             self.globals.insert(id, idx);
             self.curr.push(ImOp::SGX(idx));
         } else {
             self.locals.add(id); // grow stack
         }
+    }
+
+    fn s_arrass(
+        &mut self,
+        arr: &'a Expr,
+        idx: &'a Expr,
+        exp: &'a Expr)
+    {
+        self.expr(arr);
+        self.expr(idx);
+        self.expr(exp);
+        self.push_op(ImOp::ASE);
     }
 
     fn s_ifstmt(&mut self,
@@ -428,12 +442,10 @@ impl<'a> Cfg<'a>
     {
         for s in block {
             if let Stmt::Assign(v, _) = s {
-                let i: &'a str = match v {
-                    Expr::Ident(s) => s.as_str(),
-                    _ => panic!("cannot assign to {:?}", v),
-                };
-                if !self.exists_var(i) { // is new locar var
-                    self.s_assign(v, &Expr::Const(Val::V));
+                if let Expr::Ident(i) = v {
+                    if !self.exists_var(i) { // is new locar var
+                        self.s_assign(v, &Expr::Const(Val::V));
+                    }
                 }
             }
         }
@@ -579,10 +591,10 @@ impl<'a> Cfg<'a>
 
     fn e_array(&mut self, a: &'a [Expr])
     {
-        self.push_op(ImOp::MEA);
+        self.push_op(ImOp::AMN);
         for e in a {
             self.expr(e);
-            self.push_op(ImOp::TPE);
+            self.push_op(ImOp::APE);
         }
     }
 }

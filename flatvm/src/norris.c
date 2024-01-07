@@ -64,7 +64,7 @@ int norris_from_buff(struct Norris *nor, const uchar *buf, size_t len)
           case VAL_R: rp = push_val_r(nor, rp); break;
           default:
             fprintf(stderr, "found constant of type %c\n",
-                values_type_to_char(type));
+                valt2char(type));
             exit(1);
         }
     }
