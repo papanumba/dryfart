@@ -76,6 +76,10 @@ enum OpCode {
     OP_AGE = 0x62,
     OP_ASE = 0x63,
 
+    OP_TMN = 0x70,
+    OP_TSF = 0x71,
+    OP_TGF = 0x72,
+
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,
     OP_CAN = 0xE6,

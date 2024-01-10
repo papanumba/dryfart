@@ -76,6 +76,9 @@ static int op_ape(struct VirMac *);
 static int op_age(struct VirMac *);
 static int op_ase(struct VirMac *);
 
+static int op_tsf(struct VirMac *);
+static int op_tgf(struct VirMac *);
+
 static int  op_lgl(struct VirMac *);
 static int  op_sgl(struct VirMac *);
 static void op_lls(struct VirMac *);
@@ -233,6 +236,9 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_AGE, op_age)
           DO_OP(OP_ASE, op_ase)
 
+          DO_OP(OP_TSF, op_tsf)
+          DO_OP(OP_TGF, op_tgf)
+
           DO_OP(OP_LGL, op_lgl)
           DO_OP(OP_SGL, op_sgl)
 
@@ -260,6 +266,13 @@ static enum ItpRes run(struct VirMac *vm)
             struct DfVal val;
             val.type = VAL_O;
             val.as.o = (struct Object *) objarr_new();
+            virmac_push(vm, &val);
+            break;
+          }
+          case OP_TMN: {
+            struct DfVal val;
+            val.type = VAL_O;
+            val.as.o = (struct Object *) objtbl_new();
             virmac_push(vm, &val);
             break;
           }
@@ -520,6 +533,9 @@ static int op_add_o(
         res->as.o = (struct Object *) arr;
         break;
       }
+      case OBJ_TBL:
+        panic("todo T%% + T%%");
+        break;
     }
     return TRUE;
 }
@@ -822,6 +838,38 @@ static int op_ase(struct VirMac *vm)
     }
     struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
     return objarr_set(a, idx.as.n, &val); /* OK or ERR result */
+}
+
+static int op_tsf(struct VirMac *vm)
+{
+    struct DfVal tbl, val;
+    val = virmac_pop(vm);
+    tbl = virmac_pop(vm);
+    if (tbl.type != VAL_O || tbl.as.o->type != OBJ_TBL) {
+        eputln("ERROR: value is not a table");
+        return FALSE;
+    }
+    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
+    htable_set(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, val);
+    virmac_push(vm, &tbl);
+    return TRUE;
+}
+
+static int op_tgf(struct VirMac *vm)
+{
+    struct DfVal tbl, val;
+    tbl = virmac_pop(vm);
+    if (tbl.type != VAL_O || tbl.as.o->type != OBJ_TBL) {
+        eputln("ERROR: value is not a table");
+        return FALSE;
+    }
+    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
+    int res = htable_get(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, &val);
+    if (!res)
+        fprintf(stderr, "field $%s' not found in table\n", idf->str);
+    else
+        virmac_push(vm, &val);
+    return res;
 }
 
 static int op_lgl(struct VirMac *vm)

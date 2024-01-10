@@ -6,6 +6,7 @@
 #include "falloc.h"
 #include "alzhmr.h"
 #include "virmac.h"
+#include "htable.h"
 
 static struct Object **grey_stack = NULL;
 static size_t grey_len = 0;
@@ -13,6 +14,7 @@ static size_t grey_cap = 0;
 
 static void mark_roots(struct VirMac *);
 static void mark_dfval(struct DfVal *);
+static void mark_htable(struct Htable *);
 static void mark_object(struct Object *);
 static void trace_refs(void);
 static void blacken_obj(struct Object *);
@@ -54,8 +56,7 @@ static void mark_roots(struct VirMac *vm)
 {
     for (struct DfVal *v = vm->stack; v != vm->sp; ++v)
         mark_dfval(v);
-    for (size_t i = 0; i < vm->globals.cap; ++i)
-        mark_dfval(&vm->globals.ent[i].v);
+    mark_htable(&vm->globals);
 }
 
 static void mark_dfval(struct DfVal *v)
@@ -68,6 +69,12 @@ static void mark_dfval(struct DfVal *v)
         puts("");
 #endif
     }
+}
+
+static void mark_htable(struct Htable *t)
+{
+    for (size_t i = 0; i < t->cap; ++i)
+        mark_dfval(&t->ent[i].v);
 }
 
 /* mark as "grey", i.e. push to grey & set mark TRUE */
@@ -90,8 +97,16 @@ static void trace_refs(void)
 /* mark neibrhood */
 static void blacken_obj(struct Object *obj)
 {
+#ifdef DEBUG
+    printf("blackening ");
+    object_print(obj);
+    puts("");
+#endif
     switch (obj->type) {
       case OBJ_ARR:
+        return;
+      case OBJ_TBL:
+        mark_htable(&OBJ_AS_TBL(obj)->tbl);
         return;
     }
 }

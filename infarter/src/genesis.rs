@@ -88,6 +88,10 @@ pub enum Op
     AGE = 0x62,
     ASE = 0x63,
 
+    TMN = 0x70,
+    TSF = 0x71,
+    TGF = 0x72,
+
     CAZ = 0xE8,
     CAR = 0xEA, // CAst Real
 
@@ -176,6 +180,8 @@ impl TryFrom<ImOp> for Op
             ImOp::APE => Ok(Op::APE),
             ImOp::AGE => Ok(Op::AGE),
             ImOp::ASE => Ok(Op::ASE),
+
+            ImOp::TMN => Ok(Op::TMN),
 
             ImOp::CAZ => Ok(Op::CAZ),
             ImOp::CAR => Ok(Op::CAR),
@@ -272,8 +278,8 @@ impl LowerBlock
     {
         if let Ok(op) = Op::try_from(imop) { // simple op or LBX
             self.push_op(op);
-        } else { // Short/Long opcodes
-            self.push_sl_op(imop);
+        } else { // with operands
+            self.push_arg_op(imop);
         }
     }
 
@@ -291,10 +297,13 @@ impl LowerBlock
     }
 
     // called when imop is not simple
-    fn push_sl_op(&mut self, imop: &ImOp)
+    fn push_arg_op(&mut self, imop: &ImOp)
     {
         if imop.is_glo() {
             return self.push_glo_op(imop);
+        }
+        if imop.is_tbl() {
+            return self.push_tbl_op(imop);
         }
         let opnd = imop.get_operand().unwrap();
         if let Ok(u) = u8::try_from(opnd) { // Short
@@ -335,6 +344,22 @@ impl LowerBlock
                 self.push_num(*x as u16);
             },
             _ => {},
+        }
+    }
+
+    // anoþer stupid function
+    fn push_tbl_op(&mut self, imop: &ImOp)
+    {
+        match imop {
+            ImOp::TGF(x) => {
+                self.push_op(Op::TGF);
+                self.push_num(*x as u16);
+            },
+            ImOp::TSF(x) => {
+                self.push_op(Op::TSF);
+                self.push_num(*x as u16);
+            },
+            _ => unreachable!(),
         }
     }
 }

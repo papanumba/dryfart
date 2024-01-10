@@ -9,7 +9,7 @@
 /* static functions */
 static uint simple_instru(const char *, uint);
 static uint    lk_instru (size_t, struct Norris *, uint);
-static uint    glo_instru(const char *, struct Norris *, uint, uint);
+static uint    idf_instru(const char *, struct Norris *, uint, uint);
 static uint    loc_instru(const char *, struct Norris *, uint, uint);
 static uint    jmp_instru(const char *, struct Norris *, uint, uint);
 
@@ -76,8 +76,13 @@ uint disasm_instru(struct Norris *code, uint offset)
       case OP_AGE: return simple_instru("AGE", offset);
       case OP_ASE: return simple_instru("ASE", offset);
 
-      case OP_LGL: return glo_instru("LGL", code, offset, 2);
-      case OP_SGL: return glo_instru("SGL", code, offset, 2);
+      case OP_TMN: return simple_instru("TMN", offset);
+      case OP_TSF: return idf_instru("TSF", code, offset, 2);
+      case OP_TGF: return idf_instru("TGF", code, offset, 2);
+
+
+      case OP_LGL: return idf_instru("LGL", code, offset, 2);
+      case OP_SGL: return idf_instru("SGL", code, offset, 2);
       case OP_LLS: return loc_instru("LLS", code, offset, 1);
       case OP_SLS: return loc_instru("SLS", code, offset, 1);
       case OP_LLL: return loc_instru("LLL", code, offset, 2);
@@ -144,7 +149,7 @@ static uint lk_instru(size_t len, struct Norris *n, uint offset)
     return offset + len;
 }
 
-static uint glo_instru(
+static uint idf_instru(
     const char *name,
     struct Norris *n,
     uint offset,
@@ -156,7 +161,7 @@ static uint glo_instru(
       case 1: c = n->cod[offset]; break;
       case 2: c = b2tohu(&n->cod[offset]); break;
       default:
-        fputs("something went rrong in glo_instru\n", stderr);
+        fputs("something went rrong in idf_instru\n", stderr);
         exit(1);
         break;
     }

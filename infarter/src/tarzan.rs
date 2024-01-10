@@ -97,6 +97,7 @@ enum BlockAction
 pub fn anal_check<'a>(prog: &'a Block)
 {
     let mut root_scope = Scope::<'a>::new();
+    root_scope.print();
     if let Some(_) = do_block(&mut root_scope, prog) {
         panic!("ERROR: at main script: cannot return, exit or break");
     }
@@ -415,7 +416,9 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
                                     .as_slice()
                                     .try_into()
                                     .unwrap()),
-        //todo!(),
+        Expr::Table(v) => eval_table(scope, v),
+        Expr::TblFd(e, f) => eval_tblfd(scope, e, f),
+//        _ => todo!("{:?}", e),
     }
 }
 
@@ -638,6 +641,34 @@ fn do_cast(t: &Type, v: &Val) -> Val
                 Val::N(*z as u32)
             },
         _ => panic!("converting types"),
+    }
+}
+
+fn eval_table(scope: &Scope, e: &[(String, Expr)]) -> Val
+{
+    let mut t = Table::new();
+    for (k, ve) in e {
+        if t.has(k) {
+            eprintln!("WARNING: table already has field {k}");
+            eprintln!("will be overwriting its value");
+        }
+        let v = eval_expr(scope, ve);
+        t.set(k, v);
+    }
+    println!("{:?}", t);
+    return Val::from_table(t);
+}
+
+fn eval_tblfd(scope: &Scope, t: &Expr, f: &String) -> Val
+{
+    let tbl = eval_expr(scope, t);
+    if let Val::T(trc) = tbl {
+        match trc.borrow().get(f) {
+            Some(v) => return v.clone(),
+            None => panic!("{:?} table hasn't ${}", t, f),
+        }
+    } else {
+        panic!("{:?} is not a table", tbl);
     }
 }
 

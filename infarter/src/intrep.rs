@@ -53,6 +53,10 @@ pub enum ImOp
     AGE,
     ASE,
 
+    TMN,
+    TSF(IdfIdx),
+    TGF(IdfIdx),
+
     CAZ,
     CAR,
 
@@ -80,6 +84,14 @@ impl ImOp
     {
         match self {
             ImOp::LGX(_) | ImOp::SGX(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_tbl(&self) -> bool
+    {
+        match self {
+            ImOp::TGF(_) | ImOp::TSF(_) => true,
             _ => false,
         }
     }
@@ -319,7 +331,7 @@ impl<'a> Cfg<'a>
 
     fn block(&mut self, b: &'a Block)
     {
-        let presize = self.presize;
+        let presize = self.locals.size();
         self.enter_scope();
         self.no_env_block(b);
         self.presize = presize;
@@ -497,6 +509,8 @@ impl<'a> Cfg<'a>
             Expr::BinOp(l, o, r) => self.e_binop(l, o, r),
             Expr::CmpOp(l, v)    => self.e_cmpop(l, v),
             Expr::Array(a)       => self.e_array(a),
+            Expr::Table(v)       => self.e_table(v),
+            Expr::TblFd(t, f)    => self.e_tblfd(t, f),
             _ => todo!("oþer exprs {:?}", ex),
         }
     }
@@ -596,6 +610,23 @@ impl<'a> Cfg<'a>
             self.expr(e);
             self.push_op(ImOp::APE);
         }
+    }
+
+    fn e_table(&mut self, v: &'a [(String, Expr)])
+    {
+        self.push_op(ImOp::TMN);
+        for (f, e) in v {
+            self.expr(e);
+            let idx = self.push_ident(f);
+            self.push_op(ImOp::TSF(idx));
+        }
+    }
+
+    fn e_tblfd(&mut self, t: &'a Expr, f: &'a str)
+    {
+        self.expr(t);
+        let idx = self.push_ident(f);
+        self.push_op(ImOp::TGF(idx));
     }
 }
 

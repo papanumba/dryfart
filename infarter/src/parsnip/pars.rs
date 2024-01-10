@@ -83,7 +83,7 @@ impl<'src> Nip<'src>
         return if self.is_at_end() {
             Ok(res)
         } else {
-            expected_err!("EOF", self.peek::<0>().unwrap())
+            eof_err!(format!("{:?}", self.peek::<0>().unwrap().0))
         };
     }
 
@@ -396,7 +396,7 @@ impl<'src> Nip<'src>
                     let casted = self.cast_expr()?;
                     Ok(Expr::Tcast(pt.into(), Box::new(casted)))
                 }
-                _ => self.nucle(),
+                _ => self.acc_expr(),
             },
             _ => eof_err!("type%, ident or literal"),
         }
@@ -408,6 +408,19 @@ impl<'src> Nip<'src>
             let args = self.comma_ex(TokenType::Semic)?;
             nucle = Expr::Fcall(Box::new(nucle), args);
         }*/
+
+    fn acc_expr(&mut self) -> Result<Expr, String>
+    {
+        let mut e = self.nucle()?;
+        while self.matches::<0>(TokenType::Dollar) {
+            self.advance(); // $
+            let i = self.consume_ident()?;
+            e = Expr::TblFd(Box::new(e),
+                String::from(std::str::from_utf8(i).unwrap()),
+                );
+        }
+        return Ok(e);
+    }
 
     fn nucle(&mut self) -> Result<Expr, String>
     {
@@ -432,8 +445,9 @@ impl<'src> Nip<'src>
             Token::ValR(r) => Ok(self.valr(r)),
             Token::String(s) =>  self.string(s),
             Token::Uscore =>     self.arrlit(),
+            Token::Dollar =>     self.tbllit(),
             Token::Hash => todo!(), //self.anon_fn(),
-            _ => expected_err!("(, ident or literal", tok),
+            _ => expected_err!("(, _, $, ident or literal", tok),
         }
     }
 
@@ -518,6 +532,33 @@ impl<'src> Nip<'src>
         self.advance(); // _
         let arr_e = self.comma_ex(TokenType::Semic)?;
         return Ok(Expr::Array(arr_e));
+    }
+
+    // called when peek: 0 -> $
+    fn tbllit(&mut self) -> Result<Expr, String>
+    {
+        const MSG: &'static str = "Ident or ;";
+        self.advance(); // $
+        let mut tbl_e: Vec<(String, Expr)> = vec![];
+        loop {
+            if let Some(t) = self.peek::<0>() {
+                match t.0 {
+                    Token::Ident(_) => {}, // ok, continue
+                    Token::Semic => break,
+                    _ => return expected_err!(MSG, t),
+                }
+            } else {
+                return eof_err!(MSG);
+            }
+            let i = self.consume_ident()?;
+            self.exp_adv(TokenType::Equal)?;
+            let e = self.expr()?;
+            self.exp_adv(TokenType::Period)?;
+            let i = String::from(std::str::from_utf8(i).unwrap());
+            tbl_e.push((i, e));
+        }
+        self.advance(); // ;
+        Ok(Expr::Table(tbl_e))
     }
 
     // called when peek: 0 -> #

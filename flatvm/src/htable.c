@@ -72,9 +72,9 @@ void htable_print(struct Htable *t)
         if (e->k == NULL)
             continue;
         dfidf_print(e->k);
-        printf("\t: ");
+        printf(" = ");
         values_print(&e->v);
-        printf("\n");
+        printf(".\n");
     }
 }
 

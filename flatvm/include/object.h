@@ -5,11 +5,14 @@
 
 #include "common.h"
 #include "values.h"
+#include "htable.h"
 
 #define OBJ_AS_ARR(o)   ((struct ObjArr *) (o))
+#define OBJ_AS_TBL(o)   ((struct ObjTbl *) (o))
 
 enum ObjType {
-    OBJ_ARR
+    OBJ_ARR,
+    OBJ_TBL
 };
 
 struct Object {
@@ -40,6 +43,11 @@ struct ObjArr {
     }             as;
 };
 
+struct ObjTbl {
+    struct Object obj;
+    struct Htable tbl;
+};
+
 /* aux union for þe allocator */
 typedef union {
     struct Object o;
@@ -50,10 +58,13 @@ typedef union {
 void object_print(struct Object *);
 int  object_eq   (struct Object *, struct Object *);
 void object_free (struct Object *);
-struct ObjArr * objarr_new     ();
+
+struct ObjArr * objarr_new     (void);
 int             objarr_try_push(struct ObjArr *, struct DfVal *);
 struct DfVal    objarr_get     (struct ObjArr *, uint32_t);
 int             objarr_set     (struct ObjArr *, uint32_t, struct DfVal *);
 struct ObjArr * objarr_concat  (struct ObjArr *, struct ObjArr *);
+
+struct ObjTbl * objtbl_new     (void);
 
 #endif /* FLATVM_OBJECT_H */

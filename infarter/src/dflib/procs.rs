@@ -14,7 +14,7 @@ pub fn put(args: &Vec<Val>)
             Val::R(r) => print!("{r}"),
             Val::A(a) => print!("{}", a.borrow()),
             Val::F(_) => print!("#%cannot print func"),
-//            _ => panic!("cannot print"),
+            _ => panic!("cannot print"),
         }
     }
 }

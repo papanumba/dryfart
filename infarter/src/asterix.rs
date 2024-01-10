@@ -1,7 +1,10 @@
 /* src/asterix.rs */
 
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::{
+    rc::Rc,
+    cell::RefCell,
+    collections::HashMap,
+};
 use crate::util;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -15,6 +18,7 @@ pub enum Type
     R, // real
     F, // func
     A, // array
+    T, // table
 }
 
 impl Type
@@ -37,7 +41,8 @@ impl Type
             Self::Z |
             Self::R => true,
             Self::A |
-            Self::F => false,
+            Self::F |
+            Self::T => false,
         }
     }
 
@@ -52,6 +57,7 @@ impl Type
             Self::R => Val::R(0.0),
             Self::F => panic!("cannot default function"),
             Self::A => Val::from_array(Array::new()),
+            Self::T => Val::from_table(Table::new()),
         }
     }
 }
@@ -69,6 +75,7 @@ impl std::convert::From<&Val> for Type
             Val::R(_) => Type::R,
             Val::F(_) => Type::F,
             Val::A(_) => Type::A,
+            Val::T(_) => Type::T,
         }
     }
 }
@@ -85,7 +92,8 @@ impl std::fmt::Display for Type
             Self::Z => write!(f, "Z%"),
             Self::R => write!(f, "R%"),
             Self::F => write!(f, "#%"),
-            Self::A => write!(f, "{{}}"),
+            Self::A => write!(f, "_%"),
+            Self::T => write!(f, "$%"),
         }
     }
 }
@@ -315,6 +323,32 @@ impl std::fmt::Display for Array
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Table(HashMap<String, Val>);
+
+impl Table
+{
+    pub fn new() -> Self
+    {
+        Table(HashMap::new())
+    }
+
+    pub fn get(&self, k: &String) -> Option<&Val>
+    {
+        self.0.get(k)
+    }
+
+    pub fn set(&mut self, k: &str, v: Val)
+    {
+        self.0.insert(k.to_string(), v);
+    }
+
+    pub fn has(&self, k: &str) -> bool
+    {
+        self.0.contains_key(k)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Val
 {
     V,
@@ -324,13 +358,14 @@ pub enum Val
     Z(i32),
     R(f32),
     A(Rc<RefCell<Array>>),
+    T(Rc<RefCell<Table>>),
     F(Func),
 }
 
 /*
 ** Note: Val clone is always "shallow":
 **  - for primitives (VBCNZR) it's just a Copy
-**  - for heap objects (AF) it's an Rc::clone
+**  - for heap objects (ATF) it's an Rc::clone
 */
 
 impl Val
@@ -346,6 +381,11 @@ impl Val
     pub fn from_array(a: Array) -> Self
     {
         Self::A(Rc::new(RefCell::new(a)))
+    }
+
+    pub fn from_table(t: Table) -> Self
+    {
+        Self::T(Rc::new(RefCell::new(t)))
     }
 }
 
@@ -570,4 +610,6 @@ pub enum Expr
     Fdefn(Func),
     Fcall(Box<Expr>, Vec<Expr>),
     Array(Vec<Expr>),
+    Table(Vec<(String, Expr)>),
+    TblFd(Box<Expr>, String),
 }

@@ -9,41 +9,53 @@
 static void objarr_print(struct ObjArr *);
 static void objarr_free (struct ObjArr *);
 static void objarr_grow (struct ObjArr *, uint);
+static int  objarr_eq   (struct ObjArr *, struct ObjArr *);
+
+static void objtbl_print(struct ObjTbl *);
+static void objtbl_free (struct ObjTbl *);
 
 static struct Object * alloc_object(enum ObjType);
 static inline int       arrt_valt_eq(enum ArrType, enum ValType);
 static inline size_t sizeof_arr_elem(enum ArrType);
+
 static inline enum ArrType valt2arrt(enum ValType);
 static inline enum ValType arrt2valt(enum ArrType);
 static inline char         arrt2char(enum ArrType);
+
 
 void object_print(struct Object *o)
 {
     switch (o->type) {
       case OBJ_ARR: objarr_print(OBJ_AS_ARR(o)); break;
+      case OBJ_TBL: objtbl_print(OBJ_AS_TBL(o)); break;
     }
 }
 
 int object_eq(struct Object *o0, struct Object *o1)
 {
+    if (o0 == o1)
+        return TRUE;
     if (o0->type != o1->type)
         return FALSE;
-    /*switch (o0->type) {
-        TODO
-    }*/
-    return o0 == o1;
+    int b = FALSE;
+    switch (o0->type) {
+      case OBJ_ARR: b = objarr_eq(OBJ_AS_ARR(o0), OBJ_AS_ARR(o1)); break;
+      case OBJ_TBL: break;
+    }
+    return b;
 }
 
 void object_free(struct Object *o)
 {
     switch (o->type) {
       case OBJ_ARR: objarr_free(OBJ_AS_ARR(o)); break;
+      case OBJ_TBL: objtbl_free(OBJ_AS_TBL(o)); break;
     }
     falloc_free(o);
 }
 
 /* create empty array */
-struct ObjArr * objarr_new()
+struct ObjArr * objarr_new(void)
 {
     struct ObjArr *arr = OBJ_AS_ARR(alloc_object(OBJ_ARR));
     arr->len = 0;
@@ -149,6 +161,16 @@ struct ObjArr * objarr_concat(struct ObjArr *a, struct ObjArr *b)
     return ab;
 }
 
+/* create empty table */
+struct ObjTbl * objtbl_new(void)
+{
+    struct ObjTbl *tbl = OBJ_AS_TBL(alloc_object(OBJ_TBL));
+    htable_init(&tbl->tbl);
+    return tbl;
+}
+
+/******************** S T A T I C ***************************/
+
 static void objarr_print(struct ObjArr *arr)
 {
     size_t i;
@@ -209,6 +231,34 @@ static void objarr_grow(struct ObjArr *arr, uint newcap)
 #undef BASURA
     }
     arr->cap = newcap;
+}
+
+static int objarr_eq(struct ObjArr *a0, struct ObjArr *a1)
+{
+    if (a0->typ != a1->typ || a0->len != a1->len)
+        return FALSE;
+    switch (a0->typ) {
+      case ARR_E: return TRUE;
+      case ARR_B: panic("todo: eq arr B%%"); break;
+#define BASURA(t, x) \
+      case t: return 0 == memcmp(a0->as.x, a1->as.x, sizeof(a0->as.x[0]) * a0->len);
+      BASURA(ARR_C, c)
+      BASURA(ARR_N, n)
+      BASURA(ARR_Z, z)
+#undef BASURA
+      case ARR_R: return FALSE;
+    }
+    return FALSE; /* unreachable */
+}
+
+static void objtbl_print(struct ObjTbl *t)
+{
+    htable_print(&t->tbl);
+}
+
+static void objtbl_free (struct ObjTbl *t)
+{
+    htable_free(&t->tbl);
 }
 
 static struct Object * alloc_object(enum ObjType type)
