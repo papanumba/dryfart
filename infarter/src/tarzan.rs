@@ -97,7 +97,6 @@ enum BlockAction
 pub fn anal_check<'a>(prog: &'a Block)
 {
     let mut root_scope = Scope::<'a>::new();
-    root_scope.print();
     if let Some(_) = do_block(&mut root_scope, prog) {
         panic!("ERROR: at main script: cannot return, exit or break");
     }
@@ -159,6 +158,8 @@ fn do_assign<'a, 's>(
         Expr::Ident(i) => i.as_str(),
         Expr::BinOp(a, BinOpcode::Idx, i) =>
             return do_ass_arr(&bs.outer, a, i, ex),
+        Expr::TblFd(t, f) =>
+            return do_tbl_ass(&bs.outer, t, f, ex),
         _ => panic!("cannot assign to {:?}", va),
     };
     if (bs.outer.vars.insert(id,  val).is_none()) {
@@ -182,6 +183,19 @@ fn do_ass_arr(
         }
     } else {
         panic!("not indexable");
+    }
+}
+
+// t$f = e.
+fn do_tbl_ass(
+    s: &Scope,
+    t: &Expr,
+    f: &String,
+    e: &Expr)
+{
+    if let Val::T(t) = eval_expr(s, t) {
+        let e_val = eval_expr(s, e);
+        t.borrow_mut().set(f, e_val);
     }
 }
 
@@ -648,14 +662,9 @@ fn eval_table(scope: &Scope, e: &[(String, Expr)]) -> Val
 {
     let mut t = Table::new();
     for (k, ve) in e {
-        if t.has(k) {
-            eprintln!("WARNING: table already has field {k}");
-            eprintln!("will be overwriting its value");
-        }
         let v = eval_expr(scope, ve);
         t.set(k, v);
     }
-    println!("{:?}", t);
     return Val::from_table(t);
 }
 

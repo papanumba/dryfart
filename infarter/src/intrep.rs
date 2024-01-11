@@ -362,6 +362,8 @@ impl<'a> Cfg<'a>
             Expr::Ident(s) => s.as_str(),
             Expr::BinOp(a, BinOpcode::Idx, i) =>
                 return self.s_arrass(a, i, ex),
+            Expr::TblFd(t, f) =>
+                return self.s_tblass(t, f, ex),
             _ => panic!("cannot assign to {:?}", v),
         };
         self.expr(ex);
@@ -395,6 +397,19 @@ impl<'a> Cfg<'a>
         self.expr(idx);
         self.expr(exp);
         self.push_op(ImOp::ASE);
+    }
+
+    fn s_tblass(
+        &mut self,
+        t: &'a Expr,
+        f: &'a str,
+        e: &'a Expr)
+    {
+        self.expr(t);
+        self.expr(e);
+        let idx = self.push_ident(f);
+        self.push_op(ImOp::TSF(idx));
+        self.push_op(ImOp::POP);
     }
 
     fn s_ifstmt(&mut self,
