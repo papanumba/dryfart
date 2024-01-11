@@ -1,38 +1,56 @@
 ## Arrays
 
-Arrays must have all the elements of the same type: N% array `{0, 1, 2,}`,
-R% array `{0.0, 1.0, 2.0,}`, etc.
+Arrays must have all the elements of the same type: `Z%` array `_0, 1, 2;`,
+`R%` array `_0.0, 1.0, 2.0;`, etc.
 
-Explicit arrays are denoted each element followed by a comma `,`, then
-surounded by curly braces `{}`. They can be stored to variables as other types:
-(primitives BCNZR & functions).
+Array constructors are denoted starting by underscore `_`, then the elements
+separated by a commas `,`, and ended by a semicolon `;`.
 
-When passed to a function, its type is denoted as the elements' type surrounded
-by `{}`. For example, a function that recieves a natural array and returns a
-boolean would be of type `B%#{{N%},}`.
+```
+a = _1, 2, 3;.
+```
 
-TODO: optimization, by now all arrays are deep-copied so when passing arrays to
-functions, its horribly slow.
+Arrays are objects, which means that they are heap-allocated and only the
+references are stored to variables.
 
 ### Element access
 
-If `a` is an array and `i` is a `N%`, then `a_i` would be the i-th element of a.
-This operator can be used with the following expressions:
-* Explicit arrays: `{1, 2,}_0`
-* Identifiers: `a_0`
-* Function calls: `myFunc#{}_0` if `myFunc` returns an array.
+If `a` is an array and `i` is a `N%` value, then `a_i` would be the
+(0-indexed) i-th element of a. The `_` works as any other binary operator,
+has stronger precedence than the `*` multiplication and weaker than the
+`$` field access.
 
-So as to know the length of the array, there's the built-in function 
-`len#{a,}`. It is (sugar-syntactically) overloaded to recieve any type of array
-and it returns a `N%`.
+Examples:
+* Explicit arrays: `_1, 2;_0`
+* Identifiers: `a_0` also `a_(0)`
+* Table's field: `t$a_0`
 
+So as to know the length of the array, there's the (TODO) built-in function 
+`len#`. It will return a `N%`.
 
-### Strings
+For example, to put a value in an array:
 
-Strings are implemented as character arrays `{C%}`. Their explicit array are the
-usual strings surrounded by double quotes `""`.
+```
+a_0 = 1 + 2 + 3.
+```
+
+### Strings (TODO)
+
+Strings are implemented as `C%` character arrays. Their explicit array are
+the usual strings surrounded by double quotes `"`.
 Escape sequences are followed by a dollar `$`:
 * `"N$"` newline
 * `"T$"` tab
 * `""$"` double quote char
 * `"$$"` dollar itself
+
+### Operations
+
+`+` can be used to concatenate 2 arrays (and create a new one).
+
+```
+a = _1, 2;.
+b = _3, 4;.
+```
+
+Then `a + b` will be `_1,2,3,4;`.

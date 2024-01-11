@@ -150,9 +150,6 @@ where T: Eq + std::fmt::Debug
     // O(1)
     pub fn truncate(&mut self, newlen: usize)
     {
-/*        if newlen > self.size() {
-            panic!("cannot truncate ArraySet to len bigger");
-        }*/
         self.set.truncate(newlen);
     }
 
@@ -189,5 +186,36 @@ where T: Eq + std::fmt::Debug
     pub fn is_empty(&self) -> bool
     {
         return self.set.is_empty();
+    }
+}
+
+#[derive(Debug)]
+pub struct Stack<T>(Vec<T>);
+
+impl<T> Stack<T>
+{
+    pub fn new() -> Self
+    {
+        Self(vec![])
+    }
+
+    pub fn peek<'a>(&'a self, n: usize) -> Option<&'a T>
+    {
+        let len = self.0.len();
+        if n < len {
+            Some(&self.0[len-n-1])
+        } else {
+            None
+        }
+    }
+
+    pub fn push(&mut self, e: T)
+    {
+        self.0.push(e);
+    }
+
+    pub fn pop(&mut self)
+    {
+        self.0.pop();
     }
 }

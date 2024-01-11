@@ -10,7 +10,7 @@ defined as anonymous functions (which are considered expressions), then assigned
 to a variable:
 
 ```
-plusOne = N%#{N%x,} ##x+1. #..
+plusOne = #x;##x+1...
 ```
 
 A function definition expression has 3 parts:

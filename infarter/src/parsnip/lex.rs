@@ -61,6 +61,19 @@ impl<'src> Luthor<'src>
         }
     }
 
+    #[inline]
+    fn adv_while<COND>(&mut self, cond: COND)
+    where COND: Fn(u8) -> bool
+    {
+        while let Some(c) = self.peek::<0>() {
+            if cond(*c) {
+                self.advance();
+            } else {
+                 break;
+            }
+        }
+    }
+
     // skips whitespaces and updates self.line when finding '\n'
     #[inline]
     fn skip_whites(&mut self)
@@ -148,9 +161,9 @@ impl<'src> Luthor<'src>
             b'{' => Token::Lbrace,
             b'}' => Token::Rbrace,
             b'^' => Token::Caret,
-            b'$' => Token::Dollar,
             b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' |
             b'&' | b'|' | b'#' | b'!' => self.maybe_2ble(*c),
+            b'$' => self.from_dollar(),
             b'~' => self.from_tilde(),  // ~, ~~, ~=
             b'=' => self.from_equal(),  // =, ==, =>
             b'<' => self.from_langle(), // <, <=
@@ -176,6 +189,27 @@ impl<'src> Luthor<'src>
         } else {
             return Token::try_from(&c).unwrap();
         }
+    }
+
+    // called when consumed $
+    #[inline]
+    fn from_dollar(&mut self) -> Token<'src>
+    {
+        if let Some(c) = self.peek::<0>() {
+            if *c == b'@' {
+                if self.has_digit_next() {
+                    self.advance(); // @
+                    self.adv_while(|c| c.is_ascii_digit());
+                    let level = std::str::from_utf8(self.lexeme())
+                        .unwrap().parse::<u32>().unwrap();
+                    return Token::RecT(level);
+                } else { // default level
+                    self.advance(); // @
+                    return Token::RecT(0);
+                }
+            }
+        }
+        return Token::Dollar;
     }
 
     // ~, ~~, ~=
@@ -237,13 +271,7 @@ impl<'src> Luthor<'src>
     // gets called when current char is a digit
     fn get_num(&mut self) -> Token<'src>
     {
-        while let Some(c) = self.peek::<0>() {
-            if c.is_ascii_digit() {
-                self.advance();
-            } else {
-                 break;
-            }
-        }
+        self.adv_while(|c| c.is_ascii_digit());
         if self.matches::<0>(b'U') || self.matches::<0>(b'u') {
             let n = Token::parse_valn(self.lexeme());
             self.advance(); // [Uu]
@@ -255,13 +283,7 @@ impl<'src> Luthor<'src>
             return Token::parse_valz(self.lexeme());
         }
         self.advance(); // get past þe dot '.'
-        while let Some(c) = self.peek::<0>() {
-            if c.is_ascii_digit() {
-                self.advance();
-            } else {
-                 break;
-            }
-        }
+        self.adv_while(|c| c.is_ascii_digit());
         return Token::parse_valr(self.lexeme());
     }
 

@@ -446,6 +446,10 @@ impl<'src> Nip<'src>
             Token::String(s) =>  self.string(s),
             Token::Uscore =>     self.arrlit(),
             Token::Dollar =>     self.tbllit(),
+            Token::RecT(l) => {
+                self.advance();
+                Ok(Expr::RecsT(l))
+            },
             Token::Hash => todo!(), //self.anon_fn(),
             _ => expected_err!("(, _, $, ident or literal", tok),
         }

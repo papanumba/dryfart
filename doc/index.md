@@ -5,12 +5,11 @@ Wellcome to the docs of the DryFart language.
 ## General description
 
 Features:
-* Lazy evaluation of blocks
-* Imperative: procedural & a bit of functional
-* Strong typing in expressions
-* Dynamic typing in variables
-* Static typing in func/proc parameters
-* No keywords, that's why it's "Dry"
+* Basic control flow: if-else & loops
+* Imperative: both procedural & functional
+* Strong & dynamic typing
+* Variable length arrays
+* Tables (dynamic structs)
 * (TODO) modular
 
 ## Hello World
@@ -18,7 +17,7 @@ Features:
 Doesn't work yet :P but should be something like:
 
 ```
-put!"Hello, world!",.
+putLn!"Hello, world!".
 ```
 
 ## Types & Variables
@@ -31,22 +30,22 @@ There are 5 primitive types:
 * `R%` real: 32-bit float
 
 Variables are declared by initializing them. This example shows a variable of
-type `N%` _natural_ assigned a value of 25:
+type `Z%` _integer_ assigned a value of 25:
 
 ```
-natural = 25.
+z = 25.
 ```
 
-As you see, statements like this end in a dot, since we don't want to get
-semicolon cancer like many C-style languages.
+As you see, statements like this end in a dot, that's because we don't want to
+get C-style semicolon cancer.
 
-_Real_ numbers must have a decimal part, e.g. to represent `3` as a _real_
+_Real_ `%R` numbers must have a decimal part, e.g. to represent `3` as a _real_
 `3.` is not valid, it must be `3.0`.
 
 ## Arithmetic
 
 The numerical types (i.e. N%, Z%, R%) support basic arithmetic but only when
-they are of the same type, there's no implicit typecasting because of the strong
+they are of the same type, there's no implicit coercing because of the strong
 typing. Their behaviour follows this rules:
 
 ```
@@ -67,20 +66,22 @@ If you want (explicit) type casting, trust me you'll need it, just put the type
 before the value:
 
 ```
-x = N% 1.
+x = 1.
 y = 1.0 / R% x.
 ```
 
 ## Boolean stuff
 
 The comparison operators are the classic relations of order (<, >, <=, >=) and
-equivalence (==, /=). The order operators work with the numerical types; the
-equivalence work with all 5 types except R%. A comparison gives a B%.
+equivalence (==, ~=). The order operators work with the numerical types; the
+equivalence work with all 5 types except `R%`. A comparison gives a `B%`.
 
-The logical operators are `&` for "and", `|` for "or" and `~` for "not".
+The logical short-circuit operators are `&&` for "and", `||` for "or".
+And the standard boolean `~` for "not".
 
 ## Chapters
 
-[Control flow](control.md)
-[Subroutines](funcs_n_procs.md)
-[Arrays](arrays.md)
+* [Control flow](control.md)
+* [Subroutines](funcs_n_procs.md)
+* [Arrays](arrays.md)
+* [Tables](tables.md)

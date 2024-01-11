@@ -432,7 +432,7 @@ fn eval_expr(scope: &Scope, e: &Expr) -> Val
                                     .unwrap()),
         Expr::Table(v) => eval_table(scope, v),
         Expr::TblFd(e, f) => eval_tblfd(scope, e, f),
-//        _ => todo!("{:?}", e),
+        _ => todo!("{:?}", e),
     }
 }
 

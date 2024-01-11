@@ -612,4 +612,5 @@ pub enum Expr
     Array(Vec<Expr>),
     Table(Vec<(String, Expr)>),
     TblFd(Box<Expr>, String),
+    RecsT(u32),
 }

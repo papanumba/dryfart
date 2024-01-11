@@ -1,7 +1,7 @@
 /* src/intrep.rs */
 
 use std::collections::HashMap;
-use crate::{util::ArraySet, asterix::*};
+use crate::{util::*, asterix::*};
 
 // Intermediate Opcodes
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -183,12 +183,14 @@ pub struct Cfg<'a>
 {
     scpdpt:      usize,
     presize:     usize,
+    locsize:     usize,
     locals:      ArraySet<&'a str>,
     globals:     HashMap<&'a str, IdfIdx>,
     pub consts:  ArraySet<Val>,
     pub idents:  ArraySet<&'a str>,
     pub blocks:  Vec<BasicBlock>, // graph arena
     curr:        BasicBlock,      // current working bblock
+    rect:        Stack<LocIdx>,   // accumulating $@N
 }
 
 impl Eq for Val {} // for ArraySet
@@ -200,12 +202,14 @@ impl<'a> Cfg<'a>
         Self {
             scpdpt:  0,
             presize: 0,
+            locsize: 0,
             locals:  ArraySet::new(),
             consts:  ArraySet::new(),
             idents:  ArraySet::new(),
             globals: HashMap::new(),
             blocks:  Vec::new(),
             curr:    BasicBlock::new_empty(),
+            rect:    Stack::new(),
         }
     }
 
@@ -214,10 +218,10 @@ impl<'a> Cfg<'a>
         let mut program = Self::new();
         program.no_env_block(main);
         program.term_curr(Term::HLT);
-        //dbg!(&program);
         return program;
     }
 
+    #[allow(dead_code)]
     pub fn print_edges(&self)
     {
         for (i, x) in self.blocks.iter().enumerate() {
@@ -384,6 +388,7 @@ impl<'a> Cfg<'a>
             self.curr.push(ImOp::SGX(idx));
         } else {
             self.locals.add(id); // grow stack
+            self.locsize += 1;
         }
     }
 
@@ -526,6 +531,7 @@ impl<'a> Cfg<'a>
             Expr::Array(a)       => self.e_array(a),
             Expr::Table(v)       => self.e_table(v),
             Expr::TblFd(t, f)    => self.e_tblfd(t, f),
+            Expr::RecsT(l)       => self.e_recst(l),
             _ => todo!("oþer exprs {:?}", ex),
         }
     }
@@ -630,11 +636,15 @@ impl<'a> Cfg<'a>
     fn e_table(&mut self, v: &'a [(String, Expr)])
     {
         self.push_op(ImOp::TMN);
+        self.rect.push(self.locsize); // new $@0 will be on þe stack
+        self.locsize += 1;
         for (f, e) in v {
             self.expr(e);
             let idx = self.push_ident(f);
             self.push_op(ImOp::TSF(idx));
         }
+        self.rect.pop();
+        self.locsize -= 1;
     }
 
     fn e_tblfd(&mut self, t: &'a Expr, f: &'a str)
@@ -642,6 +652,15 @@ impl<'a> Cfg<'a>
         self.expr(t);
         let idx = self.push_ident(f);
         self.push_op(ImOp::TGF(idx));
+    }
+
+    fn e_recst(&mut self, level: &u32)
+    {
+        if let Some(loc) = self.rect.peek(*level as usize) {
+            self.push_op(ImOp::LLX(*loc));
+        } else {
+            panic!("$@{level} too deep");
+        }
     }
 }
 
