@@ -4,7 +4,7 @@ Tables can store named fields with values of different types. Similar to an
 object, but without methods, similar to simple Lua tables.
 
 Table constructors are denoted starting by a dollar `$`, then 0..* "simple"
-assignments (<Identifier> `=` <Expression> `.`) and ended by a semicolon `;`.
+assignments (Identifier `=` Expression `.`) and ended by a semicolon `;`.
 
 ```
 t = $f = 10. g = (5 < 6).;.

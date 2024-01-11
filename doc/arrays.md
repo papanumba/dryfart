@@ -54,3 +54,5 @@ b = _3, 4;.
 ```
 
 Then `a + b` will be `_1,2,3,4;`.
+
+[Next ch.](tables.md)

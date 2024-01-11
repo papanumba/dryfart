@@ -10,7 +10,7 @@ uselessness of toy languages, altogether with the slow(*) performance of
 interpreted languages.
 
 The documentation about the language will be in the `docs` folder.
-[Start here](/docs/start.md).
+[Start here](/doc/index.md).
 
 (*) last bench got: compared to python3 `while`/`@` loop 1.14x slower, function
 calls 2.6x slower.
