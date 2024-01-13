@@ -65,3 +65,35 @@ storing it to `t`.
 **Note:** the fields are created in the same order as in the source code, so
 reversing the definitions of `x` & `y` would give some "non-existing field"
 error.
+
+This thing doesn't just end here: what happens if you want to access an even
+further table? e.g.
+
+```
+t = $
+  x = $
+    f = 4.
+  ;.
+  y = $
+    f = ' here i want to get x$f 
+  ;.
+;.
+```
+
+The solution is a relative-depth-indexed reference: `$@1`
+
+```
+t = $
+  x = $
+    f = 4.
+  ;.
+  y = $
+    f = $@1$x$f.
+  ;.
+;.
+```
+
+Or more esoterically `t = $x=$f=4.;.y=$f=$@1$x$f.;.;.`.
+Now both `f` fields will have a value of `4`.
+
+**Note:** `$@0` is the same as `$@`.

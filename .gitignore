@@ -1,2 +1,12 @@
 infarter/target
 infarter/Cargo.lock
+infarter/*.dfc
+infarter/*/*.dfc
+infarter/*.df
+infarter/*.py
+flatvm/flatvm
+dfarted/__pycache__
+dfarted/.tmp.df*
+dfarted/img/icon.xcf
+dfarted/README.txt
+*/*.swp

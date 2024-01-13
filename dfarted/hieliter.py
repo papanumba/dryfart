@@ -46,11 +46,13 @@ colors = {
 # Syntax styles specific by token type
 STYLES = {
     'func':     format(colors['green']  , 'bold'),
-    'proc':     format(colors['blue']   , 'bold'),
-    'control':  format(colors['red']    , 'bold'),
+    'proc':     format(colors['cyan']   , 'bold'),
+    'table':    format(colors['red']    , 'bold'),
+    'array':    format(colors['magenta'], 'bold'),
+    'control':  format(colors['yellow'] , 'bold'),
     'number':   format(colors['cyan'])  ,
     'string':   format(colors['yellow']),
-    'type':     format(colors['magenta'], 'bold'),
+    'type':     format(colors['blue']   , 'bold'),
     'comment':  format(colors['bblack'] , 'italic'),
 }
 
@@ -59,32 +61,17 @@ class DFHieliter(QSyntaxHighlighter):
     def __init__(self, document):
         QSyntaxHighlighter.__init__(self, document)
         rules = [
-            # types
-            (r'\b[BCNZR]%', 0, STYLES['type']),
-            # Numeric literals
-            (r'(\b|_)\d+(\.\d+)?(E[+-]?\d+)?(\b|_)', 0, STYLES['number']),
-            # this last don't detect ".5" style numbers,
-            # and in dryfart, the R% values are written: \d+\.\d+
-            # (if) then
-            (r'=>', 0, STYLES['control']),
-            # loop
-            (r'\.?@', 0, STYLES['control']),
-            # function call 'word#'
-            (r'[A-Za-z][0-9A-Za-z]*#', 0, STYLES['func']),
-            # recursive fn call '@#'
-            (r'@#', 0, STYLES['func']),
-            # function types contain '#'
-            (r'#', 0, STYLES['func']),
-            # procedure decl !word!
-            (r'[A-Za-z][0-9A-Za-z]*!',0,STYLES['proc']),
-            (r'!',0,STYLES['proc']),
-            #uscore
-            #(r'_', 0, STYLES['text']),
-            # Double-quoted string, possibly containing escape sequences (X$)
+            (r'(\b|_)[0-9][0-9]*(u|\.[0-9]+\b)?(\b|_)', 0, STYLES['number']),
+            (r'[()]',           0, STYLES['string']),
+            (r'(=>|\[|\]|@)',   0, STYLES['control']),
+            (r'\b[BCNZR]%',     0, STYLES['type']),
+            (r'\b[TFV]\b',      0, STYLES['table']),
+            (r'#(@[0-9]*)?',    0, STYLES['func']),
+            (r'!(@[0-9]*)?',    0, STYLES['proc']),
+            (r'[A-Za-z][A-Za-z\d]* *!',    0, STYLES['proc']),
+            (r'\$(@[0-9]*)?',   0, STYLES['table']),
+            (r'_',              0, STYLES['array']),
             (r'"([^"$]*["$NT]\$)*[^"$]*"', 0, STYLES['string']),
-            # word between <> (inside string)
-#            (r'<[A-Za-z][0-9A-Za-z]*>', 0, STYLES['number'])
-            # Simple comment: from '' until a newline
             (r"'[^\n]*", 0, STYLES['comment'])
         ]
         # Build a QRegExp for each pattern

@@ -196,17 +196,18 @@ impl<'src> Luthor<'src>
     fn from_dollar(&mut self) -> Token<'src>
     {
         if let Some(c) = self.peek::<0>() {
-            if *c == b'@' {
-                if self.has_digit_next() {
-                    self.advance(); // @
-                    self.adv_while(|c| c.is_ascii_digit());
-                    let level = std::str::from_utf8(self.lexeme())
-                        .unwrap().parse::<u32>().unwrap();
-                    return Token::RecT(level);
-                } else { // default level
-                    self.advance(); // @
-                    return Token::RecT(0);
-                }
+            if *c != b'@' {
+                return Token::Dollar;
+            }
+            if self.has_digit_next() {
+                self.advance(); // @
+                self.adv_while(|c| c.is_ascii_digit());
+                let level = std::str::from_utf8(&self.lexeme()[2..])
+                    .unwrap().parse::<u32>().unwrap();
+                return Token::RecT(level);
+            } else { // default level
+                self.advance(); // @
+                return Token::RecT(0);
             }
         }
         return Token::Dollar;
