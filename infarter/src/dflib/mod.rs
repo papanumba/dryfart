@@ -1,28 +1,22 @@
 /* src/dflib/mod.rs */
 
-mod funcs;
+use std::rc::Rc;
+use crate::asterix::Val;
+
+//mod funcs;
 mod procs;
 
-use crate::asterix::Val;
-use crate::tarzan::Scope;
-
-pub fn do_fncall(name: &str, raw_args: &Vec<Val>) -> Val
-{
-    return match name {
-        "len" => funcs::len(raw_args),
-        "sqrt" => funcs::sqrt(raw_args),
-        "abs" => funcs::abs(raw_args),
-        "round" => funcs::round(raw_args),
-        "atan2" => funcs::atan2(raw_args),
-        "exp" => funcs::exp(raw_args),
-        _ => panic!("unknown func {name}"),
-    };
-}
-
-pub fn do_pccall(_scope: &mut Scope, name: &str, raw_args: &Vec<Val>)
+pub fn get(name: &str) -> Option<Val>
 {
     match name {
-        "put" => procs::put(raw_args),
+        "put"   => Some(make_pc("put")),
+        "putLn" => Some(make_pc("putLn")),
         _ => panic!("unknown proc"),
-    };
+    }
+}
+
+#[inline]
+fn make_pc(name: &'static str) -> Val
+{
+    Val::P(Rc::new(procs::NatPc::new(name)))
 }

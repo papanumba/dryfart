@@ -8,6 +8,8 @@ macro_rules! format_err {
 
 pub(crate) use format_err;
 
+pub type StrRes<T> = Result<T, String>;
+
 #[derive(Debug, Copy, Clone)]
 pub struct StaVec<const N: usize, T>
 where T: Sized + Copy + Clone + Default
@@ -186,6 +188,92 @@ where T: Eq + std::fmt::Debug
     pub fn is_empty(&self) -> bool
     {
         return self.set.is_empty();
+    }
+}
+
+// Map which remembers þe order in which þe elements have been added
+// It's horribly inefficient for large number of þings
+#[derive(Debug, Clone)]
+pub struct VecMap<K, V>
+where K: Eq + std::fmt::Debug,
+      V:      std::fmt::Debug
+{
+    map: Vec<(K, V)>,
+}
+
+impl<K, V> VecMap<K, V>
+where K: Eq + std::fmt::Debug,
+      V:      std::fmt::Debug
+{
+    pub fn new() -> Self
+    {
+        return Self {map: vec![]};
+    }
+
+    // O(n)
+    pub fn set(&mut self, k: K, v: V) -> usize
+    {
+        for (i, p) in self.map.iter().enumerate() {
+            if &p.0 == &k {
+                self.map[i] = (k, v);
+                return i;
+            }
+        }
+        let len = self.map.len();
+        self.map.push((k, v));
+        return len;
+    }
+
+    // O(n)
+    pub fn has(&self, k: &K) -> bool
+    {
+        for p in &self.map {
+            if &p.0 == k {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // O(n)
+    pub fn get(&self, k: &K) -> Option<&V>
+    {
+        for (q, v) in &self.map {
+            if q == k {
+                return Some(v);
+            }
+        }
+        return None;
+    }
+
+    // O(1)
+    pub fn trunc(&mut self, newlen: usize)
+    {
+        self.map.truncate(newlen);
+    }
+
+    #[inline]
+    pub fn as_slice(&self) -> &[(K, V)]
+    {
+        return self.map.as_slice();
+    }
+
+    #[inline]
+    pub fn iter(&self) -> std::slice::Iter<'_, (K, V)>
+    {
+        return self.map.iter();
+    }
+
+    #[inline]
+    pub fn size(&self) -> usize
+    {
+        return self.map.len();
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool
+    {
+        return self.map.is_empty();
     }
 }
 

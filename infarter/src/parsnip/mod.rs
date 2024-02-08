@@ -12,6 +12,6 @@ pub fn parse(taco: &str) -> Result<Block, String>
 {
     let mut lex = lex::Luthor::new(&taco);
     let toke = lex.tokenize()?;
-    let mut p = pars::Nip::new(&toke);
+    let mut p = pars::Nip::new(toke);
     return p.parse();
 }

@@ -79,6 +79,7 @@ pub enum Token<'src>
     Ident(&'src [u8]),
     PrimType(PrimType), // "[BCNZR]%"
     RecT(u32),
+    RecP,
     // oþer
     Comment(&'src [u8]),
     Unknown(u8),
@@ -248,6 +249,7 @@ pub enum TokenType
     Ident,
     PrimType, // "[BCNZR]%"
     RecT,
+    RecP,
     // oþer
     Comment,
     Unknown,
@@ -313,6 +315,7 @@ impl<'src> From<&Token<'src>> for TokenType
             Token::Ident(_) => Self::Ident,
             Token::PrimType(_) => Self::PrimType, // "[BCNZR]%"
             Token::RecT(_) => Self::RecT,
+            Token::RecP    => Self::RecP,
             // oþer
             Token::Comment(_) => Self::Comment,
             Token::Unknown(_) => Self::Unknown,

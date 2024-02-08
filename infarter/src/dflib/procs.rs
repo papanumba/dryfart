@@ -1,8 +1,43 @@
 /* src/dflib/procs.rs */
 
-use crate::asterix::Val;
+use crate::asterix::{Val, DfProc};
 
-pub fn put(args: &Vec<Val>)
+#[derive(Debug)]
+pub struct NatPc
+{
+    name: &'static str,
+}
+
+impl NatPc
+{
+    pub fn new(s: &'static str) -> Self
+    {
+        Self { name: s }
+    }
+}
+
+impl DfProc for NatPc
+{
+    fn exec(&self, args: &[Val])
+    {
+        match self.name {
+            "put" => put(args),
+            "putLn" => put_ln(args),
+            _ => panic!("unknown native proc {}", self.name),
+        }
+    }
+
+    fn arity(&self) -> usize
+    {
+        match self.name {
+            "put" |
+            "putLn" => 1,
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn put(args: &[Val])
 {
     for arg in args {
         match arg {
@@ -13,8 +48,15 @@ pub fn put(args: &Vec<Val>)
             Val::Z(z) => print!("{z}"),
             Val::R(r) => print!("{r}"),
             Val::A(a) => print!("{}", a.borrow()),
-            Val::F(_) => print!("#%cannot print func"),
+            Val::P(p) => print!("{:?}", p),
+            //Val::F(_) => print!("#%cannot print func"),
             _ => panic!("cannot print"),
         }
     }
+}
+
+fn put_ln(args: &[Val])
+{
+    put(args);
+    println!();
 }

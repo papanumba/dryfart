@@ -1,16 +1,17 @@
 /* src/main.rs */
 
-//#![allow(dead_code, unused_variables)]
+//use std::io::Write;
 
-use std::io::Write;
+#![allow(unused_variables)]
 
 pub mod parsnip;
 pub mod asterix;
+pub mod tarzan;
+pub mod dflib;
+pub mod semanal;
 pub mod intrep;
 pub mod optimus;
 pub mod genesis;
-pub mod tarzan;
-pub mod dflib;
 pub mod util;
 
 
@@ -27,7 +28,8 @@ fn main()
             _ => panic!("unknown option {}", argv[1]),
         }
     } else {
-        eprintln!("not rite numba ({argc}) of args, must be 2, {}", argv[0]);
+        eprintln!("not rite numba ({argc}) of args, must be 2, {}",
+            argv[0]);
     }
 }
 
@@ -35,7 +37,7 @@ pub fn parse_file(fname: &str)
 {
     let taco: String = read_file_to_string(fname);
     match parsnip::parse(&taco) {
-        Ok(b) => tarzan::anal_check(&b),
+        Ok(b) => tarzan::exec_main(&b),
         Err(e) => println!("{e}"),
     }
 }
@@ -52,7 +54,7 @@ pub fn transfart(ifname: &str, opt: bool)
     let taco: String = read_file_to_string(ifname);
     let mut ofname: String = ifname.to_owned();
     ofname.push('c');
-    let ast = parsnip::parse(&taco).unwrap(); // prints parsnip error
+/*    let ast = parsnip::parse(&taco).unwrap(); // prints parsnip error
     let mut cfg = intrep::Cfg::from_asterix(&ast);
     if opt {
         optimus::opt_bblocks(&mut cfg);
@@ -62,5 +64,5 @@ pub fn transfart(ifname: &str, opt: bool)
     match ofile.write_all(&genesis::cfg_into_bytes(&cfg)) {
         Ok(_) =>   println!("Successfully transfarted to {ofname}"),
         Err(_) => eprintln!("Could not write to binary file"),
-    }
+    }*/
 }

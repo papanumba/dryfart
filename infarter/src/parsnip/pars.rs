@@ -69,11 +69,11 @@ pub struct Nip<'src>
 
 impl<'src> Nip<'src>
 {
-    pub fn new(tl: &[LnToken<'src>]) -> Self
+    pub fn new(tl: Vec<LnToken<'src>>) -> Self
     {
         return Self {
             cursor: 0,
-            tokens: tl.to_owned(),
+            tokens: tl,
         };
     }
 
@@ -182,6 +182,7 @@ impl<'src> Nip<'src>
             Token::AtSign  => Some(self.loop_stmt()),
             Token::AtSign2 => Some(self.break_stmt()),
             Token::Hash2   => todo!(), //self.return_stmt(),
+            Token::Bang2   => Some(self.pc_end()),
             _ => self.other_stmt(),
         }
     }
@@ -237,10 +238,7 @@ impl<'src> Nip<'src>
     {
         self.advance(); // !
         let args = self.comma_ex(TokenType::Period)?;
-        return Ok(Stmt::PcCall(
-            lhs,
-            args,
-        ));
+        return Ok(Stmt::PcCall(lhs, args));
     }
 
     // called when: peek 0 -> LsqBra
@@ -286,7 +284,7 @@ impl<'src> Nip<'src>
     fn break_stmt(&mut self) -> Result<Stmt, String>
     {
         self.advance(); // @@
-        let mut level: u32 = 1;
+        let mut level: u32 = 0;
         let t = match self.peek::<0>() {
             Some(tok) => tok,
             None => return eof_err!("ValN"),
@@ -307,6 +305,14 @@ impl<'src> Nip<'src>
         let ret = self.expr()?;
         self.exp_adv(TokenType::Period)?;
         return Ok(Stmt::Return(ret));
+    }
+
+    // called when !!
+    fn pc_end(&mut self) -> Result<Stmt, String>
+    {
+        self.advance(); // !!
+        self.exp_adv(TokenType::Period)?;
+        return Ok(Stmt::PcExit);
     }
 
     fn expr(&mut self) -> Result<Expr, String>
@@ -450,7 +456,12 @@ impl<'src> Nip<'src>
                 self.advance();
                 Ok(Expr::RecsT(l))
             },
+            Token::RecP => {
+                self.advance();
+                Ok(Expr::RecPc)
+            },
             Token::Hash => todo!(), //self.anon_fn(),
+            Token::Bang => self.proc(tok.1),
             _ => expected_err!("(, _, $, ident or literal", tok),
         }
     }
@@ -565,7 +576,7 @@ impl<'src> Nip<'src>
         Ok(Expr::Table(tbl_e))
     }
 
-    // called when peek: 0 -> #
+/*    // called when peek: 0 -> #
     fn anon_fn(&mut self) -> Result<Expr, String>
     {
         self.advance(); // #
@@ -576,21 +587,38 @@ impl<'src> Nip<'src>
         let bloq = self.block()?;
         self.exp_adv(TokenType::Period)?;
         return Ok(Expr::Fdefn(Func::new(&pars, &bloq)));
+    }*/
+
+    // called when !
+    fn proc(&mut self, line: usize) -> Result<Expr, String>
+    {
+        self.advance(); // !
+        let pars: Vec<String> = self.pars(TokenType::Period)?
+            .iter()
+            .map(|b| String::from(std::str::from_utf8(b).unwrap()))
+            .collect();
+        let bloq = self.block()?;
+        self.exp_adv(TokenType::Period)?;
+        return Ok(Expr::PcDef(line, pars, bloq));
     }
 
-    // matches Ident (Comma Ident)* Semic
-    fn pars(&mut self) -> Result<Vec<&[u8]>, String>
+    // matches (Ident (Comma Ident)*)? END
+    fn pars(&mut self, end: TokenType) -> Result<Vec<&[u8]>, String>
     {
         let mut res: Vec<&[u8]> = vec![];
+        if self.matches::<0>(end) {
+            self.advance();
+            return Ok(res);
+        }
         if let Ok(i) = self.consume_ident() {
             res.push(i);
         }
-        while !self.matches::<0>(TokenType::Semic) {
+        while !self.matches::<0>(end) {
             self.exp_adv(TokenType::Comma)?;
             let id = self.consume_ident()?;
             res.push(id);
         }
-        self.advance();
+        self.advance(); // END
         return Ok(res);
     }
 

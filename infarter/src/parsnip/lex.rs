@@ -162,7 +162,8 @@ impl<'src> Luthor<'src>
             b'}' => Token::Rbrace,
             b'^' => Token::Caret,
             b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' |
-            b'&' | b'|' | b'#' | b'!' => self.maybe_2ble(*c),
+            b'&' | b'|' | b'#' => self.maybe_2ble(*c),
+            b'!' => self.from_bang(),
             b'$' => self.from_dollar(),
             b'~' => self.from_tilde(),  // ~, ~~, ~=
             b'=' => self.from_equal(),  // =, ==, =>
@@ -258,6 +259,7 @@ impl<'src> Luthor<'src>
         return Token::Langle;
     }
 
+
     // >, >=
     #[inline]
     fn from_rangle(&mut self) -> Token<'src>
@@ -267,6 +269,21 @@ impl<'src> Luthor<'src>
             return Token::Ge;
         }
         return Token::Rangle;
+    }
+
+    // !, !!, !@
+    #[inline]
+    fn from_bang(&mut self) -> Token<'src>
+    {
+        if self.matches::<0>(b'!') {
+            self.advance();
+            return Token::Bang2;
+        }
+        if self.matches::<0>(b'@') {
+            self.advance();
+            return Token::RecP;
+        }
+        return Token::Bang;
     }
 
     // gets called when current char is a digit

@@ -16,7 +16,8 @@ pub enum Type
     N, // natural
     Z, // zahl
     R, // real
-    F, // func
+//    F, // func
+    P, // proc
     A, // array
     T, // table
 }
@@ -40,8 +41,9 @@ impl Type
             Self::N |
             Self::Z |
             Self::R => true,
+//            Self::F |
+            Self::P |
             Self::A |
-            Self::F |
             Self::T => false,
         }
     }
@@ -55,7 +57,8 @@ impl Type
             Self::N => Val::N(0),
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
-            Self::F => panic!("cannot default function"),
+//            Self::F => panic!("cannot default function"),
+            Self::P => panic!("cannot default procedure"),
             Self::A => Val::from_array(Array::new()),
             Self::T => Val::from_table(Table::new()),
         }
@@ -73,7 +76,8 @@ impl std::convert::From<&Val> for Type
             Val::N(_) => Type::N,
             Val::Z(_) => Type::Z,
             Val::R(_) => Type::R,
-            Val::F(_) => Type::F,
+//            Val::F(_) => Type::F,
+            Val::P(_) => Type::P,
             Val::A(_) => Type::A,
             Val::T(_) => Type::T,
         }
@@ -91,7 +95,8 @@ impl std::fmt::Display for Type
             Self::N => write!(f, "N%"),
             Self::Z => write!(f, "Z%"),
             Self::R => write!(f, "R%"),
-            Self::F => write!(f, "#%"),
+//            Self::F => write!(f, "#%"),
+            Self::P => write!(f, "!%"),
             Self::A => write!(f, "_%"),
             Self::T => write!(f, "$%"),
         }
@@ -304,7 +309,7 @@ impl std::fmt::Display for Array
             write!(f, "\"")?;
             return Ok(());
         }
-        write!(f, "{{")?;
+        write!(f, "_")?;
         // TODO: do not print tailing comma?
         match self {
             Self::E => {}, // empty
@@ -317,7 +322,7 @@ impl std::fmt::Display for Array
             Self::Z(a) => for z in a { write!(f, "{z}, ")?; },
             Self::R(a) => for r in a { write!(f, "{r}, ")?; },
         }
-        write!(f, "}}")?;
+        write!(f, ";")?;
         return Ok(());
     }
 }
@@ -332,14 +337,14 @@ impl Table
         Table(HashMap::new())
     }
 
-    pub fn get(&self, k: &String) -> Option<&Val>
+    pub fn get(&self, k: &str) -> Option<&Val>
     {
         self.0.get(k)
     }
 
-    pub fn set(&mut self, k: &str, v: Val)
+    pub fn set(&mut self, k: String, v: Val)
     {
-        self.0.insert(k.to_string(), v);
+        self.0.insert(k, v);
     }
 
     pub fn has(&self, k: &str) -> bool
@@ -348,7 +353,94 @@ impl Table
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+/*
+#[derive(Clone)]
+pub struct Func
+{
+    pars: Vec<String>,
+    body: Block,
+}
+
+impl Func
+{
+    pub fn new(p: &Vec<String>, b: &Block) -> Self
+    {
+        // check uniques in p
+        let mut p2: Vec<String> = p.clone();
+        p2.sort();
+        p2.dedup();
+        if p2.len() != p.len() {
+            panic!("duplicate parameters in decl of a func");
+        }
+        return Self {
+            pars: (*p).clone(),
+            body: (*b).clone(),
+        };
+    }
+
+    pub fn parc(&self) -> usize
+    {
+        return self.pars.len();
+    }
+
+    pub fn pars(&self) -> &[String]
+    {
+        return self.pars.as_slice();
+    }
+
+    pub fn body(&self) -> &Block
+    {
+        return &self.body;
+    }
+}
+
+impl PartialEq for Func
+{
+    // Required method
+    fn eq(&self, _other: &Self) -> bool
+    {
+        return false;
+    }
+}
+
+impl std::fmt::Debug for Func
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
+    {
+        write!(f, "#%...")
+    }
+}
+*/
+
+pub trait DfProc: std::fmt::Debug
+{
+    fn exec(&self, _: &[Val]);
+    fn arity(&self) -> usize;
+}
+
+#[derive(Clone)]
+pub struct Proc
+{
+    pub line: usize,
+    pub pars: Vec<String>,
+    pub body: Block,
+}
+
+impl Proc
+{
+    pub fn new(l: usize, p: Vec<String>, b: Block) -> Self
+    {
+        Self { line: l, pars: p, body: b }
+    }
+}
+
+impl std::fmt::Debug for Proc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<! def at line {}>", self.line)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Val
 {
     V,
@@ -357,15 +449,16 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f32),
+//    F(Func),
+    P(Rc<dyn DfProc>), // TODO: add upvalues
     A(Rc<RefCell<Array>>),
     T(Rc<RefCell<Table>>),
-    F(Func),
 }
 
 /*
 ** Note: Val clone is always "shallow":
 **  - for primitives (VBCNZR) it's just a Copy
-**  - for heap objects (ATF) it's an Rc::clone
+**  - for heap objects (FPAT) it's an Rc::clone
 */
 
 impl Val
@@ -386,6 +479,22 @@ impl Val
     pub fn from_table(t: Table) -> Self
     {
         Self::T(Rc::new(RefCell::new(t)))
+    }
+}
+
+impl PartialEq for Val
+{
+    fn eq(&self, other: &Val) -> bool
+    {
+        match (self, other) {
+            (Val::V, Val::V) => true,
+            (Val::B(b), Val::B(c)) => b == c,
+            (Val::C(c), Val::C(d)) => c == d,
+            (Val::N(n), Val::N(m)) => n == m,
+            (Val::Z(z), Val::Z(a)) => z == a,
+            (Val::A(a), Val::A(b)) => *a.borrow() == *b.borrow(),
+            _ => false,
+        }
     }
 }
 
@@ -470,111 +579,6 @@ pub enum UniOpcode {
     Not, // boolean negation
 }
 
-#[derive(Clone)]
-pub struct Func
-{
-    pars: Vec<String>,
-    body: Block,
-}
-
-impl Func
-{
-    pub fn new(p: &Vec<String>, b: &Block) -> Self
-    {
-        // check uniques in p
-        let mut p2: Vec<String> = p.clone();
-        p2.sort();
-        p2.dedup();
-        if p2.len() != p.len() {
-            panic!("duplicate parameters in decl of a func");
-        }
-        return Self {
-            pars: (*p).clone(),
-            body: (*b).clone(),
-        };
-    }
-
-    pub fn parc(&self) -> usize
-    {
-        return self.pars.len();
-    }
-
-    pub fn pars(&self) -> &[String]
-    {
-        return self.pars.as_slice();
-    }
-
-    pub fn body(&self) -> &Block
-    {
-        return &self.body;
-    }
-}
-
-impl PartialEq for Func
-{
-    // Required method
-    fn eq(&self, _other: &Self) -> bool
-    {
-        return false;
-    }
-}
-
-impl std::fmt::Debug for Func
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
-    {
-        write!(f, "#%...")
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Proc
-{
-    name: String,
-    pars: Vec<(Type, String)>,
-    body: Block,
-}
-
-impl Proc
-{
-    pub fn new(n: &str, p: &Vec<(Type, String)>, b: &Block) -> Self
-    {
-        return Self {
-            name: String::from(n),
-            pars: p.clone(),
-            body: (*b).clone(),
-        };
-    }
-
-    pub fn name(&self) -> &str
-    {
-        return &self.name;
-    }
-
-    pub fn pars(&self) -> &[(Type, String)]
-    {
-        return self.pars.as_slice();
-    }
-
-    pub fn parc(&self) -> usize
-    {
-        return self.pars.len();
-    }
-
-    pub fn part(&self) -> Vec<Type>
-    {
-        return self.pars
-            .iter()
-            .map(|arg| (*arg).0.clone())
-            .collect();
-    }
-
-    pub fn body(&self) -> &Block
-    {
-        return &self.body;
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum Loop
 {
@@ -589,11 +593,10 @@ pub enum Stmt
 {
     Assign(Expr, Expr),
     OperOn(Expr, BinOpcode, Expr),
-    IfStmt(Expr, Block, Option<Block>), // cond, main block, else block
+    IfStmt(Expr, Block, Option<Block>), // last is else block
     LoopIf(Loop),
     BreakL(u32),
     Return(Expr),
-    PcDecl(Proc),
     PcExit,
     PcCall(Expr, Vec<Expr>),
 }
@@ -607,8 +610,10 @@ pub enum Expr
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
     CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
-    Fdefn(Func),
-    Fcall(Box<Expr>, Vec<Expr>),
+//    Fdefn(Func),
+//    Fcall(Box<Expr>, Vec<Expr>),
+    PcDef(usize, Vec<String>, Block),
+    RecPc,
     Array(Vec<Expr>),
     Table(Vec<(String, Expr)>),
     TblFd(Box<Expr>, String),
