@@ -56,19 +56,18 @@ static void mark_roots(struct VirMac *vm)
 {
     for (struct DfVal *v = vm->stack; v != vm->sp; ++v)
         mark_dfval(v);
-    mark_htable(&vm->globals);
 }
 
 static void mark_dfval(struct DfVal *v)
 {
-    if (v->type == VAL_O) {
-        mark_object(v->as.o);
+    if (v->type != VAL_O)
+        return;
+    mark_object(v->as.o);
 #ifdef DEBUG
-        puts("GC marked: ");
-        values_print(v);
-        puts("");
+    puts("GC marked: ");
+    values_print(v);
+    puts("");
 #endif
-    }
 }
 
 static void mark_htable(struct Htable *t)
@@ -107,6 +106,9 @@ static void blacken_obj(struct Object *obj)
         return;
       case OBJ_TBL:
         mark_htable(&OBJ_AS_TBL(obj)->tbl);
+        return;
+      case OBJ_PRO:
+        /* FUTURE: mark upvalues */
         return;
     }
 }

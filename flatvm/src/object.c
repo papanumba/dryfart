@@ -14,6 +14,9 @@ static int  objarr_eq   (struct ObjArr *, struct ObjArr *);
 static void objtbl_print(struct ObjTbl *);
 static void objtbl_free (struct ObjTbl *);
 
+static void objpro_print(struct ObjPro *);
+static void objpro_free (struct ObjPro *);
+
 static struct Object * alloc_object(enum ObjType);
 static inline int       arrt_valt_eq(enum ArrType, enum ValType);
 static inline size_t sizeof_arr_elem(enum ArrType);
@@ -28,6 +31,7 @@ void object_print(struct Object *o)
     switch (o->type) {
       case OBJ_ARR: objarr_print(OBJ_AS_ARR(o)); break;
       case OBJ_TBL: objtbl_print(OBJ_AS_TBL(o)); break;
+      case OBJ_PRO: objpro_print(OBJ_AS_PRO(o)); break;
     }
 }
 
@@ -40,7 +44,8 @@ int object_eq(struct Object *o0, struct Object *o1)
     int b = FALSE;
     switch (o0->type) {
       case OBJ_ARR: b = objarr_eq(OBJ_AS_ARR(o0), OBJ_AS_ARR(o1)); break;
-      case OBJ_TBL: break;
+      case OBJ_PRO: break; /* F */
+      case OBJ_TBL: break; /* F */
     }
     return b;
 }
@@ -50,6 +55,7 @@ void object_free(struct Object *o)
     switch (o->type) {
       case OBJ_ARR: objarr_free(OBJ_AS_ARR(o)); break;
       case OBJ_TBL: objtbl_free(OBJ_AS_TBL(o)); break;
+      case OBJ_PRO: objpro_free(OBJ_AS_PRO(o)); break;
     }
     falloc_free(o);
 }
@@ -169,6 +175,14 @@ struct ObjTbl * objtbl_new(void)
     return tbl;
 }
 
+struct ObjPro * objpro_new(struct Norris *n, uint line)
+{
+    struct ObjPro *pro = OBJ_AS_PRO(alloc_object(OBJ_PRO));
+    pro->norr = n;
+    pro->line = line;
+    return pro;
+}
+
 /******************** S T A T I C ***************************/
 
 static void objarr_print(struct ObjArr *arr)
@@ -259,6 +273,16 @@ static void objtbl_print(struct ObjTbl *t)
 static void objtbl_free (struct ObjTbl *t)
 {
     htable_free(&t->tbl);
+}
+
+static void objpro_print(struct ObjPro *p)
+{
+    printf("<! ln %u>", p->line);
+}
+
+static void objpro_free (struct ObjPro *p)
+{
+    /* FUTURE: free upvalues */
 }
 
 static struct Object * alloc_object(enum ObjType type)

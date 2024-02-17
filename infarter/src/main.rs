@@ -1,14 +1,15 @@
 /* src/main.rs */
 
-//use std::io::Write;
-
 #![allow(unused_variables)]
+
+use std::io::Write;
+
 
 pub mod parsnip;
 pub mod asterix;
 pub mod tarzan;
 pub mod dflib;
-pub mod semanal;
+//pub mod semanal;
 pub mod intrep;
 pub mod optimus;
 pub mod genesis;
@@ -54,15 +55,19 @@ pub fn transfart(ifname: &str, opt: bool)
     let taco: String = read_file_to_string(ifname);
     let mut ofname: String = ifname.to_owned();
     ofname.push('c');
-/*    let ast = parsnip::parse(&taco).unwrap(); // prints parsnip error
-    let mut cfg = intrep::Cfg::from_asterix(&ast);
+    let ast = parsnip::parse(&taco).unwrap(); // prints parsnip error
+    let mut cfg = intrep::Compiler::from_asterix(&ast);
     if opt {
         optimus::opt_bblocks(&mut cfg);
     }
     let mut ofile = std::fs::File::create(&ofname)
         .expect("could not create file");
-    match ofile.write_all(&genesis::cfg_into_bytes(&cfg)) {
-        Ok(_) =>   println!("Successfully transfarted to {ofname}"),
+    match ofile.write_all(&genesis::comp_into_bytes(&cfg)) {
+        Ok(_) => if opt {
+            println!("Successfully transfarted optimized to {ofname}");
+        } else {
+            println!("Successfully transfarted to {ofname}");
+        },
         Err(_) => eprintln!("Could not write to binary file"),
-    }*/
+    }
 }

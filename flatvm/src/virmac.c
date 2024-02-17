@@ -19,12 +19,12 @@
 static void print_stack(struct VirMac *);
 static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
+static int push_call   (struct VirMac *, struct DfVal *, struct Norris *);
+static int pop_call    (struct VirMac *);
+static void set_norris (struct VirMac *, struct Norris *);
 void err_cant_op  (const char *, enum ValType);
 void err_dif_types(const char *, enum ValType, enum ValType);
 
-static int8_t   read_i8 (struct VirMac *);
-static uint16_t read_u16(struct VirMac *);
-static int16_t  read_i16(struct VirMac *);
 static int dfval_eq(struct DfVal *, struct DfVal *);
 static int dfval_ne(struct DfVal *, struct DfVal *);
 static int dfval_lt(struct DfVal *, struct DfVal *);
@@ -79,8 +79,8 @@ static int op_ase(struct VirMac *);
 static int op_tsf(struct VirMac *);
 static int op_tgf(struct VirMac *);
 
-static int  op_lgl(struct VirMac *);
-static int  op_sgl(struct VirMac *);
+static int op_pcl(struct VirMac *);
+
 static void op_lls(struct VirMac *);
 static void op_sls(struct VirMac *);
 static void op_uls(struct VirMac *);
@@ -96,12 +96,15 @@ static int op_jge(struct VirMac *);
 static void reset_stack(struct VirMac *vm)
 {
     vm->sp = &vm->stack[0];
+    vm->callnum = -1;
+    vm->bp = vm->sp;
 }
 
 void virmac_init(struct VirMac *vm)
 {
     reset_stack(vm);
-    htable_init(&vm->globals);
+    vm->dat = NULL;
+    vm->nor = NULL;
     falloc_init();
     garcol_init();
 }
@@ -109,17 +112,16 @@ void virmac_init(struct VirMac *vm)
 void virmac_free(struct VirMac *vm)
 {
     reset_stack(vm);
-    htable_free(&vm->globals);
     falloc_exit();
     garcol_exit();
 }
 
-enum ItpRes virmac_run(struct VirMac *vm, struct Norris *bc)
+enum ItpRes virmac_run(struct VirMac *vm, struct VmData *prog)
 {
-    if (vm == NULL || bc == NULL || bc->cod == NULL)
-        return ITP_NULLPTR_ERR;
-    vm->norris = bc;
-    vm->ip = bc->cod;
+    assert(vm != NULL);
+    vm->dat = prog;
+    /* start main */
+    push_call(vm, vm->stack, &prog->pag.nor[0]);
     return run(vm);
 }
 
@@ -138,7 +140,7 @@ void virmac_push(struct VirMac *vm, struct DfVal *v)
 struct DfVal virmac_pop(struct VirMac *vm)
 {
 #ifdef SAFE
-    if (vm->sp == vm->stack) {
+    if (vm->sp == vm->bp) {
         fputs("ERROR: empty stack\n", stderr);
         exit(1);
     }
@@ -150,7 +152,7 @@ struct DfVal virmac_pop(struct VirMac *vm)
 struct DfVal * virmac_peek(struct VirMac *vm)
 {
 #ifdef SAFE
-    if (vm->sp == vm->stack) {
+    if (vm->sp == vm->bp) {
         fputs("ERROR: empty stack\n", stderr);
         exit(1);
     }
@@ -160,14 +162,13 @@ struct DfVal * virmac_peek(struct VirMac *vm)
 
 static enum ItpRes run(struct VirMac *vm)
 {
-    while (1) {
-        uchar ins;
+    while (TRUE) {
+        uint8_t ins;
 #ifdef DEBUG
         print_stack(vm);
-        disasm_instru(vm->norris, (uint) (vm->ip - vm->norris->cod));
+        disasm_instru(vm->dat, vm->nor, vm->ip);
 #endif /* DEBUG */
-        ins = READ_BYTE();
-        switch (ins) {
+        switch (ins = READ_BYTE()) {
           case OP_NOP: break;
 
 /* void ops */
@@ -199,13 +200,13 @@ static enum ItpRes run(struct VirMac *vm)
 #undef DO_L
 
           case OP_LKS: {
-            uchar idx = READ_BYTE();
-            virmac_push(vm, &vm->norris->ctn.arr[idx]);
+            uint idx = READ_BYTE();
+            virmac_push(vm, &vm->dat->ctn.arr[idx]);
             break;
           }
           case OP_LKL: {
-            ushort idx = read_u16(vm);
-            virmac_push(vm, &vm->norris->ctn.arr[idx]);
+            uint idx = read_u16(&vm->ip);
+            virmac_push(vm, &vm->dat->ctn.arr[idx]);
             break;
           }
 
@@ -239,8 +240,7 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_TSF, op_tsf)
           DO_OP(OP_TGF, op_tgf)
 
-          DO_OP(OP_LGL, op_lgl)
-          DO_OP(OP_SGL, op_sgl)
+          DO_OP(OP_PCL, op_pcl)
 
           DO_OP(OP_JBF, op_jbf)
           DO_OP(OP_JFS, op_jfs)
@@ -252,12 +252,12 @@ static enum ItpRes run(struct VirMac *vm)
 #undef DO_OP
 
           case OP_JJS: {
-            int dist = read_i8(vm);
+            int dist = read_i8(&vm->ip);
             vm->ip += dist;
             break;
           }
           case OP_JJL: {
-            int dist = read_i16(vm);
+            int dist = read_i16(&vm->ip);
             vm->ip += dist;
             break;
           }
@@ -276,11 +276,25 @@ static enum ItpRes run(struct VirMac *vm)
             virmac_push(vm, &val);
             break;
           }
+          case OP_PMN: {
+            struct DfVal val;
+            uint idx = read_u16(&vm->ip);
+            val.type = VAL_O;
+            struct Norris *n = &vm->dat->pag.nor[idx];
+            val.as.o = (void *) objpro_new(n, 0);
+            virmac_push(vm, &val);
+            break;
+          }
 
           case OP_RET: {
             struct DfVal v = virmac_pop(vm);
             values_print(&v);
-            fputs("\n", stdout);
+            puts("");
+            return ITP_OK;
+          }
+          case OP_END: {
+            if (!pop_call(vm))
+                return ITP_RUNTIME_ERR;
             return ITP_OK;
           }
           case OP_DUP: {
@@ -291,9 +305,8 @@ static enum ItpRes run(struct VirMac *vm)
           case OP_POP: virmac_pop(vm); break;
           case OP_HLT:
             print_stack(vm);
-            puts("globals: ");
-            htable_print(&vm->globals);
-            htable_free (&vm->globals);
+            reset_stack(vm);
+            garcol_do(vm);
             return ITP_OK;
 
           default:
@@ -315,6 +328,53 @@ static void print_stack(struct VirMac *vm)
     printf("\n");
 }
 
+static int push_call(struct VirMac *vm, struct DfVal *c, struct Norris *n)
+{
+#ifdef SAFE
+    if (vm->callnum == CALLS_MAX) {
+        eputln("ERROR: call stack overflow");
+        return FALSE;
+    }
+#endif /* SAFE */
+#ifdef DEBUG
+    if (c != NULL) {
+        printf("calling "); values_print(c); printf("------------\n");
+    }
+#endif /* DEBUG */
+    vm->calls[vm->callnum] = vm->bp;
+    vm->norrs[vm->callnum] = vm->nor;
+    vm->ips  [vm->callnum] = vm->ip;
+    vm->callnum++;
+    vm->bp = c;
+    set_norris(vm, n);
+    return TRUE;
+}
+
+static int pop_call(struct VirMac *vm)
+{
+#ifdef SAFE
+    if (vm->callnum == -1) {
+        eputln("ERROR: empty call stack\n");
+        return FALSE;
+    }
+#endif /* SAFE */
+#ifdef DEBUG
+    printf("end call "); values_print(vm->bp); printf("------------\n");
+#endif /* DEBUG */
+    vm->callnum--;
+    vm->sp = vm->bp;
+    vm->bp  = vm->calls[vm->callnum];
+    vm->ip  = vm->ips  [vm->callnum];
+    vm->nor = vm->norrs[vm->callnum];
+    return TRUE;
+}
+
+static void set_norris(struct VirMac *vm, struct Norris *n)
+{
+    vm->nor = n;
+    vm->ip = n->cod;
+}
+
 /* error message for same type but invalid operations */
 void err_cant_op(const char *op, enum ValType ty)
 {
@@ -326,28 +386,6 @@ void err_dif_types(const char *op, enum ValType t1, enum ValType t2)
 {
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
         op, valt2char(t1), valt2char(t2));
-}
-
-static uint16_t read_u16(struct VirMac *vm)
-{
-    uint8_t b0, b1;
-    b0 = READ_BYTE();
-    b1 = READ_BYTE();
-    return (b0 << 8) | b1;
-}
-
-static int16_t read_i16(struct VirMac *vm)
-{
-    union {uint16_t u; int16_t s;} aux;
-    aux.u = read_u16(vm);
-    return aux.s;
-}
-
-static int8_t read_i8(struct VirMac *vm)
-{
-    union {uint8_t u; int8_t s;} aux;
-    aux.u = READ_BYTE();
-    return aux.s;
 }
 
 static int dfval_eq(struct DfVal *v, struct DfVal *w)
@@ -412,7 +450,7 @@ DFVAL_CMP_FN(dfval_ge, >=)
 static void vm_js_if(struct VirMac *vm, int cond)
 {
     if (cond) {
-        int dist = read_i8(vm);
+        int dist = read_i8(&vm->ip);
         vm->ip += dist;
     } else {
         vm->ip += 1;
@@ -423,7 +461,7 @@ static void vm_js_if(struct VirMac *vm, int cond)
 static void vm_jl_if(struct VirMac *vm, int cond)
 {
     if (cond) {
-        int dist = read_i16(vm);
+        int dist = read_i16(&vm->ip);
         vm->ip += dist;
     } else {
         vm->ip += 2;
@@ -534,8 +572,11 @@ static int op_add_o(
         break;
       }
       case OBJ_TBL:
-        panic("todo T%% + T%%");
+        panic("todo $%% + $%%");
         break;
+      case OBJ_PRO:
+        eputln("cannot add (+) procs");
+        return FALSE;
     }
     return TRUE;
 }
@@ -786,7 +827,7 @@ static int op_car(struct VirMac *vm)
 static int op_ape(struct VirMac *vm)
 {
     struct DfVal elem = virmac_pop(vm);
-    struct DfVal arr = virmac_pop(vm);
+    struct DfVal arr  = virmac_pop(vm);
     if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
         fprintf(stderr, "ERROR: value is not an array\n");
         return FALSE;
@@ -849,7 +890,7 @@ static int op_tsf(struct VirMac *vm)
         eputln("ERROR: value is not a table");
         return FALSE;
     }
-    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
+    struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
     htable_set(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, val);
     virmac_push(vm, &tbl);
     return TRUE;
@@ -863,7 +904,7 @@ static int op_tgf(struct VirMac *vm)
         eputln("ERROR: value is not a table");
         return FALSE;
     }
-    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
+    struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
     int res = htable_get(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, &val);
     if (!res)
         fprintf(stderr, "field $%s' not found in table\n", idf->str);
@@ -872,30 +913,30 @@ static int op_tgf(struct VirMac *vm)
     return res;
 }
 
-static int op_lgl(struct VirMac *vm)
+static int op_pcl(struct VirMac *vm)
 {
-    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
-    struct DfVal glo;
-    if (!htable_get(&vm->globals, idf, &glo)) { /* key not found */
-        fprintf(stderr, "global identifier '%s' not found\n", idf->str);
+    uint8_t arity = READ_BYTE();
+    struct DfVal *val = vm->sp - (arity + 1); /* args + callee */
+    if (val->type != VAL_O || val->as.o->type != OBJ_PRO) {
+        eputln("cannot !call a not !");
         return FALSE;
     }
-    virmac_push(vm, &glo);
-    return TRUE;
-}
-
-static int op_sgl(struct VirMac *vm)
-{
-    struct DfIdf *idf = &vm->norris->idf.arr[read_u16(vm)];
-    htable_set(&vm->globals, idf, virmac_pop(vm));
-    garcol_do(vm);
-    return TRUE;
+    struct ObjPro *pro = OBJ_AS_PRO(val->as.o);
+    if (pro->norr->ari != arity) {
+        eput("wrong arity calling ");
+        object_print(val->as.o);
+        return FALSE;
+    }
+    if (!push_call(vm, val, pro->norr))
+        return FALSE;
+    return run(vm) == ITP_OK;
 }
 
 /* Load Local Short */
 static void op_lls(struct VirMac *vm)
 {
-    struct DfVal *loc = &vm->stack[READ_BYTE()];
+    uint index = READ_BYTE();
+    struct DfVal *loc = &vm->bp[index];
     virmac_push(vm, loc);
 }
 
@@ -903,14 +944,14 @@ static void op_lls(struct VirMac *vm)
 static void op_sls(struct VirMac *vm)
 {
     uint index = READ_BYTE();
-    vm->stack[index] = virmac_pop(vm);
+    vm->bp[index] = virmac_pop(vm);
 }
 
 /* Update Local Short (u8) */
 static void op_uls(struct VirMac *vm)
 {
     uint index = READ_BYTE();
-    vm->stack[index] = *virmac_peek(vm);
+    vm->bp[index] = *virmac_peek(vm);
 }
 
 static int op_jbf(struct VirMac *vm)

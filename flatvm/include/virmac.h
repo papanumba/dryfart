@@ -4,22 +4,28 @@
 #define FLATVM_VIRMAC_H
 
 #include "common.h"
+#include "loader.h"
 #include "norris.h"
 #include "values.h"
-#include "htable.h"
 
-#define STACK_MAX   0x100
+#define STACK_MAX   0x200
+#define CALLS_MAX   0x100
 
 struct VirMac {
-    struct Norris *norris;
-    uchar *ip;
-    struct DfVal stack[STACK_MAX];
-    struct DfVal *sp;
-    struct Htable globals;
+    struct VmData *dat;         /* not ownt */
+    struct Norris *nor;         /* curr exec norris */
+    const uint8_t *ip;          /* ip to þe nor */
+    struct DfVal   stack[STACK_MAX];
+    struct DfVal  *sp;          /* stack pointer */
+    struct DfVal  *calls[CALLS_MAX];
+    struct Norris *norrs[CALLS_MAX];
+    const uint8_t *ips  [CALLS_MAX];
+    int            callnum;     /* call top index */
+    struct DfVal  *bp;          /* base pointer = calls[call_num] */
 };
 
 enum ItpRes {
-    ITP_OK,
+    ITP_OK = 0,
     ITP_COMPILE_ERR,
     ITP_RUNTIME_ERR,
     ITP_NULLPTR_ERR
@@ -27,7 +33,7 @@ enum ItpRes {
 
 void          virmac_init(struct VirMac *);
 void          virmac_free(struct VirMac *);
-enum ItpRes   virmac_run (struct VirMac *, struct Norris *);
+enum ItpRes   virmac_run (struct VirMac *, struct VmData *);
 void          virmac_push(struct VirMac *, struct DfVal *);
 struct DfVal  virmac_pop (struct VirMac *);
 struct DfVal *virmac_peek(struct VirMac *);

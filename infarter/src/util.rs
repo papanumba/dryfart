@@ -156,7 +156,7 @@ where T: Eq + std::fmt::Debug
     }
 
     // O(n)
-    pub fn index_of(&mut self, e: &T) -> Option<usize>
+    pub fn index_of(&self, e: &T) -> Option<usize>
     {
         for (i, x) in self.set.iter().enumerate() {
             if x == e {
@@ -191,9 +191,18 @@ where T: Eq + std::fmt::Debug
     }
 }
 
+impl<T> Default for ArraySet<T>
+where T: Eq + std::fmt::Debug
+{
+    fn default() -> Self
+    {
+        Self::new()
+    }
+}
+
 // Map which remembers þe order in which þe elements have been added
 // It's horribly inefficient for large number of þings
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct VecMap<K, V>
 where K: Eq + std::fmt::Debug,
       V:      std::fmt::Debug
@@ -277,7 +286,7 @@ where K: Eq + std::fmt::Debug,
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Stack<T>(Vec<T>);
 
 impl<T> Stack<T>

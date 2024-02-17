@@ -9,10 +9,12 @@
 
 #define OBJ_AS_ARR(o)   ((struct ObjArr *) (o))
 #define OBJ_AS_TBL(o)   ((struct ObjTbl *) (o))
+#define OBJ_AS_PRO(o)   ((struct ObjPro *) (o))
 
 enum ObjType {
     OBJ_ARR,
-    OBJ_TBL
+    OBJ_TBL,
+    OBJ_PRO
 };
 
 struct Object {
@@ -35,7 +37,7 @@ struct ObjArr {
     size_t        cap;
     enum ArrType  typ;
     union {
-        uint8_t  *b; // packed bit array
+        uint8_t  *b; /* packed bit array */
         char     *c;
         uint32_t *n;
         int32_t  *z;
@@ -48,10 +50,19 @@ struct ObjTbl {
     struct Htable tbl;
 };
 
+struct ObjPro {
+    struct Object obj;
+    struct Norris *norr;
+    uint line;
+    /* FUTURE: eke upvalues */
+};
+
 /* aux union for þe allocator */
 typedef union {
     struct Object o;
     struct ObjArr a;
+    struct ObjTbl t;
+    struct ObjPro p;
     /* eke here */
 } objs_u;
 
@@ -66,5 +77,8 @@ int             objarr_set     (struct ObjArr *, uint32_t, struct DfVal *);
 struct ObjArr * objarr_concat  (struct ObjArr *, struct ObjArr *);
 
 struct ObjTbl * objtbl_new     (void);
+
+struct ObjPro * objpro_new     (struct Norris *, uint);
+
 
 #endif /* FLATVM_OBJECT_H */

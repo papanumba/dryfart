@@ -4,27 +4,33 @@
 8 bytes: Magic
 
 # identifier pool
-2 bytes: number of identifiers in þe idf pool
+2 bytes (u16) number of identifiers
 
 1 identifier is
-    1 byte is len (MAX ident len = 255, yes, like Pascal)
+    1 byte (u8) is len (MAX ident len = 255, yes, like Pascal)
     following bytes are þe string
-    1 byte is '\0', so as to check þe correct read lengþ
-        (may seem redundant but it's for double check)
+    1 byte is '\0' for double check
 
 # constant pool
-2 bytes: number of constants in þe ctn pool
+2 bytes (u16): number of constants
 
 1 constant is
     1st byte is ValType (from values.h),
     þen þe following bytes by type (V & B are not stored)
     (multibyte numbers are stored in Big Endian format)
-        C: 1 byte (ASCII C char)
+        C: 1 byte (ASCII C char, u8 from 0 to 127)
         N: 4 byte uint32
         Z: 4 byte int32
-        R: 4 byte float32
+        R: 4 byte float32 (IEEE 754)
 
-4 bytes: lengþ (in bytes) of þe following Norris,
-it's just to check þat þe read bytes are þe expected lengþ
+# pages pool
+2 bytes (u16): number of pages
 
-All following bytes are þe instructions
+1 page is
+    1 byte (u8) is þe arity
+    //not yet 4 bytes (u32) is þe (source) line where it was defined
+    4 bytes (u32) is þe lengþ (in bytes) of þe following Norris,
+    Þe actual bytecode
+    '\0' byte to double check end of page
+
+Note: þe 0þ page is þe main

@@ -6,9 +6,9 @@ use crate::{
     asterix::*,
 };
 
-pub fn cfg_into_bytes(cfg: &Cfg) -> Vec<u8>
+pub fn comp_into_bytes<'a>(c: &Compiler<'a>) -> Vec<u8>
 {
-    return Phil::transfart(cfg);
+    return Phil::transfart(c);
 }
 
 const DF_MAGIC: [u8; 8] = [
@@ -19,7 +19,7 @@ const DF_MAGIC: [u8; 8] = [
     b'F',
     b'A',
     b'R',
-    b'T'
+    b'T',
 ];
 
 #[repr(u8)]
@@ -92,13 +92,17 @@ pub enum Op
     TSF = 0x71,
     TGF = 0x72,
 
-    CAZ = 0xE8,
-    CAR = 0xEA, // CAst Real
+    PMN = 0x80,
+    PCL = 0x82,
 
-    RET = 0xF0, // RETurn from current function
-    DUP = 0xF1, // DUPlicate
-    POP = 0xF8, // POP
-    HLT = 0xFF  // HaLT
+    CAZ = 0xE8,
+    CAR = 0xEA,
+
+    RET = 0xF0,
+    END = 0xF1,
+    DUP = 0xF4,
+    POP = 0xF8,
+    HLT = 0xFF
     // TODO: add opcodes
 }
 
@@ -211,6 +215,7 @@ impl TryFrom<Term> for Op
         match term {
             Term::NOP => Ok(Op::NOP),
             Term::RET => Ok(Op::RET),
+            Term::END => Ok(Op::END),
             Term::HLT => Ok(Op::HLT),
             _ => Err(()),
         }
@@ -299,11 +304,11 @@ impl LowerBlock
     // called when imop is not simple
     fn push_arg_op(&mut self, imop: &ImOp)
     {
-        if imop.is_glo() {
-            return self.push_glo_op(imop);
-        }
         if imop.is_tbl() {
             return self.push_tbl_op(imop);
+        }
+        if imop.is_pro() {
+            return self.push_pro_op(imop);
         }
         let opnd = imop.get_operand().unwrap();
         if let Ok(u) = u8::try_from(opnd) { // Short
@@ -318,8 +323,6 @@ impl LowerBlock
         } else if let Ok(s) = u16::try_from(opnd) { // Long
             self.push_op(match imop {
                 ImOp::LKX(_) => Op::LKL,
-                ImOp::LGX(_) => Op::LGL,
-                ImOp::SGX(_) => Op::SGL,
                 ImOp::LLX(_) => Op::LLL,
                 ImOp::SLX(_) => Op::SLL,
                 ImOp::ULX(_) => Op::ULL,
@@ -328,22 +331,6 @@ impl LowerBlock
             self.push_num(s);
         } else { // too long
             panic!("address loo long for 2 bytes");
-        }
-    }
-
-    // stupid function so as not to clutter push_sl_op
-    fn push_glo_op(&mut self, imop: &ImOp)
-    {
-        match imop { // check global var ops
-            ImOp::LGX(x) => {
-                self.push_op(Op::LGL);
-                self.push_num(*x as u16); // TODO checked u16
-            },
-            ImOp::SGX(x) => {
-                self.push_op(Op::SGL);
-                self.push_num(*x as u16);
-            },
-            _ => {},
         }
     }
 
@@ -362,6 +349,21 @@ impl LowerBlock
             _ => unreachable!(),
         }
     }
+
+    fn push_pro_op(&mut self, imop: &ImOp)
+    {
+        match imop {
+            ImOp::PMN(pi) => {
+                self.push_op(Op::PMN);
+                self.push_num(*pi as u16);
+            },
+            ImOp::PCL(a) => {
+                self.push_op(Op::PCL);
+                self.push_num(*a);
+            },
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -370,22 +372,15 @@ struct Phil
     out: Vec<u8> // accumulator for state machine
 }
 
-impl Phil
+impl<'a> Phil // 'a lifetime of AST
 {
-    pub fn transfart(cfg: &Cfg) -> Vec<u8>
+    pub fn transfart(comp: &Compiler<'a>) -> Vec<u8>
     {
         let mut collins = Self { out: vec![] };
         collins.extend_bytes(&DF_MAGIC);
-        collins.push_idents(cfg.idents.as_slice());
-        collins.push_consts(cfg.consts.as_slice());
-        let size_idx = collins.at();
-        collins.extend(0 as u32);
-        let size_start = collins.at();
-        collins.push_main(&cfg.blocks);
-        let size_end = collins.at();
-        let size = u32::try_from(size_end as isize - size_start as isize)
-            .expect("program bytecode too long");
-        collins.overwrite_at(&size.to_bytes(), size_idx);
+        collins.push_idents(comp.idents.as_slice());
+        collins.push_consts(comp.consts.as_slice());
+        collins.push_pages(&comp.subrs);
         return collins.out;
     }
 
@@ -441,36 +436,63 @@ impl Phil
         }
     }
 
-    fn push_consts(&mut self, consts: &[Val])
+    fn push_consts(&mut self, consts: &[&Val])
     {
         self.extend(u16::try_from(consts.len())
             .expect(&format!("Too many constants (max = {})", u16::MAX))
         );
         for cn in consts {
-            self.extend(u8::from(&Type::from(cn)));
+            self.extend(u8::from(&Type::from(*cn)));
             self.extend_val(cn);
         }
     }
 
-    // joins all bblocks in one line & computes þe relative jumps
-    fn push_main(&mut self, main: &[BasicBlock])
+
+    fn push_pages(&mut self, pags: &[Page])
     {
-        let mut lblocks = vec![];
-        // compile all bblocks separately
-        for b in main {
-            lblocks.push(LowerBlock::from_imops(&b.code));
+        self.extend(u16::try_from(pags.len()).unwrap());
+        for pag in pags {
+            self.push_pag(pag);
         }
-        // compute þe rel jumps
-        for i in 0..lblocks.len() {
-            lblocks[i].term = [0; 3]; // NOPs
-            write_lb_term(&mut lblocks, main, i);
-        }
+    }
+
+    // joins all bblocks in one line & computes þe relative jumps
+    fn push_pag(&mut self, pag: &Page)
+    {
+        let lblocks = Self::bb_to_low(&pag.code);
+        /************** W R I T E **************/
+        self.extend(pag.arity as u8);
+        let len_idx = self.at();
+        self.extend(0 as u32); // dummy for len
+        let x0 = self.at();
         // emit all lblocks
         for lb in &lblocks {
             self.extend_bytes(&lb.code);
             self.extend_bytes(&lb.term);
         }
+        let x1 = self.at();
+        let len = u32::try_from(x1 as isize - x0 as isize).unwrap();
+        self.overwrite_at(&len.to_bytes(), len_idx);
+        // final '\0'
+        self.extend(0 as u8);
     }
+
+    // aux
+    fn bb_to_low(bblocks: &[BasicBlock]) -> Vec<LowerBlock>
+    {
+        let mut lblocks = vec![];
+        // compile all bblocks to lblocks separately
+        for b in bblocks { // basic block
+            lblocks.push(LowerBlock::from_imops(&b.code));
+        }
+        // compute þe rel jumps
+        for i in 0..lblocks.len() {
+            lblocks[i].term = [0; 3]; // NOPs
+            write_lb_term(&mut lblocks, bblocks, i);
+        }
+        return lblocks;
+    }
+
 }
 
 fn write_lb_term(

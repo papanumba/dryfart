@@ -16,8 +16,7 @@ void values_init(struct Values *v)
 
 void values_free(struct Values *v)
 {
-    uint i;
-    for (i = 0; i < v->len; ++i) {
+    for (size_t i = 0; i < v->len; ++i) {
         if (v->arr[i].type == VAL_O)
             object_free(v->arr[i].as.o);
     }

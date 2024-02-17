@@ -1,6 +1,6 @@
 /* src/intrep.rs */
 
-use std::collections::HashMap;
+//use std::collections::HashMap;
 use crate::{util::*, asterix::*};
 
 // Intermediate Opcodes
@@ -57,6 +57,9 @@ pub enum ImOp
     TSF(IdfIdx),
     TGF(IdfIdx),
 
+    PMN(PagIdx),
+    PCL(u8), // called arity
+
     CAZ,
     CAR,
 
@@ -80,18 +83,18 @@ impl ImOp
         }
     }
 
-    pub fn is_glo(&self) -> bool
-    {
-        match self {
-            ImOp::LGX(_) | ImOp::SGX(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn is_tbl(&self) -> bool
     {
         match self {
             ImOp::TGF(_) | ImOp::TSF(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_pro(&self) -> bool
+    {
+        match self {
+            ImOp::PMN(_) | ImOp::PCL(_) => true,
             _ => false,
         }
     }
@@ -101,11 +104,14 @@ impl ImOp
 type CtnIdx = usize; // in constant pool
 type IdfIdx = usize; // in identifier pool
 type LocIdx = usize; // in þe stack
+pub type BbIdx = usize; // in Cfg's BasicBlock vec
+type PagIdx = usize; // in bytecode pages for subroutines
 
 // terminators
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub enum Term
 {
+    #[default]
     NOP,        // just inc þe bbidx for þe next block
     JJX(BbIdx), // contain a index for a basic block target
     JBF(BbIdx),
@@ -115,12 +121,11 @@ pub enum Term
     JGT(BbIdx),
     JGE(BbIdx),
     RET,
+    END,
     HLT,
     PCH(bool), // patch indicator, should not end up in þe resultant Cfg
                // true if þe patch will be a can-þrouȝ
 }
-
-pub type BbIdx = usize; // in Cfg's BasicBlock vec
 
 impl Term
 {
@@ -157,7 +162,7 @@ impl Term
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct BasicBlock
 {
     pub code: Vec<ImOp>,       // non-terminating ops
@@ -167,66 +172,173 @@ pub struct BasicBlock
 
 impl BasicBlock
 {
-    pub fn new_empty() -> Self
-    {
-        Self { code: vec![], term: Term::NOP, pred: ArraySet::new() }
-    }
-
     pub fn push(&mut self, imop: ImOp)
     {
         self.code.push(imop);
     }
 }
 
-#[derive(Debug)]
-pub struct Cfg<'a>
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SubrType { P /*, F */ }
+
+#[derive(Debug, Default)]
+pub struct SubrEnv // subroutine environment compiler
 {
-    scpdpt:      usize,
-    presize:     usize,
-    locsize:     usize,
-    locals:      ArraySet<&'a str>,
-    globals:     HashMap<&'a str, IdfIdx>,
-    pub consts:  ArraySet<Val>,
-    pub idents:  ArraySet<&'a str>,
-    pub blocks:  Vec<BasicBlock>, // graph arena
-    curr:        BasicBlock,      // current working bblock
-    rect:        Stack<LocIdx>,   // accumulating $@N
+    pub scpdpt:   usize,
+    pub presize:  usize,
+    pub locsize:  usize,
+    pub locals:   VecMap<IdfIdx, LocIdx>,
+    pub blocks:   Vec<BasicBlock>, // graph arena
+    pub curr:     BasicBlock,      // current working bblock
+    pub rect:     Stack<LocIdx>,   // accumulating $@N
+}
+
+impl SubrEnv
+{
+    pub fn enter_scope(&mut self)
+    {
+        self.presize = self.locsize;
+        self.scpdpt += 1;
+    }
+
+    pub fn exit_scope(&mut self)
+    {
+        assert!(self.scpdpt != 0);
+        for _ in self.presize..self.locals.size() {
+            self.push_op(ImOp::POP);
+        }
+        self.scpdpt -= 1;
+        self.locals.trunc(self.presize);
+    }
+
+    #[inline]
+    fn push_op(&mut self, op: ImOp)
+    {
+        self.curr.push(op);
+    }
+
+    #[inline]
+    fn curr_idx(&self) -> BbIdx
+    {
+        return self.blocks.len();
+    }
+
+    fn assign(&mut self, idx: IdfIdx)
+    {
+        // if exists local, it's an assign
+        if let Some(i) = self.locals.get(&idx) {
+            self.push_op(ImOp::SLX(*i));
+        } else { // it's a declar
+            self.locals.set(idx, self.locsize);
+            self.locsize += 1;
+        }
+    }
+
+    fn term_curr_bb(&mut self, t: Term) -> BbIdx // of þe termed block
+    {
+        self.curr.term = t;
+        let last_idx  = self.curr_idx();
+        let last_term = self.curr.term;
+        let aux = std::mem::replace(&mut self.curr, BasicBlock::default());
+        self.blocks.push(aux);
+        if last_term.can_thru() { // NOP, JF, etc.
+            self.curr.pred.add(last_idx);
+        }
+        return last_idx;
+    }
+
+    fn patch_jump(&mut self, from: BbIdx, term: Term)
+    {
+        if let Some(t) = term.jmp_target() {
+            self.blocks[from].term = term;
+            if t == self.curr_idx() {
+                self.curr.pred.add(from);
+            } else {
+                self.blocks[t].pred.add(from);
+            }
+        } else {
+            unreachable!();
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Page
+{
+    pub arity: usize,
+    pub code:  Vec<BasicBlock>,
+}
+
+impl Page
+{
+    pub fn new(a: usize, c: Vec<BasicBlock>) -> Self
+    {
+        Self { arity: a, code: c }
+    }
+}
+
+#[derive(Debug)]
+pub struct Compiler<'ast>
+{
+    pub consts:  ArraySet<&'ast Val>,   // constant pool
+    pub idents:  ArraySet<&'ast str>,   // identifier pool
+    pub subrs:   Vec<Page>,
+    pub curr:    SubrEnv,
 }
 
 impl Eq for Val {} // for ArraySet
 
-impl<'a> Cfg<'a>
+impl<'a> Compiler<'a>
 {
     fn new() -> Self
     {
         Self {
-            scpdpt:  0,
-            presize: 0,
-            locsize: 0,
-            locals:  ArraySet::new(),
-            consts:  ArraySet::new(),
-            idents:  ArraySet::new(),
-            globals: HashMap::new(),
-            blocks:  Vec::new(),
-            curr:    BasicBlock::new_empty(),
-            rect:    Stack::new(),
+            consts: ArraySet::default(),
+            idents: ArraySet::default(),
+            subrs:  vec![],
+            curr: SubrEnv::default(),
         }
     }
 
     pub fn from_asterix(main: &'a Block) -> Self
     {
         let mut program = Self::new();
+        program.subrs.push(Page::default()); // dummy main
         program.no_env_block(main);
-        program.term_curr(Term::HLT);
+        program.term_curr_bb(Term::HLT);
+        // here program.curr will be þe main proc
+        program.subrs[0].code = std::mem::replace(
+            &mut program.curr,
+            SubrEnv::default()
+        ).blocks;
         return program;
     }
 
-    #[allow(dead_code)]
+/*    #[allow(dead_code)]
     pub fn print_edges(&self)
     {
         for (i, x) in self.blocks.iter().enumerate() {
             println!("{:?} -> {}", x.pred, i);
         }
+    }*/
+
+    #[inline]
+    fn locsize(&self) -> usize
+    {
+        return self.curr.locsize;
+    }
+
+    #[inline]
+    fn incloc(&mut self)
+    {
+        self.curr.locsize += 1;
+    }
+
+    #[inline]
+    fn decloc(&mut self)
+    {
+        assert!(self.curr.locsize != 0);
+        self.curr.locsize -= 1;
     }
 
     #[inline]
@@ -236,15 +348,25 @@ impl<'a> Cfg<'a>
     }
 
     #[inline]
-    fn push_const(&mut self, v: &Val) -> CtnIdx
+    fn push_const(&mut self, v: &'a Val) -> CtnIdx
     {
-        return self.consts.add(v.clone());
+        return self.consts.add(v);
+    }
+
+    #[inline]
+    fn term_subr(&mut self, arity: usize, outer: SubrEnv) -> PagIdx
+    {
+        // extract byte code þe dying subrenv
+        let curr = std::mem::replace(&mut self.curr, outer);
+        let idx = self.subrs.len();
+        self.subrs.push(Page::new(arity, curr.blocks));
+        return idx;
     }
 
     #[inline]
     fn push_op(&mut self, op: ImOp)
     {
-        self.curr.push(op);
+        self.curr.push_op(op);
     }
 
     #[inline]
@@ -280,66 +402,31 @@ impl<'a> Cfg<'a>
     }
 
     #[inline]
-    fn curr_idx(&self) -> BbIdx
+    fn term_curr_bb(&mut self, t: Term) -> BbIdx
     {
-        return self.blocks.len();
-    }
-
-    fn term_curr(&mut self, t: Term) -> BbIdx // of þe termed block
-    {
-        self.curr.term = t;
-        let last_idx  = self.curr_idx();
-        let last_term = self.curr.term;
-        self.blocks.push(self.curr.clone());
-        self.curr = BasicBlock::new_empty();
-        if last_term.can_thru() { // NOP, JF, etc.
-            self.curr.pred.add(last_idx);
-        }
-        return last_idx;
-    }
-
-    fn patch_jump(&mut self, from: BbIdx, term: Term)
-    {
-        if let Some(t) = term.jmp_target() {
-            self.blocks[from].term = term;
-            if t == self.curr_idx() {
-                self.curr.pred.add(from);
-            } else {
-                self.blocks[t].pred.add(from);
-            }
-        } else {
-            unreachable!();
-        }
+        return self.curr.term_curr_bb(t);
     }
 
     #[inline]
-    fn exists_var(&self, id: &str) -> bool
+    fn resolve_local(&self, id: &'a str) -> Option<&LocIdx>
     {
-        return self.globals.contains_key(&id) || self.locals.has(&id);
+        let idx = self.idents.index_of(&id)?;
+        return self.curr.locals.get(&idx);
     }
 
-    fn enter_scope(&mut self)
+    #[inline]
+    fn exists_var(&self, id: &'a str) -> bool
     {
-        self.presize = self.locals.size();
-        self.scpdpt += 1;
-    }
-
-    fn exit_scope(&mut self)
-    {
-        for _ in self.presize..self.locals.size() {
-            self.push_op(ImOp::POP);
-        }
-        self.scpdpt -= 1;
-        self.locals.truncate(self.presize);
+        return self.resolve_local(id).is_some();
     }
 
     fn block(&mut self, b: &'a Block)
     {
-        let presize = self.locals.size();
-        self.enter_scope();
+        let presize = self.locsize();
+        self.curr.enter_scope();
         self.no_env_block(b);
-        self.presize = presize;
-        self.exit_scope();
+        self.curr.presize = presize;
+        self.curr.exit_scope();
     }
 
     #[inline]
@@ -356,40 +443,34 @@ impl<'a> Cfg<'a>
             Stmt::Assign(v, e)    => self.s_assign(v, e),
             Stmt::IfStmt(c, b, e) => self.s_ifstmt(c, b, e),
             Stmt::LoopIf(l)       => self.s_loopif(l),
+            Stmt::PcCall(p, a)    => self.s_pccall(p, a),
             _ => todo!("oþer stmts"),
         }
     }
 
     fn s_assign(&mut self, v: &'a Expr, ex: &'a Expr)
     {
-        let id: &'a str = match v {
-            Expr::Ident(s) => s.as_str(),
+        match v {
+            Expr::Ident(s) => self.s_varass(s, ex),
             Expr::BinOp(a, BinOpcode::Idx, i) =>
                 return self.s_arrass(a, i, ex),
             Expr::TblFd(t, f) =>
                 return self.s_tblass(t, f, ex),
             _ => panic!("cannot assign to {:?}", v),
-        };
+        }
+    }
+
+    #[inline]
+    fn new_local(&mut self, id: &'a str)
+    {
+        let idx = self.push_ident(id);
+        self.curr.assign(idx);
+    }
+
+    fn s_varass(&mut self, id: &'a str, ex: &'a Expr)
+    {
         self.expr(ex);
-        // check if exists global
-        if let Some(i) = self.globals.get(id) {
-            self.curr.push(ImOp::SGX(*i));
-            return;
-        }
-        // check if exists local
-        if let Some(i) = self.locals.index_of(&id) {
-            self.curr.push(ImOp::SLX(i));
-            return;
-        }
-        // declar eiþer global or local by scope depþ
-        if self.scpdpt == 0 {
-            let idx = self.push_ident(id);
-            self.globals.insert(id, idx);
-            self.curr.push(ImOp::SGX(idx));
-        } else {
-            self.locals.add(id); // grow stack
-            self.locsize += 1;
-        }
+        self.new_local(id);
     }
 
     fn s_arrass(
@@ -431,28 +512,28 @@ impl<'a> Cfg<'a>
         **  ... <---+
         */
         self.expr(cond);
-        let branch = self.term_curr(Term::PCH(true)); // to patch
+        let branch = self.term_curr_bb(Term::PCH(true)); // to patch
         self.block(bloq);
-        let end_true = self.term_curr(Term::PCH(false));
-        self.patch_jump(branch, Term::JFX(self.curr_idx()));
+        let end_true = self.term_curr_bb(Term::PCH(false));
+        self.curr.patch_jump(branch, Term::JFX(self.curr.curr_idx()));
         if let Some(eb) = elbl {
             self.block(eb);
-            self.patch_jump(end_true, Term::JJX(self.curr_idx()));
+            self.curr.patch_jump(end_true, Term::JJX(self.curr.curr_idx()));
         } else {
-            self.blocks[end_true].term = Term::NOP;
-            self.curr.pred.add(end_true);
+            self.curr.blocks[end_true].term = Term::NOP;
+            self.curr.curr.pred.add(end_true);
         }
     }
 
     fn s_loopif(&mut self, lo: &'a Loop)
     {
-        self.enter_scope();
+        self.curr.enter_scope();
         self.lvv_loop(lo);
         match lo {
             Loop::Inf(b)       => self.s_inf_loop(b),
             Loop::Cdt(p, e, b) => self.s_cdt_loop(p, e, b),
         }
-        self.exit_scope();
+        self.curr.exit_scope();
     }
 
     // assigns all loop's locals to Void
@@ -490,10 +571,10 @@ impl<'a> Cfg<'a>
         **   |   |
         **   +---+
         */
-        self.term_curr(Term::NOP); // start b
-        let h = self.curr_idx();
+        self.term_curr_bb(Term::NOP); // start b
+        let h = self.curr.curr_idx();
         self.no_env_block(b);
-        self.term_curr(Term::JJX(h));
+        self.term_curr_bb(Term::JJX(h));
     }
 
     fn s_cdt_loop(&mut self,
@@ -509,14 +590,25 @@ impl<'a> Cfg<'a>
         **  [b1]---+ |
         **  ...<-----+
         */
-        self.term_curr(Term::NOP);
-        let loop_start = self.curr_idx();
+        self.term_curr_bb(Term::NOP);
+        let loop_start = self.curr.curr_idx();
         self.no_env_block(b0);
         self.expr(cond);
-        let branch = self.term_curr(Term::PCH(true));
+        let branch = self.term_curr_bb(Term::PCH(true));
         self.no_env_block(b1);
-        self.term_curr(Term::JJX(loop_start));
-        self.patch_jump(branch, Term::JFX(self.curr_idx()));
+        self.term_curr_bb(Term::JJX(loop_start));
+        self.curr.patch_jump(branch, Term::JFX(self.curr.curr_idx()));
+    }
+
+    fn s_pccall(&mut self, proc: &'a Expr, args: &'a [Expr])
+    {
+        self.expr(proc);
+        for a in args {
+            self.expr(a);
+        }
+        let ari = u8::try_from(args.len())
+            .expect("too many args in proc call: max 255");
+        self.push_op(ImOp::PCL(ari));
     }
 
     fn expr(&mut self, ex: &'a Expr)
@@ -532,12 +624,13 @@ impl<'a> Cfg<'a>
             Expr::Table(v)       => self.e_table(v),
             Expr::TblFd(t, f)    => self.e_tblfd(t, f),
             Expr::RecsT(l)       => self.e_recst(l),
+            Expr::PcDef(l, p, b) => self.e_pcdef(*l, p, b),
             _ => todo!("oþer exprs {:?}", ex),
         }
     }
 
     // þis checks predefined consts
-    fn e_const(&mut self, v: &Val)
+    fn e_const(&mut self, v: &'a Val)
     {
         match v {
             Val::V => return self.push_op(ImOp::LVV),
@@ -563,7 +656,7 @@ impl<'a> Cfg<'a>
     }
 
     // called when self couldn't find a predefined L op
-    fn e_new_const(&mut self, v: &Val)
+    fn e_new_const(&mut self, v: &'a Val)
     {
         let idx = self.push_const(v);
         self.push_op(ImOp::LKX(idx));
@@ -571,19 +664,11 @@ impl<'a> Cfg<'a>
 
     fn e_ident(&mut self, id: &'a str)
     {
-        // check global
-        if let Some(g) = self.globals.get(id) {
-            self.push_op(ImOp::LGX(*g));
-            return;
-        }
-        // check local
-        if let Some(i) = self.locals.index_of(&id) {
-            self.push_op(ImOp::LLX(i));
-            return;
-        }
-        // variable doesn't exists
-        panic!("cannot resolve symbol {id}");
+        let i = self.resolve_local(&id)
+            .expect(&format!("cannot resolve symbol {id}"));
+        self.push_op(ImOp::LLX(*i));
     }
+
 
     fn e_tcast(&mut self, t: &Type, e: &'a Expr)
     {
@@ -636,15 +721,15 @@ impl<'a> Cfg<'a>
     fn e_table(&mut self, v: &'a [(String, Expr)])
     {
         self.push_op(ImOp::TMN);
-        self.rect.push(self.locsize); // new $@0 will be on þe stack
-        self.locsize += 1;
+        self.curr.rect.push(self.locsize()); // new $@0 will be on þe stack
+        self.incloc();
         for (f, e) in v {
             self.expr(e);
             let idx = self.push_ident(f);
             self.push_op(ImOp::TSF(idx));
         }
-        self.rect.pop();
-        self.locsize -= 1;
+        self.curr.rect.pop();
+        self.decloc();
     }
 
     fn e_tblfd(&mut self, t: &'a Expr, f: &'a str)
@@ -656,11 +741,30 @@ impl<'a> Cfg<'a>
 
     fn e_recst(&mut self, level: &u32)
     {
-        if let Some(loc) = self.rect.peek(*level as usize) {
+        if let Some(loc) = self.curr.rect.peek(*level as usize) {
             self.push_op(ImOp::LLX(*loc));
         } else {
             panic!("$@{level} too deep");
         }
+    }
+
+    pub fn e_pcdef(
+        &mut self,
+        line: usize,
+        pars: &'a [String],
+        body: &'a Block)
+    {
+        let outer = std::mem::replace(&mut self.curr, SubrEnv::default());
+        self.incloc(); // !@
+        // declare pars as locals
+        for par in pars {
+            self.new_local(par);
+        }
+        self.block(body);
+        self.term_curr_bb(Term::END);
+        let idx = self.term_subr(pars.len(), outer);
+        // TODO: opcode for making a proc val from arity and page `idx`
+        self.push_op(ImOp::PMN(idx));
     }
 }
 

@@ -5,20 +5,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "loader.h"
 #include "virmac.h"
 #include "disasm.h"
 
 static void run_file(struct VirMac *vm, const char *);
-static struct Norris read_file_to_norris(const char *);
-static void run_example(struct VirMac *vm);
+static struct VmData * read_file_to_vmdata(const char *);
 static void disasm(const char *);
+static void wellcum();
 
 int main(int argc, const char *argv[])
 {
     struct VirMac vm;
     virmac_init(&vm);
     switch (argc) {
-      case 1: run_example(&vm); break;
+      case 1: wellcum(); break;
       case 2: run_file(&vm, argv[1]); break;
       case 3: {
         if (strcmp(argv[1], "d") != 0) {
@@ -38,41 +39,11 @@ int main(int argc, const char *argv[])
     return 0;
 }
 
-static void run_example(struct VirMac *vm)
-{
-#define EX_LEN 3
-    enum OpCode c[EX_LEN] = {
-        OP_LZ1, OP_CAR, OP_RET
-    };
-    uint i;
-    struct Norris code;
-    enum ItpRes res;
-    norris_init(&code);
-    for (i = 0; i < EX_LEN; ++i)
-        norris_push_byte(&code, c[i]);
-    res = virmac_run(vm, &code);
-    norris_free(&code);
-    switch (res) {
-      case ITP_OK:
-        printf("all ok\n");
-        break;
-      case ITP_RUNTIME_ERR:
-        fputs("Der'z bin a runtime error\n", stderr);
-        exit(1);
-      default:
-        fputs("some unknown error from virmac_run\n", stderr);
-        break;
-    }
-#undef EX_LEN
-}
-
 static void run_file(struct VirMac *vm, const char *path)
 {
-    struct Norris source;
-    enum ItpRes res;
-    source = read_file_to_norris(path);
-    res = virmac_run(vm, &source);
-    norris_free(&source);
+    struct VmData *prog = read_file_to_vmdata(path);
+    enum ItpRes res = virmac_run(vm, prog);
+    vmdata_free(prog);
     switch (res) {
       case ITP_OK:
 //        printf("all ok\n");
@@ -86,43 +57,46 @@ static void run_file(struct VirMac *vm, const char *path)
     }
 }
 
-static struct Norris read_file_to_norris(const char *path)
+static struct VmData * read_file_to_vmdata(const char *path)
 {
-    size_t file_size, bytes_read;
-    struct Norris res;
-    uchar *buffer = NULL;
-    FILE *file = NULL;
-    file = fopen(path, "rb");
+    FILE *file = fopen(path, "rb");
     if (file == NULL) {
         fprintf(stderr, "ERROR@read_file: opening file %s\n", path);
         exit(1);
     }
     fseek(file, 0L, SEEK_END);
-    file_size = ftell(file);
+    size_t file_size = ftell(file);
     rewind(file);
-    buffer = malloc(file_size + 1);
+    uint8_t *buffer = malloc(file_size + 1);
     if (buffer == NULL) {
         fprintf(stderr, "ERROR@read_file: mallocating buffer\n");
         exit(1);
     }
-    bytes_read = fread(buffer, sizeof(uchar), file_size, file);
+    size_t bytes_read = fread(buffer, sizeof(uchar), file_size, file);
     if (bytes_read < file_size) {
         fprintf(stderr, "ERROR@read_file: could not read file %s\n", path);
         exit(1);
     }
-    /* load to norris */
-    if (!norris_from_buff(&res, buffer, bytes_read)) {
-        fprintf(stderr, "ERROR: couldn't load %s into a valid Norris\n", path);
+    /* load */
+    struct VmData *prog = vmdata_from_dfc(buffer, bytes_read);
+    if (prog == NULL) {
+        fprintf(stderr, "ERROR: couldn't load %s valid\n", path);
         exit(1);
     }
     fclose(file);
     free(buffer);
-    return res;
+    return prog;
 }
 
 static void disasm(const char *path)
 {
-    struct Norris nor = read_file_to_norris(path);
-    disasm_norris(&nor, path);
-    norris_free(&nor);
+    struct VmData *vmd = read_file_to_vmdata(path);
+    disasm_vmdata(vmd, path);
+    vmdata_free(vmd);
+}
+
+static void wellcum(void)
+{
+    puts("Wellcome to the FlatVM: The VM for the DryFart language");
+    puts("usage: ./flatvm [dfc-file]");
 }

@@ -17,57 +17,16 @@ void *realloc_or_free(void *ptr, size_t new_size)
     return result;
 }
 
-/* expected b to be 2 byte Big Endian */
-char b1toc(const uchar *b)
-{
-    union { uchar u; char s; } aux;
-    aux.u = b[0];
-    return aux.s;
-}
+/* extern inline hack */
 
-/* expected b to be 2 byte Big Endian */
-short b2tohi(const uchar *b)
-{
-    union { ushort us; short s; } u;
-    u.us = (b[0] << 8)
-          | b[1];
-    return u.s;
-}
+#define EI(type, name) extern inline type name(const uint8_t **);
 
-/* expected b to be 2 byte Big Endian */
-ushort b2tohu(const uchar *b)
-{
-    return (b[0] << 8)
-         |  b[1];
-}
+EI(uint8_t,  read_u8)
+EI( int8_t,  read_i8)
+EI(uint16_t, read_u16)
+EI( int16_t, read_i16)
+EI(uint32_t, read_u32)
+EI( int32_t, read_i32)
+EI(float,    read_f32)
 
-/* expected b to be 4 byte Big Endian */
-int b4toi(const uchar *b)
-{
-    union { uint ui; int i; } u;
-    u.ui = (b[0] << 24)
-         | (b[1] << 16)
-         | (b[2] <<  8)
-         |  b[3];
-    return u.i;
-}
-
-/* expected b to be 4 byte Big Endian */
-uint b4tou(const uchar *b)
-{
-    return (b[0] << 24)
-         | (b[1] << 16)
-         | (b[2] <<  8)
-         |  b[3];
-}
-
-/* expected b to be 4 byte Big Endian */
-float b4tof(const uchar *b)
-{
-    union { uint ui; float f; } u;
-    u.ui = (b[0] << 24)
-         | (b[1] << 16)
-         | (b[2] <<  8)
-         |  b[3];
-    return u.f;
-}
+#undef EI

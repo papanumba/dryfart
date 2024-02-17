@@ -4,8 +4,6 @@
 #define FLATVM_NORRIS_H
 
 #include "common.h"
-#include "idents.h"
-#include "values.h"
 
 enum OpCode {
     OP_NOP = 0x00,
@@ -45,8 +43,6 @@ enum OpCode {
     OP_AND = 0x21,
     OP_IOR = 0x22,
 
-    OP_LGL = 0x40, /* Load   Global Long  (u16) */
-    OP_SGL = 0x41, /* Store  Global Long  (u16) */
     OP_LLS = 0x44, /* Load   Local  Short (u8)  */
     OP_SLS = 0x45, /* Store  Local  Short (u8)  */
     OP_ULS = 0x46, /* Update Local  Short (u8)  */
@@ -80,32 +76,42 @@ enum OpCode {
     OP_TSF = 0x71,
     OP_TGF = 0x72,
 
+    OP_PMN = 0x80,
+    OP_PCL = 0x82,
+
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,
     OP_CAN = 0xE6,
     OP_CAZ = 0xE8,
     OP_CAR = 0xEA,
 
-    OP_RET = 0xF0, /* return from current function */
-    OP_DUP = 0xF1,
+    OP_RET = 0xF0,
+    OP_END = 0xF1,
+    OP_DUP = 0xF4,
     OP_POP = 0xF8,
-    OP_HLT = 0xFF /* halt */
+    OP_HLT = 0xFF
     /* TODO: add opcodes */
 };
 
 /* chunk norris */
 struct Norris {
-    uchar        *cod; /* bytecode */
-    size_t        len; /* used length */
-    size_t        cap; /* allocd capanacity */
-    struct Idents idf; /* identifiers */
-    struct Values ctn; /* constants */
+    uint8_t *cod; /* bytecode */
+    size_t   len; /* lengþ */
+    uint8_t  ari; /* arity */
+};
+
+struct NorVec {
+    struct Norris *nor;
+    size_t         len;
+    size_t         cap;
 };
 
 void norris_init     (struct Norris *);
-int  norris_from_buff(struct Norris *, const uchar *, size_t);
+void norris_cpy_buff (struct Norris *, const uint8_t *, size_t);
 void norris_free     (struct Norris *);
-void norris_push_byte(struct Norris *, uchar);
-uint norris_push_ctn (struct Norris *, struct DfVal);
+void norvec_init     (struct NorVec *);
+void norvec_with_cap (struct NorVec *, size_t);
+void norvec_push     (struct NorVec *, struct Norris);
+void norvec_free     (struct NorVec *);
 
 #endif /* FLATVM_NORRIS_H */
