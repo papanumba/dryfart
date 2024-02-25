@@ -69,6 +69,7 @@ static int op_and(struct VirMac *);
 static int op_ior(struct VirMac *);
 
 /* casts */
+static int op_can(struct VirMac *);
 static int op_caz(struct VirMac *);
 static int op_car(struct VirMac *);
 
@@ -80,6 +81,8 @@ static int op_tsf(struct VirMac *);
 static int op_tgf(struct VirMac *);
 
 static int op_pcl(struct VirMac *);
+static int op_fcl(struct VirMac *);
+static int op_ret(struct VirMac *);
 
 static void op_lls(struct VirMac *);
 static void op_sls(struct VirMac *);
@@ -230,6 +233,7 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_AND, op_and)
           DO_OP(OP_IOR, op_ior)
 
+          DO_OP(OP_CAN, op_can)
           DO_OP(OP_CAZ, op_caz)
           DO_OP(OP_CAR, op_car)
 
@@ -241,6 +245,8 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_TGF, op_tgf)
 
           DO_OP(OP_PCL, op_pcl)
+          DO_OP(OP_FCL, op_fcl)
+          DO_OP(OP_RET, op_ret)
 
           DO_OP(OP_JBF, op_jbf)
           DO_OP(OP_JFS, op_jfs)
@@ -276,6 +282,7 @@ static enum ItpRes run(struct VirMac *vm)
             virmac_push(vm, &val);
             break;
           }
+
           case OP_PMN: {
             struct DfVal val;
             uint idx = read_u16(&vm->ip);
@@ -286,16 +293,19 @@ static enum ItpRes run(struct VirMac *vm)
             break;
           }
 
-          case OP_RET: {
-            struct DfVal v = virmac_pop(vm);
-            values_print(&v);
-            puts("");
-            return ITP_OK;
+          case OP_FMN: {
+            struct DfVal val;
+            uint idx = read_u16(&vm->ip);
+            val.type = VAL_O;
+            struct Norris *n = &vm->dat->pag.nor[idx];
+            val.as.o = (void *) objfun_new(n, 0);
+            virmac_push(vm, &val);
+            break;
           }
+
           case OP_END: {
-            if (!pop_call(vm))
-                return ITP_RUNTIME_ERR;
-            return ITP_OK;
+            if (!pop_call(vm)) return ITP_RUNTIME_ERR;
+            break;
           }
           case OP_DUP: {
             struct DfVal *val = virmac_peek(vm);
@@ -577,6 +587,9 @@ static int op_add_o(
       case OBJ_PRO:
         eputln("cannot add (+) procs");
         return FALSE;
+      case OBJ_FUN:
+        eputln("cannot add (+) funcs");
+        return FALSE;
     }
     return TRUE;
 }
@@ -786,6 +799,26 @@ static int op_ior(struct VirMac *vm)
     return TRUE;
 }
 
+static int op_can(struct VirMac *vm)
+{
+    struct DfVal *val = virmac_peek(vm);
+    switch (val->type) {
+      case VAL_N: return TRUE; /* do noþing */
+      case VAL_Z:
+        if (val->as.z < 0) {
+            fputs("ERROR: casting negative Z% to N%\n", stderr);
+            return FALSE;
+        }
+        val->as.n = (uint32_t) val->as.z; break;
+      default:
+        /*err_cast(from.type, VAL_R);*/
+        eputln("err cast N");
+        return FALSE;
+    }
+    val->type = VAL_N;
+    return TRUE;
+}
+
 static int op_caz(struct VirMac *vm)
 {
     struct DfVal *val = virmac_peek(vm);
@@ -886,10 +919,12 @@ static int op_tsf(struct VirMac *vm)
     struct DfVal tbl, val;
     val = virmac_pop(vm);
     tbl = virmac_pop(vm);
+#ifdef SAFE
     if (tbl.type != VAL_O || tbl.as.o->type != OBJ_TBL) {
         eputln("ERROR: value is not a table");
         return FALSE;
     }
+#endif /* SAFE */
     struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
     htable_set(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, val);
     virmac_push(vm, &tbl);
@@ -900,10 +935,12 @@ static int op_tgf(struct VirMac *vm)
 {
     struct DfVal tbl, val;
     tbl = virmac_pop(vm);
+#ifdef SAFE
     if (tbl.type != VAL_O || tbl.as.o->type != OBJ_TBL) {
         eputln("ERROR: value is not a table");
         return FALSE;
     }
+#endif /* SAFE */
     struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
     int res = htable_get(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, &val);
     if (!res)
@@ -917,19 +954,57 @@ static int op_pcl(struct VirMac *vm)
 {
     uint8_t arity = READ_BYTE();
     struct DfVal *val = vm->sp - (arity + 1); /* args + callee */
+#ifdef SAFE
     if (val->type != VAL_O || val->as.o->type != OBJ_PRO) {
         eputln("cannot !call a not !");
         return FALSE;
     }
+#endif /* SAFE */
     struct ObjPro *pro = OBJ_AS_PRO(val->as.o);
+#ifdef SAFE
     if (pro->norr->ari != arity) {
         eput("wrong arity calling ");
         object_print(val->as.o);
         return FALSE;
     }
+#endif /* SAFE */
     if (!push_call(vm, val, pro->norr))
         return FALSE;
-    return run(vm) == ITP_OK;
+    return TRUE;
+}
+
+static int op_fcl(struct VirMac *vm)
+{
+    uint8_t arity = READ_BYTE();
+    struct DfVal *val = vm->sp - (arity + 1); /* args + callee */
+#ifdef SAFE
+    if (val->type != VAL_O || val->as.o->type != OBJ_FUN) {
+        eputln("cannot #call a not #");
+        return FALSE;
+    }
+#endif /* SAFE */
+    struct ObjFun *fun = OBJ_AS_FUN(val->as.o);
+#ifdef SAFE
+    if (fun->norr->ari != arity) {
+        eput("wrong arity calling ");
+        object_print(val->as.o);
+        return FALSE;
+    }
+#endif /* SAFE */
+    if (!push_call(vm, val, fun->norr))
+        return FALSE;
+    return TRUE;
+}
+
+static int op_ret(struct VirMac *vm)
+{
+    struct DfVal ret = virmac_pop(vm);
+    if (!pop_call(vm))
+        return FALSE;
+    virmac_push(vm, &ret);
+//    puts("return ");
+//    values_print(virmac_peek(vm));
+    return TRUE;
 }
 
 /* Load Local Short */

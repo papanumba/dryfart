@@ -1,6 +1,6 @@
 /* src/dflib/procs.rs */
 
-use crate::asterix::{Val, DfProc};
+use crate::asterix::Val;
 
 #[derive(Debug)]
 pub struct NatPc
@@ -14,11 +14,17 @@ impl NatPc
     {
         Self { name: s }
     }
-}
 
-impl DfProc for NatPc
-{
-    fn exec(&self, args: &[Val])
+    pub fn arity(&self) -> usize
+    {
+        match self.name {
+            "put" => 1,
+            "putLn" => 1,
+            _ => panic!("unknown native proc {}", self.name),
+        }
+    }
+
+    pub fn exec(&self, args: &[Val])
     {
         match self.name {
             "put" => put(args),
@@ -26,32 +32,21 @@ impl DfProc for NatPc
             _ => panic!("unknown native proc {}", self.name),
         }
     }
-
-    fn arity(&self) -> usize
-    {
-        match self.name {
-            "put" |
-            "putLn" => 1,
-            _ => unreachable!(),
-        }
-    }
 }
 
 fn put(args: &[Val])
 {
-    for arg in args {
-        match arg {
-            Val::V    => print!("V"),
-            Val::B(b) => if *b {print!("T");} else {print!("F");},
-            Val::C(c) => print!("{c}"),
-            Val::N(n) => print!("{n}"),
-            Val::Z(z) => print!("{z}"),
-            Val::R(r) => print!("{r}"),
-            Val::A(a) => print!("{}", a.borrow()),
-            Val::P(p) => print!("{:?}", p),
-            //Val::F(_) => print!("#%cannot print func"),
-            _ => panic!("cannot print"),
-        }
+    match &args[0] {
+        Val::V    => print!("V"),
+        Val::B(b) => if *b {print!("T");} else {print!("F");},
+        Val::C(c) => print!("{c}"),
+        Val::N(n) => print!("{n}"),
+        Val::Z(z) => print!("{z}"),
+        Val::R(r) => print!("{r}"),
+        Val::A(a) => print!("{}", a.borrow()),
+        Val::P(p) => print!("{:?}", p),
+        //Val::F(_) => print!("#%cannot print func"),
+        _ => panic!("cannot print"),
     }
 }
 

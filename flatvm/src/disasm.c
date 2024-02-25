@@ -89,6 +89,7 @@ static void disasm_ins_fast(void)
       case OP_AND: simple_ins("AND"); break;
       case OP_IOR: simple_ins("IOR"); break;
 
+      case OP_CAN: simple_ins("CAN"); break;
       case OP_CAZ: simple_ins("CAZ"); break;
       case OP_CAR: simple_ins("CAR"); break;
 
@@ -103,6 +104,8 @@ static void disasm_ins_fast(void)
 
       case OP_PMN: num_ins("PMN", 2); break;
       case OP_PCL: num_ins("PCL", 1); break;
+      case OP_FMN: num_ins("FMN", 2); break;
+      case OP_FCL: num_ins("FCL", 1); break;
 
       case OP_LLS: num_ins("LLS", 1); break;
       case OP_SLS: num_ins("SLS", 1); break;
@@ -178,6 +181,7 @@ static void ctn_ins(uint argsize)
         break;
       default:
         panic("size in ctn_ins is not 1 or 2");
+        return;
     }
     printf("%-8s %4d (", name, c);
     values_print(&dat->ctn.arr[c]);
@@ -190,7 +194,7 @@ static void idf_ins(const char *name, uint argsize)
     switch (argsize) {
       case 1: c = read_u8 (&ip); break;
       case 2: c = read_u16(&ip); break;
-      default: panic("something went rrong in idf_ins");
+      default: panic("something went rrong in idf_ins"); return;
     }
     printf("%-8s %4d (", name, c);
     dfidf_print(&dat->idf.arr[c]);
@@ -203,7 +207,7 @@ static void num_ins(const char *name, uint argsize)
     switch (argsize) {
       case 1: c = read_u8 (&ip); break;
       case 2: c = read_u16(&ip); break;
-      default: panic("something went rrong in num_ins");
+      default: panic("something went rrong in num_ins"); return;
     }
     printf("%-8s %4u\n", name, c);
 }
@@ -214,7 +218,7 @@ static void jmp_ins(const char *name, uint argsize)
     switch (argsize) {
       case 1: c = read_i8 (&ip); break;
       case 2: c = read_i16(&ip); break;
-      default: panic("something went rrong in num_ins");
+      default: panic("something went rrong in num_ins"); return;
     }
     printf("%-8s %+4d\n", name, c);
 }

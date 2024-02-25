@@ -5,7 +5,7 @@
 #include "falloc.h"
 
 
-#define BLOCKS_PER_POOL 64
+#define BLOCKS_PER_POOL 32
 
 struct Block {
     int free;

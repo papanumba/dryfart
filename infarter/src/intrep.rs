@@ -57,9 +57,13 @@ pub enum ImOp
     TSF(IdfIdx),
     TGF(IdfIdx),
 
+    FMN(PagIdx),
+    FCL(u8),
+
     PMN(PagIdx),
     PCL(u8), // called arity
 
+    CAN,
     CAZ,
     CAR,
 
@@ -91,10 +95,13 @@ impl ImOp
         }
     }
 
-    pub fn is_pro(&self) -> bool
+    pub fn is_subr(&self) -> bool
     {
         match self {
-            ImOp::PMN(_) | ImOp::PCL(_) => true,
+            ImOp::PMN(_) |
+            ImOp::PCL(_) |
+            ImOp::FMN(_) |
+            ImOp::FCL(_) => true,
             _ => false,
         }
     }
@@ -177,9 +184,6 @@ impl BasicBlock
         self.code.push(imop);
     }
 }
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SubrType { P /*, F */ }
 
 #[derive(Debug, Default)]
 pub struct SubrEnv // subroutine environment compiler
@@ -444,7 +448,9 @@ impl<'a> Compiler<'a>
             Stmt::IfStmt(c, b, e) => self.s_ifstmt(c, b, e),
             Stmt::LoopIf(l)       => self.s_loopif(l),
             Stmt::PcCall(p, a)    => self.s_pccall(p, a),
-            _ => todo!("oþer stmts"),
+            Stmt::PcExit          => {self.term_curr_bb(Term::END);},
+            Stmt::Return(e)       => self.s_return(e),
+            _ => todo!("oþer stmts {:?}", s),
         }
     }
 
@@ -611,6 +617,12 @@ impl<'a> Compiler<'a>
         self.push_op(ImOp::PCL(ari));
     }
 
+    fn s_return(&mut self, e: &'a Expr)
+    {
+        self.expr(e);
+        self.term_curr_bb(Term::RET);
+    }
+
     fn expr(&mut self, ex: &'a Expr)
     {
         match ex {
@@ -624,8 +636,11 @@ impl<'a> Compiler<'a>
             Expr::Table(v)       => self.e_table(v),
             Expr::TblFd(t, f)    => self.e_tblfd(t, f),
             Expr::RecsT(l)       => self.e_recst(l),
-            Expr::PcDef(l, p, b) => self.e_pcdef(*l, p, b),
-            _ => todo!("oþer exprs {:?}", ex),
+            Expr::FnDef(s)       => self.e_fndef(&*s),
+            Expr::Fcall(f, a)    => self.e_fcall(f, a),
+            Expr::PcDef(s)       => self.e_pcdef(&*s),
+            Expr::RecFn |
+            Expr::RecPc => self.push_op(ImOp::LLX(0)), // unchecked
         }
     }
 
@@ -676,6 +691,7 @@ impl<'a> Compiler<'a>
         match t {
             Type::Z => self.push_op(ImOp::CAZ),
             Type::R => self.push_op(ImOp::CAR),
+            Type::N => self.push_op(ImOp::CAN),
             _ => todo!(),
         }
     }
@@ -748,23 +764,43 @@ impl<'a> Compiler<'a>
         }
     }
 
-    pub fn e_pcdef(
-        &mut self,
-        line: usize,
-        pars: &'a [String],
-        body: &'a Block)
+    pub fn e_fndef(&mut self, subr: &'a Subr)
+    {
+        let pagidx = self.comp_subr(subr, SubrType::F);
+        self.push_op(ImOp::FMN(pagidx));
+    }
+
+    pub fn e_fcall(&mut self, func: &'a Expr, args: &'a [Expr])
+    {
+        self.expr(func);
+        for arg in args {
+            self.expr(arg);
+        }
+        let ari = u8::try_from(args.len())
+            .expect("too many args in func call: max 255");
+        self.push_op(ImOp::FCL(ari));
+    }
+
+    pub fn e_pcdef(&mut self, subr: &'a Subr /* eke upvals here */ )
+    {
+        let pagidx = self.comp_subr(subr, SubrType::P);
+        self.push_op(ImOp::PMN(pagidx));
+    }
+
+    pub fn comp_subr(&mut self, s: &'a Subr, stype: SubrType) -> PagIdx
     {
         let outer = std::mem::replace(&mut self.curr, SubrEnv::default());
-        self.incloc(); // !@
+        self.incloc(); // !@ xor #@
         // declare pars as locals
-        for par in pars {
+        for par in &s.pars {
             self.new_local(par);
         }
-        self.block(body);
-        self.term_curr_bb(Term::END);
-        let idx = self.term_subr(pars.len(), outer);
-        // TODO: opcode for making a proc val from arity and page `idx`
-        self.push_op(ImOp::PMN(idx));
+        self.block(&s.body);
+        match stype {
+            SubrType::F => self.term_curr_bb(Term::HLT),
+            SubrType::P => self.term_curr_bb(Term::END),
+        };
+        return self.term_subr(s.arity(), outer);
     }
 }
 

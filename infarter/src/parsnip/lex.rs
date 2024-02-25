@@ -162,7 +162,8 @@ impl<'src> Luthor<'src>
             b'}' => Token::Rbrace,
             b'^' => Token::Caret,
             b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' |
-            b'&' | b'|' | b'#' => self.maybe_2ble(*c),
+            b'&' | b'|' => self.maybe_2ble(*c),
+            b'#' => self.from_hash(),
             b'!' => self.from_bang(),
             b'$' => self.from_dollar(),
             b'~' => self.from_tilde(),  // ~, ~~, ~=
@@ -284,6 +285,21 @@ impl<'src> Luthor<'src>
             return Token::RecP;
         }
         return Token::Bang;
+    }
+
+    // #, ##, #@
+    #[inline]
+    fn from_hash(&mut self) -> Token<'src>
+    {
+        if self.matches::<0>(b'#') {
+            self.advance(); // #
+            return Token::Hash2;
+        }
+        if self.matches::<0>(b'@') {
+            self.advance(); // @
+            return Token::RecF;
+        }
+        return Token::Hash;
     }
 
     // gets called when current char is a digit

@@ -17,6 +17,9 @@ static void objtbl_free (struct ObjTbl *);
 static void objpro_print(struct ObjPro *);
 static void objpro_free (struct ObjPro *);
 
+static void objfun_print(struct ObjFun *);
+static void objfun_free (struct ObjFun *);
+
 static struct Object * alloc_object(enum ObjType);
 static inline int       arrt_valt_eq(enum ArrType, enum ValType);
 static inline size_t sizeof_arr_elem(enum ArrType);
@@ -32,6 +35,7 @@ void object_print(struct Object *o)
       case OBJ_ARR: objarr_print(OBJ_AS_ARR(o)); break;
       case OBJ_TBL: objtbl_print(OBJ_AS_TBL(o)); break;
       case OBJ_PRO: objpro_print(OBJ_AS_PRO(o)); break;
+      case OBJ_FUN: objfun_print(OBJ_AS_FUN(o)); break;
     }
 }
 
@@ -44,8 +48,7 @@ int object_eq(struct Object *o0, struct Object *o1)
     int b = FALSE;
     switch (o0->type) {
       case OBJ_ARR: b = objarr_eq(OBJ_AS_ARR(o0), OBJ_AS_ARR(o1)); break;
-      case OBJ_PRO: break; /* F */
-      case OBJ_TBL: break; /* F */
+      default: break; /* F */
     }
     return b;
 }
@@ -56,6 +59,7 @@ void object_free(struct Object *o)
       case OBJ_ARR: objarr_free(OBJ_AS_ARR(o)); break;
       case OBJ_TBL: objtbl_free(OBJ_AS_TBL(o)); break;
       case OBJ_PRO: objpro_free(OBJ_AS_PRO(o)); break;
+      case OBJ_FUN: objfun_free(OBJ_AS_FUN(o)); break;
     }
     falloc_free(o);
 }
@@ -183,6 +187,14 @@ struct ObjPro * objpro_new(struct Norris *n, uint line)
     return pro;
 }
 
+struct ObjFun * objfun_new(struct Norris *n, uint line)
+{
+    struct ObjFun *fun = OBJ_AS_FUN(alloc_object(OBJ_FUN));
+    fun->norr = n;
+    fun->line = line;
+    return fun;
+}
+
 /******************** S T A T I C ***************************/
 
 static void objarr_print(struct ObjArr *arr)
@@ -285,6 +297,16 @@ static void objpro_free (struct ObjPro *p)
     /* FUTURE: free upvalues */
 }
 
+static void objfun_print(struct ObjFun *f)
+{
+    printf("<# ln %u>", f->line);
+}
+
+static void objfun_free (struct ObjFun *f)
+{
+    /* FUTURE: free upvalues */
+}
+
 static struct Object * alloc_object(enum ObjType type)
 {
     struct Object *obj = falloc_alloc();
@@ -323,6 +345,7 @@ static inline size_t sizeof_arr_elem(enum ArrType a)
       BASURA(ARR_Z, int32_t)
       BASURA(ARR_R, float)
     }
+#undef BASURA
     return size;
 }
 

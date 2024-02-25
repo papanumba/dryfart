@@ -2,6 +2,7 @@
 
 #![allow(dead_code)]
 
+use std::rc::Rc;
 use super::toki::{Token, TokenType, PrimType};
 use crate::asterix::*;
 use crate::util;
@@ -181,7 +182,7 @@ impl<'src> Nip<'src>
             Token::LsqBra  => Some(self.if_stmt()),
             Token::AtSign  => Some(self.loop_stmt()),
             Token::AtSign2 => Some(self.break_stmt()),
-            Token::Hash2   => todo!(), //self.return_stmt(),
+            Token::Hash2   => Some(self.return_stmt()),
             Token::Bang2   => Some(self.pc_end()),
             _ => self.other_stmt(),
         }
@@ -408,61 +409,67 @@ impl<'src> Nip<'src>
         }
     }
 
-/* TODO: fncall
-        while self.matches::<0>(TokenType::Hash) {
-            self.advance(); // #
-            let args = self.comma_ex(TokenType::Semic)?;
-            nucle = Expr::Fcall(Box::new(nucle), args);
-        }*/
-
     fn acc_expr(&mut self) -> Result<Expr, String>
     {
-        let mut e = self.nucle()?;
+        let mut e = self.fn_call()?;
         while self.matches::<0>(TokenType::Dollar) {
             self.advance(); // $
             let i = self.consume_ident()?;
             e = Expr::TblFd(Box::new(e),
                 String::from(std::str::from_utf8(i).unwrap()),
-                );
+            );
+        }
+        return Ok(e);
+    }
+
+    fn fn_call(&mut self) -> Result<Expr, String>
+    {
+        let mut e = self.nucle()?;
+        while self.matches::<0>(TokenType::Hash) {
+            self.advance(); // #
+            let args = self.comma_ex(TokenType::Semic)?;
+            e = Expr::Fcall(Box::new(e), args);
         }
         return Ok(e);
     }
 
     fn nucle(&mut self) -> Result<Expr, String>
     {
+        const MSG: &'static str = "(, #, !, _, $, ident or literal";
         let tok = match self.peek::<0>() {
             Some(t) => t,
-            None => return eof_err!("(, ident or literal"),
+            None => return eof_err!(MSG),
         };
         match tok.0 {
             Token::Lparen => self.parented(),
-            Token::Ident(id) => {
+            Token::Hash => self.func(tok.1),
+            Token::RecF => {
                 self.advance();
-                return Ok(Expr::Ident(std::str::from_utf8(id)
-                    .unwrap().to_owned()))
+                Ok(Expr::RecFn)
             },
-            Token::AtSign => { // recurse ident
-                self.advance(); // @
-                Ok(Expr::Ident("@".to_string()))
+            Token::Bang => self.proc(tok.1),
+            Token::RecP => {
+                self.advance();
+                Ok(Expr::RecPc)
             },
-            Token::ValB(b) => Ok(self.valb(b)),
-            Token::ValN(n) => Ok(self.valn(n)),
-            Token::ValZ(z) => Ok(self.valz(z)),
-            Token::ValR(r) => Ok(self.valr(r)),
-            Token::String(s) =>  self.string(s),
             Token::Uscore =>     self.arrlit(),
             Token::Dollar =>     self.tbllit(),
             Token::RecT(l) => {
                 self.advance();
                 Ok(Expr::RecsT(l))
             },
-            Token::RecP => {
+            Token::Ident(id) => {
                 self.advance();
-                Ok(Expr::RecPc)
+                return Ok(Expr::Ident(std::str::from_utf8(id)
+                    .unwrap().to_owned()))
             },
-            Token::Hash => todo!(), //self.anon_fn(),
-            Token::Bang => self.proc(tok.1),
-            _ => expected_err!("(, _, $, ident or literal", tok),
+            // literals
+            Token::ValB(b) => Ok(self.valb(b)),
+            Token::ValN(n) => Ok(self.valn(n)),
+            Token::ValZ(z) => Ok(self.valz(z)),
+            Token::ValR(r) => Ok(self.valr(r)),
+            Token::String(s) =>  self.string(s),
+            _ => expected_err!(MSG, tok),
         }
     }
 
@@ -532,7 +539,7 @@ impl<'src> Nip<'src>
         }
     }
 
-    // called when peek: 0 -> (
+    // called when (
     fn parented(&mut self) -> Result<Expr, String>
     {
         self.advance(); // (
@@ -541,7 +548,7 @@ impl<'src> Nip<'src>
         return Ok(e);
     }
 
-    // called when peek: 0 -> _
+    // called when _
     fn arrlit(&mut self) -> Result<Expr, String>
     {
         self.advance(); // _
@@ -549,7 +556,7 @@ impl<'src> Nip<'src>
         return Ok(Expr::Array(arr_e));
     }
 
-    // called when peek: 0 -> $
+    // called when $
     fn tbllit(&mut self) -> Result<Expr, String>
     {
         const MSG: &'static str = "Ident or ;";
@@ -576,30 +583,48 @@ impl<'src> Nip<'src>
         Ok(Expr::Table(tbl_e))
     }
 
-/*    // called when peek: 0 -> #
-    fn anon_fn(&mut self) -> Result<Expr, String>
+    // called when #
+    fn func(&mut self, line: usize) -> Result<Expr, String>
     {
-        self.advance(); // #
-        let pars: Vec<String> = self.pars()?
-            .iter()
-            .map(|b| String::from(std::str::from_utf8(b).unwrap()))
-            .collect();
-        let bloq = self.block()?;
-        self.exp_adv(TokenType::Period)?;
-        return Ok(Expr::Fdefn(Func::new(&pars, &bloq)));
-    }*/
+        self.subr(line, SubrType::F)
+    }
 
     // called when !
     fn proc(&mut self, line: usize) -> Result<Expr, String>
     {
-        self.advance(); // !
-        let pars: Vec<String> = self.pars(TokenType::Period)?
+        self.subr(line, SubrType::P)
+    }
+
+    // helper for func & proc
+    fn subr(&mut self, line: usize, st: SubrType) -> Result<Expr, String>
+    {
+        self.advance(); // # or !
+        let name: Option<String> = match self.peek::<0>() {
+            Some((Token::String(s), _)) =>
+                Some(std::str::from_utf8(*s).unwrap().to_string()),
+            _ => None,
+        };
+        if name.is_some() {
+            self.advance(); // string
+        }
+        let end_tok = match st {
+            SubrType::F => TokenType::Semic,
+            SubrType::P => TokenType::Period,
+        };
+        let pars: Vec<String> = self.pars(end_tok)?
             .iter()
             .map(|b| String::from(std::str::from_utf8(b).unwrap()))
             .collect();
         let bloq = self.block()?;
         self.exp_adv(TokenType::Period)?;
-        return Ok(Expr::PcDef(line, pars, bloq));
+        let subr = Subr {
+            line: line, name: name, pars: pars, body: bloq
+        };
+        let rced = Rc::new(subr);
+        return Ok(match st{
+            SubrType::F => Expr::FnDef(rced),
+            SubrType::P => Expr::PcDef(rced),
+        });
     }
 
     // matches (Ident (Comma Ident)*)? END

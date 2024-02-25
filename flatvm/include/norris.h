@@ -78,6 +78,8 @@ enum OpCode {
 
     OP_PMN = 0x80,
     OP_PCL = 0x82,
+    OP_FMN = 0x88,
+    OP_FCL = 0x89,
 
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,

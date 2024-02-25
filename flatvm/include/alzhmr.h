@@ -11,12 +11,6 @@
 #define GROW_CAP(c) ((c) < 8 ? 8 : (c) * 2)
 
 void * realloc_or_free(void *, size_t);
-/*char   b1toc (const uchar *);
-short  b2tohi(const uchar *);
-ushort b2tohu(const uchar *);
-int    b4toi (const uchar *);
-uint   b4tou (const uchar *);
-float  b4tof (const uchar *);*/
 
 inline uint8_t read_u8(const uint8_t **rpp)
 {

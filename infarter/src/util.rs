@@ -1,5 +1,7 @@
 /* src/util.rs */
 
+//use ascii;
+
 macro_rules! format_err {
     ($($args:expr),+) => (
         Err(String::from(format!($($args),+)))
@@ -9,6 +11,7 @@ macro_rules! format_err {
 pub(crate) use format_err;
 
 pub type StrRes<T> = Result<T, String>;
+
 
 #[derive(Debug, Copy, Clone)]
 pub struct StaVec<const N: usize, T>

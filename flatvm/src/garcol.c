@@ -107,7 +107,8 @@ static void blacken_obj(struct Object *obj)
       case OBJ_TBL:
         mark_htable(&OBJ_AS_TBL(obj)->tbl);
         return;
-      case OBJ_PRO:
+      case OBJ_PRO: /* fall-þru */
+      case OBJ_FUN:
         /* FUTURE: mark upvalues */
         return;
     }

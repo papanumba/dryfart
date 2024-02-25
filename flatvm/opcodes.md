@@ -53,6 +53,7 @@ jumps:
 | 0x80 | `PMN` | u16:pag idx  |              | proc        | Procedure Make New     |
 | 0x82 | `PCL` | u8:arity     |              | proc        | Procedure CaLL         |
 |      |       |              |              |             |                        |
+| 0xE6 | `CAN` |              | val          | N%val       | CAst N%                |
 | 0xE8 | `CAZ` |              | val          | Z%val       | CAst Z%                |
 | 0xEA | `CAR` |              | val          | R%val       | CAst R%                |
 |      |       |              |              |             |                        |

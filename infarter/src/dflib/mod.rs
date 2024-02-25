@@ -1,10 +1,9 @@
 /* src/dflib/mod.rs */
 
-use std::rc::Rc;
 use crate::asterix::Val;
 
-//mod funcs;
-mod procs;
+//pub mod funcs;
+pub mod procs;
 
 pub fn get(name: &str) -> Option<Val>
 {
@@ -18,5 +17,5 @@ pub fn get(name: &str) -> Option<Val>
 #[inline]
 fn make_pc(name: &'static str) -> Val
 {
-    Val::P(Rc::new(procs::NatPc::new(name)))
+    Val::new_nat_proc(name)
 }

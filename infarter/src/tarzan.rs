@@ -96,8 +96,9 @@ impl<'a> Scope<'a>
             Stmt::IfStmt(c, b, e) => return self.do_ifstmt(c, b, e),
             Stmt::LoopIf(l)       => return self.do_loopif(l),
             Stmt::BreakL(l)       => return Some(BlockAction::Brk(*l)),
-//            Stmt::Return(e)       =>
-//                return Some(BlockAction::Ret(self.eval_expr(e))),
+            Stmt::Return(e)       => return Some(BlockAction::Ret(
+                self.eval_expr(e)
+            )),
             Stmt::PcExit          => return Some(BlockAction::End),
             Stmt::PcCall(p, a)    => self.do_pccall(p, a),
             _ => todo!(),
@@ -246,56 +247,22 @@ impl<'a> Scope<'a>
         return None;
     }
 
-    fn do_pccall(&mut self, pc_expr: &Expr, raw_args: &[Expr])
+    fn do_pccall(&mut self, p: &Expr, a: &[Expr])
     {
-        let pc_val = self.eval_expr(pc_expr);
-        if let Val::P(p) = pc_val {
-            if p.arity() != raw_args.len() {
-                panic!("not correct arity ({}) calling {:?}",
-                    raw_args.len(), p);
+        let pc_val = self.eval_expr(p);
+        if let Val::P(p) = pc_val.clone() {
+            if p.arity() != a.len() {
+                panic!("not correct arity ({}) calling {:?}", a.len(), p);
             }
-            p.exec(&self.eval_args(raw_args));
+            let args = self.eval_args(a);
+            match &*p {
+                Proc::Nat(n) => n.exec(&args),
+                Proc::Usr(u) => exec_usr_proc(pc_val.clone(), &u, args),
+            }
         } else {
             panic!("cannot call procedure {:?}", pc_val);
         }
     }
-
-/*    fn eval_fncall(
-        scope:&Scope,
-        call: &Expr,
-        args: &Vec<Expr>)
-     -> Val
-    {
-        // check if call is simply an Ident(&str)
-        return if let Expr::Ident(i) = call {
-            eval_named_fncall(scope, i, args)
-        } else {
-            // eval þe more complex call Expr
-            if let Val::F(f) = eval_expr(scope, call) {
-                eval_fn(scope, &f, &args)
-            } else {
-                panic!("call expr is not a func")
-            }
-        }
-    }*/
-
-/*    #[inline]
-    fn eval_named_fncall(
-        scope:&Scope,
-        name: &str,
-        args: &Vec<Expr>)
-     -> Val
-    {
-        return if let Some(v) = scope.vars.get(name) {
-            if let Val::F(f) = v {
-                eval_fn(scope, f, args)
-            } else {
-                panic!("{name}# is not a function")
-            }
-        } else { // couldn't find a local variable, þen try from the lib
-            dflib::do_fncall(name, &eval_args(scope, &args))
-        };
-    }*/
 
     #[inline]
     fn eval_args(&self, a: &[Expr]) -> Vec<Val>
@@ -308,19 +275,20 @@ impl<'a> Scope<'a>
     fn eval_expr(&self, e: &Expr) -> Val
     {
         match e {
-            Expr::Const(c) => c.clone(),
-            Expr::Ident(i) => self.eval_ident(i),
-            Expr::Tcast(t, e) => do_cast(t, &self.eval_expr(e)),
+            Expr::Const(c)       => c.clone(),
+            Expr::Ident(i)       => self.eval_ident(i),
+            Expr::Tcast(t, e)    => do_cast(t, &self.eval_expr(e)),
             Expr::BinOp(l, o, r) => self.eval_binop(l, o, r),
-            Expr::UniOp(t, o) => eval_uniop(&self.eval_expr(t), o),
-            Expr::CmpOp(f, o) => self.eval_cmpop(f, o),
-            //Expr::Fdefn(f) => Val::F((*f).clone()),
-            //Expr::Fcall(c, a) => eval_fncall(scope, &**c, a),
-            Expr::PcDef(l, a, b) => self.make_proc(*l, a, b),
-            Expr::RecPc => self.get_rec_p(),
-            Expr::Array(a) => self.eval_array(a),
-            Expr::Table(v) => self.eval_table(v),
-            Expr::TblFd(e, f) => self.eval_tblfd(e, f),
+            Expr::UniOp(t, o)    => eval_uniop(&self.eval_expr(t), o),
+            Expr::CmpOp(f, o)    => self.eval_cmpop(f, o),
+            Expr::FnDef(s)       => self.make_func(s),
+            Expr::Fcall(c, a)    => self.eval_fcall(c, a),
+            Expr::RecFn          => self.get_rec_f(),
+            Expr::PcDef(s)       => self.make_proc(s),
+            Expr::RecPc          => self.get_rec_p(),
+            Expr::Array(a)       => self.eval_array(a),
+            Expr::Table(v)       => self.eval_table(v),
+            Expr::TblFd(e, f)    => self.eval_tblfd(e, f),
             _ => todo!("{:?}", e),
         }
     }
@@ -361,6 +329,23 @@ impl<'a> Scope<'a>
             })
             .fold(true, |acum, e| acum && e)
         );
+    }
+
+    #[inline]
+    fn eval_fcall(&self, f: &Expr, a: &[Expr]) -> Val
+    {
+        let fn_val = self.eval_expr(f);
+        if let Val::F(f) = fn_val.clone() {
+            if f.arity() != a.len() {
+                panic!("not correct arity ({}) calling {:?}", a.len(), f);
+            }
+            let args = self.eval_args(a);
+            match &*f {
+                Func::Usr(u) => eval_usr_func(fn_val.clone(), &u, args),
+            }
+        } else {
+            panic!("cannot call function {:?}", fn_val);
+        }
     }
 
     fn eval_binop(&self, l: &Expr, o: &BinOpcode, r: &Expr) -> Val
@@ -419,9 +404,26 @@ impl<'a> Scope<'a>
     }
 
     #[inline]
-    fn make_proc(&self, line: usize, args: &[String], body: &Block) -> Val
+    fn make_func(&self, subr: &Rc<Subr>) -> Val
     {
-        Val::P(Rc::new(Proc::new(line, args.to_vec(), body.clone())))
+        Val::new_usr_fn(subr.clone())
+    }
+
+    #[inline]
+    fn make_proc(&self, subr: &Rc<Subr>) -> Val
+    {
+        Val::new_usr_pc(subr.clone())
+    }
+
+    #[inline]
+    fn get_rec_f(&self) -> Val
+    {
+        if let Some(v) = &self.callee {
+            if Type::from(v) == Type::F {
+                return v.clone();
+            }
+        }
+        panic!("cannot refer #@ not inside a func");
     }
 
     #[inline]
@@ -432,7 +434,7 @@ impl<'a> Scope<'a>
                 return v.clone();
             }
         }
-        panic!("cannot invoke !@ not inside a proc");
+        panic!("cannot refer !@ not inside a proc");
     }
 
     #[inline]
@@ -663,27 +665,42 @@ fn eval_binop_val(l: &Val, o: &BinOpcode, r: &Val) -> Val
     }
 }
 
-impl DfProc for Proc
+//fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+
+/*
+** þe next 2 functions get rec_val coz it may be used when !@ xor #@
+** rec_val is þe same as Val::P(Proc::Nat(proc)), but can be Rc-cloned
+*/
+
+pub fn exec_usr_proc(rec_val: Val, subr: &Subr, mut args: Vec<Val>)
 {
-    fn exec(&self, args: &[Val])
-    {
-        let mut proc_scope = Scope::<'_>::with_callee(
-            Val::P(Rc::new(self.clone())), // TODO: solve þis clone
-        );
-        for (name, val) in std::iter::zip(&self.pars, args) {
-            proc_scope.declar(name, val.clone());
-        }
-        if let Some(ba) = proc_scope.do_block(&self.body) {
-            match ba {
-                BlockAction::End => return,
-                _ => panic!("cannot return or break from proc"),
-            }
+    let mut proc_scope = Scope::<'_>::with_callee(rec_val);
+    for name in subr.pars.iter().rev() {
+        let val = args.pop().unwrap(); // already checked arity
+        proc_scope.declar(name, val);
+    }
+    if let Some(ba) = proc_scope.do_block(&subr.body) {
+        match ba {
+            BlockAction::End => return,
+            _ => panic!("cannot return or break from proc"),
         }
     }
+}
 
-    fn arity(&self) -> usize
-    {
-        return self.pars.len();
+pub fn eval_usr_func(rec_val: Val, subr: &Subr, mut args: Vec<Val>) -> Val
+{
+    let mut func_scope = Scope::<'_>::with_callee(rec_val);
+    for name in subr.pars.iter().rev() {
+        let val = args.pop().unwrap(); // already checked arity
+        func_scope.declar(name, val);
+    }
+    if let Some(ba) = func_scope.do_block(&subr.body) {
+        match ba {
+            BlockAction::Ret(v) => return v,
+            _ => panic!("cannot return or break from func"),
+        }
+    } else {
+        panic!("ended function w/o returning a value");
     }
 }
 

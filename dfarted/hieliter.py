@@ -64,7 +64,7 @@ class DFHieliter(QSyntaxHighlighter):
             (r'(\b|_)[0-9][0-9]*(u|\.[0-9]+\b)?(\b|_)', 0, STYLES['number']),
             (r'[()]',           0, STYLES['string']),
             (r'(=>|\[|\]|@)',   0, STYLES['control']),
-            (r'\b[BCNZR]%',     0, STYLES['type']),
+            (r'(\b|_)[BCNZR]%',     0, STYLES['type']),
             (r'\b[TFV]\b',      0, STYLES['table']),
             (r'#(@[0-9]*)?',    0, STYLES['func']),
             (r'!(@[0-9]*)?',    0, STYLES['proc']),

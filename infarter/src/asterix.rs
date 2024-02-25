@@ -6,6 +6,7 @@ use std::{
     collections::HashMap,
 };
 use crate::util;
+use crate::dflib;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Type
@@ -16,7 +17,7 @@ pub enum Type
     N, // natural
     Z, // zahl
     R, // real
-//    F, // func
+    F, // func
     P, // proc
     A, // array
     T, // table
@@ -41,10 +42,7 @@ impl Type
             Self::N |
             Self::Z |
             Self::R => true,
-//            Self::F |
-            Self::P |
-            Self::A |
-            Self::T => false,
+            _ => false,
         }
     }
 
@@ -57,9 +55,9 @@ impl Type
             Self::N => Val::N(0),
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
-//            Self::F => panic!("cannot default function"),
+            Self::F => panic!("cannot default function"),
             Self::P => panic!("cannot default procedure"),
-            Self::A => Val::from_array(Array::new()),
+            Self::A => Val::from_array(Array::default()),
             Self::T => Val::from_table(Table::new()),
         }
     }
@@ -76,7 +74,7 @@ impl std::convert::From<&Val> for Type
             Val::N(_) => Type::N,
             Val::Z(_) => Type::Z,
             Val::R(_) => Type::R,
-//            Val::F(_) => Type::F,
+            Val::F(_) => Type::F,
             Val::P(_) => Type::P,
             Val::A(_) => Type::A,
             Val::T(_) => Type::T,
@@ -95,7 +93,7 @@ impl std::fmt::Display for Type
             Self::N => write!(f, "N%"),
             Self::Z => write!(f, "Z%"),
             Self::R => write!(f, "R%"),
-//            Self::F => write!(f, "#%"),
+            Self::F => write!(f, "#%"),
             Self::P => write!(f, "!%"),
             Self::A => write!(f, "_%"),
             Self::T => write!(f, "$%"),
@@ -116,12 +114,6 @@ pub enum Array
 
 impl Array
 {
-    #[inline]
-    pub fn new() -> Self
-    {
-        Self::E
-    }
-
     pub fn singleton(v: &Val) -> Self
     {
         match v {
@@ -177,10 +169,10 @@ impl Array
     fn replace_esc_seq(s: &str) -> String
     {
         return s
-            .replace("N$",  "\n")
-            .replace("T$",  "\t")
-            .replace("\"$", "\"")
-            .replace("$$",  "$");
+            .replace("^N",  "\n")
+            .replace("^T",  "\t")
+            .replace("^\"", "\"")
+            .replace("^^",  "^");
     }
 
     pub fn get_type(&self) -> Option<Type>
@@ -260,7 +252,10 @@ impl Array
     }
 }
 
-// TryInto is automatically implemented
+impl Default for Array {
+    fn default() -> Self { Self::E }
+}
+
 impl std::convert::TryFrom<&[Val]> for Array
 {
     type Error = String;
@@ -280,7 +275,6 @@ impl std::convert::TryFrom<&[Val]> for Array
     }
 }
 
-// TryInto is automatically implemented
 impl std::convert::TryFrom<&str> for Array
 {
     type Error = &'static str;
@@ -353,90 +347,75 @@ impl Table
     }
 }
 
-/*
-#[derive(Clone)]
-pub struct Func
-{
-    pars: Vec<String>,
-    body: Block,
-}
-
-impl Func
-{
-    pub fn new(p: &Vec<String>, b: &Block) -> Self
-    {
-        // check uniques in p
-        let mut p2: Vec<String> = p.clone();
-        p2.sort();
-        p2.dedup();
-        if p2.len() != p.len() {
-            panic!("duplicate parameters in decl of a func");
-        }
-        return Self {
-            pars: (*p).clone(),
-            body: (*b).clone(),
-        };
-    }
-
-    pub fn parc(&self) -> usize
-    {
-        return self.pars.len();
-    }
-
-    pub fn pars(&self) -> &[String]
-    {
-        return self.pars.as_slice();
-    }
-
-    pub fn body(&self) -> &Block
-    {
-        return &self.body;
-    }
-}
-
-impl PartialEq for Func
-{
-    // Required method
-    fn eq(&self, _other: &Self) -> bool
-    {
-        return false;
-    }
-}
-
-impl std::fmt::Debug for Func
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
-    {
-        write!(f, "#%...")
-    }
-}
-*/
-
-pub trait DfProc: std::fmt::Debug
-{
-    fn exec(&self, _: &[Val]);
-    fn arity(&self) -> usize;
-}
-
-#[derive(Clone)]
-pub struct Proc
+#[derive(Debug, Clone)]
+pub struct Subr
 {
     pub line: usize,
+    pub name: Option<String>,
     pub pars: Vec<String>,
     pub body: Block,
 }
 
-impl Proc
+impl Subr
 {
     pub fn new(l: usize, p: Vec<String>, b: Block) -> Self
     {
-        Self { line: l, pars: p, body: b }
+        Self { line: l, name: None, pars: p, body: b }
+    }
+
+    pub fn with_name(l: usize, n: String, p: Vec<String>, b: Block) -> Self
+    {
+        Self { line: l, name: Some(n), pars: p, body: b }
+    }
+
+    pub fn arity(&self) -> usize
+    {
+        self.pars.len()
+    }
+
+/*    fn name(&self) -> Option<&str>
+    {
+        match &self.name {
+            Some(s) => Some(s),
+            None => None,
+        }
+    }*/
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SubrType { F, P }
+
+#[derive(Debug)]
+pub enum Proc {
+    Nat(dflib::procs::NatPc),
+    Usr(Rc<Subr>),
+}
+
+impl Proc
+{
+    pub fn arity(&self) -> usize
+    {
+        match &self {
+            Self::Nat(np) => np.arity(),
+            Self::Usr(subr) => subr.arity(),
+        }
     }
 }
 
-impl std::fmt::Debug for Proc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<! def at line {}>", self.line)
+#[derive(Debug, Clone)]
+pub enum Func {
+//    Nat(dflib::NatFn),
+    Usr(Rc<Subr>),
+}
+
+impl Func
+{
+    pub fn arity(&self) -> usize
+    {
+        match &self {
+//            Self::Nat(nf) => nf.arity(),
+            Self::Usr(subr) => subr.arity(),
+        }
     }
 }
 
@@ -449,8 +428,8 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f32),
-//    F(Func),
-    P(Rc<dyn DfProc>), // TODO: add upvalues
+    F(Rc<Func>), // TODO: add upvalues
+    P(Rc<Proc>), // TODO: add upvalues
     A(Rc<RefCell<Array>>),
     T(Rc<RefCell<Table>>),
 }
@@ -479,6 +458,21 @@ impl Val
     pub fn from_table(t: Table) -> Self
     {
         Self::T(Rc::new(RefCell::new(t)))
+    }
+
+    pub fn new_usr_fn(s: Rc<Subr>) -> Self
+    {
+        Self::F(Rc::new(Func::Usr(s)))
+    }
+
+    pub fn new_usr_pc(s: Rc<Subr>) -> Self
+    {
+        Self::P(Rc::new(Proc::Usr(s)))
+    }
+
+    pub fn new_nat_proc(n: &'static str) -> Self
+    {
+        Self::P(Rc::new(Proc::Nat(dflib::procs::NatPc::new(n))))
     }
 }
 
@@ -610,9 +604,10 @@ pub enum Expr
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
     CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
-//    Fdefn(Func),
-//    Fcall(Box<Expr>, Vec<Expr>),
-    PcDef(usize, Vec<String>, Block),
+    FnDef(Rc<Subr>), // TODO upvalues
+    Fcall(Box<Expr>, Vec<Expr>),
+    RecFn,
+    PcDef(Rc<Subr>),
     RecPc,
     Array(Vec<Expr>),
     Table(Vec<(String, Expr)>),

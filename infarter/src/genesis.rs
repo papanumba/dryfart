@@ -95,6 +95,10 @@ pub enum Op
     PMN = 0x80,
     PCL = 0x82,
 
+    FMN = 0x88,
+    FCL = 0x89,
+
+    CAN = 0xE6,
     CAZ = 0xE8,
     CAR = 0xEA,
 
@@ -187,6 +191,7 @@ impl TryFrom<ImOp> for Op
 
             ImOp::TMN => Ok(Op::TMN),
 
+            ImOp::CAN => Ok(Op::CAN),
             ImOp::CAZ => Ok(Op::CAZ),
             ImOp::CAR => Ok(Op::CAR),
 
@@ -307,8 +312,8 @@ impl LowerBlock
         if imop.is_tbl() {
             return self.push_tbl_op(imop);
         }
-        if imop.is_pro() {
-            return self.push_pro_op(imop);
+        if imop.is_subr() {
+            return self.push_subr_op(imop);
         }
         let opnd = imop.get_operand().unwrap();
         if let Ok(u) = u8::try_from(opnd) { // Short
@@ -350,7 +355,7 @@ impl LowerBlock
         }
     }
 
-    fn push_pro_op(&mut self, imop: &ImOp)
+    fn push_subr_op(&mut self, imop: &ImOp)
     {
         match imop {
             ImOp::PMN(pi) => {
@@ -359,6 +364,14 @@ impl LowerBlock
             },
             ImOp::PCL(a) => {
                 self.push_op(Op::PCL);
+                self.push_num(*a);
+            },
+            ImOp::FMN(pi) => {
+                self.push_op(Op::FMN);
+                self.push_num(*pi as u16);
+            },
+            ImOp::FCL(a) => {
+                self.push_op(Op::FCL);
                 self.push_num(*a);
             },
             _ => unreachable!(),
@@ -446,7 +459,6 @@ impl<'a> Phil // 'a lifetime of AST
             self.extend_val(cn);
         }
     }
-
 
     fn push_pages(&mut self, pags: &[Page])
     {
