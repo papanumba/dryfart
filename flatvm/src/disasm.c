@@ -27,7 +27,7 @@ void disasm_vmdata(struct VmData *vmd, const char *name)
     printf("=== %s ===\n", name);
     size_t pag_len = dat->pag.len;
     for (size_t p = 0; p < pag_len; (void) (++p && ++nor)) {
-        printf("-------- %u-ary --------\n", nor->ari);
+        printf("-------- %u-ary @ line: %u --------\n", nor->ari, nor->lne);
         ip = nor->cod;
         const uint8_t *end = &nor->cod[nor->len];
         while (ip != end)

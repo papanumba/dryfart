@@ -486,11 +486,16 @@ impl PartialEq for Val
             (Val::C(c), Val::C(d)) => c == d,
             (Val::N(n), Val::N(m)) => n == m,
             (Val::Z(z), Val::Z(a)) => z == a,
+            (Val::F(f), Val::F(g)) => Rc::ptr_eq(f, g),
+            (Val::P(p), Val::P(q)) => Rc::ptr_eq(p, q),
             (Val::A(a), Val::A(b)) => *a.borrow() == *b.borrow(),
+            (Val::T(t), Val::T(r)) => Rc::ptr_eq(t, r),
             _ => false,
         }
     }
 }
+
+impl Eq for Val {}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BinOpcode {

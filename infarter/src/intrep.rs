@@ -1,6 +1,5 @@
 /* src/intrep.rs */
 
-//use std::collections::HashMap;
 use crate::{util::*, asterix::*};
 
 // Intermediate Opcodes
@@ -270,14 +269,15 @@ impl SubrEnv
 pub struct Page
 {
     pub arity: usize,
+    pub line: usize,
     pub code:  Vec<BasicBlock>,
 }
 
 impl Page
 {
-    pub fn new(a: usize, c: Vec<BasicBlock>) -> Self
+    pub fn new(a: usize, l: usize, c: Vec<BasicBlock>) -> Self
     {
-        Self { arity: a, code: c }
+        Self { arity: a, line: l, code: c }
     }
 }
 
@@ -289,8 +289,6 @@ pub struct Compiler<'ast>
     pub subrs:   Vec<Page>,
     pub curr:    SubrEnv,
 }
-
-impl Eq for Val {} // for ArraySet
 
 impl<'a> Compiler<'a>
 {
@@ -358,12 +356,15 @@ impl<'a> Compiler<'a>
     }
 
     #[inline]
-    fn term_subr(&mut self, arity: usize, outer: SubrEnv) -> PagIdx
+    fn term_subr(&mut self,
+        arity: usize,
+        line: usize,
+        outer: SubrEnv) -> PagIdx
     {
         // extract byte code þe dying subrenv
         let curr = std::mem::replace(&mut self.curr, outer);
         let idx = self.subrs.len();
-        self.subrs.push(Page::new(arity, curr.blocks));
+        self.subrs.push(Page::new(arity, line, curr.blocks));
         return idx;
     }
 
@@ -800,7 +801,7 @@ impl<'a> Compiler<'a>
             SubrType::F => self.term_curr_bb(Term::HLT),
             SubrType::P => self.term_curr_bb(Term::END),
         };
-        return self.term_subr(s.arity(), outer);
+        return self.term_subr(s.arity(), s.line, outer);
     }
 }
 

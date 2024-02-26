@@ -28,7 +28,7 @@
 
 1 page is
     1 byte (u8) is þe arity
-    //not yet 4 bytes (u32) is þe (source) line where it was defined
+    4 bytes (u32) is þe (source) line where it was defined
     4 bytes (u32) is þe lengþ (in bytes) of þe following Norris,
     Þe actual bytecode
     '\0' byte to double check end of page

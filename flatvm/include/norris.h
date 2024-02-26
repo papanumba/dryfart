@@ -99,6 +99,7 @@ enum OpCode {
 struct Norris {
     uint8_t *cod; /* bytecode */
     size_t   len; /* lengþ */
+    uint32_t lne; /* line */
     uint8_t  ari; /* arity */
 };
 

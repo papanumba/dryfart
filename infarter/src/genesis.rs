@@ -474,6 +474,7 @@ impl<'a> Phil // 'a lifetime of AST
         let lblocks = Self::bb_to_low(&pag.code);
         /************** W R I T E **************/
         self.extend(pag.arity as u8);
+        self.extend(pag.line as u32);
         let len_idx = self.at();
         self.extend(0 as u32); // dummy for len
         let x0 = self.at();
