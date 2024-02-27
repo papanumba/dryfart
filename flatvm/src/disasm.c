@@ -24,10 +24,17 @@ static void    jmp_ins(const char *, uint);
 void disasm_vmdata(struct VmData *vmd, const char *name)
 {
     set_vmdata(vmd);
+    printf("size of Norris = %u\n", (uint) sizeof(struct Norris));
     printf("=== %s ===\n", name);
     size_t pag_len = dat->pag.len;
     for (size_t p = 0; p < pag_len; (void) (++p && ++nor)) {
-        printf("-------- %u-ary @ line: %u --------\n", nor->ari, nor->lne);
+        if (!nor->ano) {
+            printf("-------- %u-ary @ line: %u \"%s\" --------\n",
+                nor->ari, nor->lne, dat->idf.arr[nor->nam & 0xffff].str);
+        } else {
+            printf("-------- %u-ary @ line: %u --------\n",
+                nor->ari, nor->lne);
+        }
         ip = nor->cod;
         const uint8_t *end = &nor->cod[nor->len];
         while (ip != end)

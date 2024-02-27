@@ -128,6 +128,16 @@ static int load_one_pag(struct NorVec *pag, const uint8_t **rpp, uint i)
     struct Norris *nor = &pag->nor[i];
     nor->ari = read_u8(rpp);
     nor->lne = read_u32(rpp);
+    switch (read_u8(rpp)) {
+      case 0x00: nor->ano = TRUE; break;
+      case 0xFF:
+        nor->ano = FALSE;
+        nor->nam = read_u16(rpp);
+        break;
+      default:
+        eputln("error: one of pages is not correct format");
+        return FALSE;
+    }
     size_t len = read_u32(rpp);
     if ((*rpp)[len] != 0) {
         eputln("error: one of pages is not correct format");

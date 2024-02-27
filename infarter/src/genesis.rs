@@ -474,7 +474,7 @@ impl<'a> Phil // 'a lifetime of AST
         let lblocks = Self::bb_to_low(&pag.code);
         /************** W R I T E **************/
         self.extend(pag.arity as u8);
-        self.extend(pag.line as u32);
+        self.push_page_meta(&pag.meta);
         let len_idx = self.at();
         self.extend(0 as u32); // dummy for len
         let x0 = self.at();
@@ -506,6 +506,16 @@ impl<'a> Phil // 'a lifetime of AST
         return lblocks;
     }
 
+    fn push_page_meta(&mut self, pm: &PageMeta)
+    {
+        self.extend(pm.line as u32);
+        if let Some(ii) = pm.name {
+            self.extend(0xFF as u8);
+            self.extend(ii as u16);
+        } else {
+            self.extend(0 as u8);
+        }
+    }
 }
 
 fn write_lb_term(

@@ -347,27 +347,24 @@ impl Table
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+pub struct SubrMeta
+{
+    pub line: usize, // line where it started (# xor !)
+    pub name: Option<String>,
+}
+
+#[derive(Debug)]
 pub struct Subr
 {
-    pub line: usize,
-    pub name: Option<String>,
+    pub meta: SubrMeta,
     pub pars: Vec<String>,
     pub body: Block,
 }
 
 impl Subr
 {
-    pub fn new(l: usize, p: Vec<String>, b: Block) -> Self
-    {
-        Self { line: l, name: None, pars: p, body: b }
-    }
-
-    pub fn with_name(l: usize, n: String, p: Vec<String>, b: Block) -> Self
-    {
-        Self { line: l, name: Some(n), pars: p, body: b }
-    }
-
+    #[inline]
     pub fn arity(&self) -> usize
     {
         self.pars.len()
@@ -396,13 +393,13 @@ impl Proc
     pub fn arity(&self) -> usize
     {
         match &self {
-            Self::Nat(np) => np.arity(),
-            Self::Usr(subr) => subr.arity(),
+            Self::Nat(n) => n.arity(),
+            Self::Usr(u) => u.arity(),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Func {
 //    Nat(dflib::NatFn),
     Usr(Rc<Subr>),
@@ -413,8 +410,8 @@ impl Func
     pub fn arity(&self) -> usize
     {
         match &self {
-//            Self::Nat(nf) => nf.arity(),
-            Self::Usr(subr) => subr.arity(),
+//            Self::Nat(n) => n.arity(),
+            Self::Usr(u) => u.arity(),
         }
     }
 }
@@ -436,8 +433,8 @@ pub enum Val
 
 /*
 ** Note: Val clone is always "shallow":
-**  - for primitives (VBCNZR) it's just a Copy
-**  - for heap objects (FPAT) it's an Rc::clone
+**  - for primitives (VBCNZR) it's just Copy
+**  - for heap objects (FPAT) it's Rc::clone
 */
 
 impl Val

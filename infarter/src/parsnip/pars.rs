@@ -617,9 +617,8 @@ impl<'src> Nip<'src>
             .collect();
         let bloq = self.block()?;
         self.exp_adv(TokenType::Period)?;
-        let subr = Subr {
-            line: line, name: name, pars: pars, body: bloq
-        };
+        let meta = SubrMeta { line: line, name: name };
+        let subr = Subr { meta: meta, pars: pars, body: bloq };
         let rced = Rc::new(subr);
         return Ok(match st{
             SubrType::F => Expr::FnDef(rced),

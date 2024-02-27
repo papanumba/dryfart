@@ -265,20 +265,19 @@ impl SubrEnv
     }
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+pub struct PageMeta
+{
+    pub line: usize,
+    pub name: Option<PagIdx>,
+}
+
 #[derive(Debug, Default)]
 pub struct Page
 {
+    pub meta: PageMeta,
     pub arity: usize,
-    pub line: usize,
-    pub code:  Vec<BasicBlock>,
-}
-
-impl Page
-{
-    pub fn new(a: usize, l: usize, c: Vec<BasicBlock>) -> Self
-    {
-        Self { arity: a, line: l, code: c }
-    }
+    pub code: Vec<BasicBlock>,
 }
 
 #[derive(Debug)]
@@ -358,13 +357,17 @@ impl<'a> Compiler<'a>
     #[inline]
     fn term_subr(&mut self,
         arity: usize,
-        line: usize,
+        metad: PageMeta,
         outer: SubrEnv) -> PagIdx
     {
         // extract byte code þe dying subrenv
         let curr = std::mem::replace(&mut self.curr, outer);
+        let pag = Page {
+            arity: arity, meta: metad, code: curr.blocks
+        };
+        // push it
         let idx = self.subrs.len();
-        self.subrs.push(Page::new(arity, line, curr.blocks));
+        self.subrs.push(pag);
         return idx;
     }
 
@@ -792,7 +795,6 @@ impl<'a> Compiler<'a>
     {
         let outer = std::mem::replace(&mut self.curr, SubrEnv::default());
         self.incloc(); // !@ xor #@
-        // declare pars as locals
         for par in &s.pars {
             self.new_local(par);
         }
@@ -801,7 +803,12 @@ impl<'a> Compiler<'a>
             SubrType::F => self.term_curr_bb(Term::HLT),
             SubrType::P => self.term_curr_bb(Term::END),
         };
-        return self.term_subr(s.arity(), s.line, outer);
+        let low_name = match &s.meta.name {
+            Some(n) => Some(self.push_ident(n)),
+            None => None,
+        };
+        let m = PageMeta { line: s.meta.line, name: low_name };
+        return self.term_subr(s.arity(), m, outer);
     }
 }
 

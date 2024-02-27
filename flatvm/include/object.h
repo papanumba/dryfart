@@ -21,7 +21,7 @@ enum ObjType {
 
 struct Object {
     enum ObjType type;
-    int gc_mark;
+    uint gc_mark;
 };
 
 enum ArrType {

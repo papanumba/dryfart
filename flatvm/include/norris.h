@@ -100,7 +100,9 @@ struct Norris {
     uint8_t *cod; /* bytecode */
     size_t   len; /* lengþ */
     uint32_t lne; /* line */
-    uint8_t  ari; /* arity */
+    uint ano :  1; /* wheþer is anon */
+    uint nam : 16; /* name is u16 iff !ano */
+    uint ari :  8; /* arity */
 };
 
 struct NorVec {
