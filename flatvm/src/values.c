@@ -50,7 +50,7 @@ int values_eq(struct DfVal *v, struct DfVal *w)
     }
 }
 
-void values_print(struct DfVal *value)
+void values_print(const struct DfVal *value)
 {
     switch (value->type) {
       case VAL_V: fputs("Void", stdout);         break;
@@ -66,20 +66,19 @@ void values_print(struct DfVal *value)
     }
 }
 
-char valt2char(enum ValType t)
+enum DfType val2type(const struct DfVal *v)
 {
-    switch (t) {
-        case VAL_V: return 'V';
-        case VAL_B: return 'B';
-        case VAL_C: return 'C';
-        case VAL_N: return 'N';
-        case VAL_Z: return 'Z';
-        case VAL_R: return 'R';
-        case VAL_O: return 'O';
-        default:
-            fprintf(stderr, "unknown type %x\n", t);
-            return '\0';
+    enum DfType t = DFTYPE_V;
+    switch (v->type) {
+        case VAL_V: t = DFTYPE_V; break;
+        case VAL_B: t = DFTYPE_B; break;
+        case VAL_C: t = DFTYPE_C; break;
+        case VAL_N: t = DFTYPE_N; break;
+        case VAL_Z: t = DFTYPE_Z; break;
+        case VAL_R: t = DFTYPE_R; break;
+        case VAL_O: t = object_get_type(v->as.o); break;
     }
+    return t;
 }
 
 static void grow(struct Values *v, uint newcap)

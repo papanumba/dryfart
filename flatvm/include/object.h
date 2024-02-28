@@ -6,6 +6,7 @@
 #include "common.h"
 #include "values.h"
 #include "htable.h"
+#include "norris.h"
 
 #define OBJ_AS_ARR(o)   ((struct ObjArr *) (o))
 #define OBJ_AS_TBL(o)   ((struct ObjTbl *) (o))
@@ -55,14 +56,12 @@ struct ObjTbl {
 struct ObjPro {
     struct Object obj;
     struct Norris *norr;
-    uint line;
     /* FUTURE: eke upvalues */
 };
 
 struct ObjFun {
     struct Object obj;
     struct Norris *norr;
-    uint line;
     /* FUTURE: eke upvalues */
 };
 
@@ -79,6 +78,7 @@ typedef union {
 void object_print(struct Object *);
 int  object_eq   (struct Object *, struct Object *);
 void object_free (struct Object *);
+enum DfType object_get_type(const struct Object *);
 
 struct ObjArr * objarr_new     (void);
 int             objarr_try_push(struct ObjArr *, struct DfVal *);
@@ -86,9 +86,9 @@ struct DfVal    objarr_get     (struct ObjArr *, uint32_t);
 int             objarr_set     (struct ObjArr *, uint32_t, struct DfVal *);
 struct ObjArr * objarr_concat  (struct ObjArr *, struct ObjArr *);
 
-struct ObjTbl * objtbl_new     (void);
-struct ObjPro * objpro_new     (struct Norris *, uint);
-struct ObjFun * objfun_new     (struct Norris *, uint);
+struct ObjTbl * objtbl_new(void);
+struct ObjPro * objpro_new(struct Norris *);
+struct ObjFun * objfun_new(struct Norris *);
 
 
 #endif /* FLATVM_OBJECT_H */

@@ -14,22 +14,23 @@ enum ValType {
     VAL_N = 0x06,
     VAL_Z = 0x08,
     VAL_R = 0x0A,
-    VAL_O = 0x0C, /* any heap stuff */
-    VAL_T = 0x0E  /* represents the types itself */
+    VAL_O = 0x0C /* any heap stuff */
 };
 
 /*
 **  þis enum is used in values (struct DfVal) þat represent types
 */
-enum DfTypeTag {
-    DFTYPE_V, /* void */
-    DFTYPE_B, /* bool */
-    DFTYPE_C, /* char */
-    DFTYPE_N, /* natural */
-    DFTYPE_Z, /* zahl */
-    DFTYPE_R, /* real */
-    DFTYPE_F, /* function */
-    DFTYPE_P, /* procedure */
+enum DfType {
+    DFTYPE_V = 'V', /* void */
+    DFTYPE_B = 'B', /* bool */
+    DFTYPE_C = 'C', /* char */
+    DFTYPE_N = 'N', /* natural */
+    DFTYPE_Z = 'Z', /* zahl */
+    DFTYPE_R = 'R', /* real */
+    DFTYPE_F = '#', /* function */
+    DFTYPE_P = '!', /* procedure */
+    DFTYPE_A = '_', /* array */
+    DFTYPE_T = '$'  /* table */
 };
 
 struct DfVal {
@@ -53,7 +54,7 @@ struct Values {
 void values_init(struct Values *);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
-void values_print(struct DfVal *);
-char valt2char(enum ValType);
+void values_print   (const struct DfVal *);
+enum DfType val2type(const struct DfVal *);
 
 #endif /* FLATVM_VALUES_H */

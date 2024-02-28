@@ -30,7 +30,7 @@
     1 byte (u8) is þe arity
     4 bytes (u32) is þe (source) line where it was defined
     1 byte (0 or 0xFF) indicates wheþer it's anonymous or not,
-        if 0xFF, þen 2 bytes (u16)
+        if 0xFF, þen 2 bytes (u16) is idf index
     4 bytes (u32) is þe lengþ (in bytes) of þe following Norris,
     Þe actual bytecode
     '\0' byte to double check end of page

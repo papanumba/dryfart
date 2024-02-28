@@ -10,10 +10,10 @@ static void vmdata_init(struct VmData *);
 static int check_magic_df(const uint8_t **);
 static int load_idf     (struct Idents *, const uint8_t **);
 static int load_ctn     (struct Values *, const uint8_t **);
-static int load_pag     (struct NorVec *, const uint8_t **);
+static int load_pag     (struct VmData *, const uint8_t **);
 static int load_one_idf (struct Idents *, const uint8_t **);
 static int load_one_ctn (struct Values *, const uint8_t **);
-static int load_one_pag (struct NorVec *, const uint8_t **, uint);
+static int load_one_pag (struct VmData *, struct Norris *, const uint8_t **);
 static void load_val_n  (struct Values *, const uint8_t **);
 static void load_val_z  (struct Values *, const uint8_t **);
 static void load_val_r  (struct Values *, const uint8_t **);
@@ -30,7 +30,7 @@ struct VmData * vmdata_from_dfc(const uint8_t *buff, size_t len)
         return NULL;
     if (!load_ctn(&vmd->ctn, &rp))
         return NULL;
-    if (!load_pag(&vmd->pag, &rp))
+    if (!load_pag(vmd, &rp))
         return NULL;
     return vmd;
 }
@@ -86,12 +86,13 @@ static int load_ctn(struct Values *ctn, const uint8_t **rpp)
     return TRUE;
 }
 
-static int load_pag(struct NorVec *pag, const uint8_t **rpp)
+static int load_pag(struct VmData *vmd, const uint8_t **rpp)
 {
+    struct NorVec *pag = &vmd->pag;
     uint len = read_u16(rpp);
     norvec_with_cap(pag, len);
     for (uint i = 0; i < len; ++i) {
-        if (!load_one_pag(pag, rpp, i))
+        if (!load_one_pag(vmd, &pag->nor[i], rpp))
             return FALSE;
     }
     return TRUE;
@@ -117,22 +118,25 @@ static int load_one_ctn(struct Values *ctn, const uint8_t **rpp)
       case VAL_Z: load_val_z(ctn, rpp); break;
       case VAL_R: load_val_r(ctn, rpp); break;
       default:
-        fprintf(stderr, "found constant of type %c\n", valt2char(type));
+        fprintf(stderr, "found constant of type %c\n", (char) type);
         return FALSE;
     }
     return TRUE;
 }
 
-static int load_one_pag(struct NorVec *pag, const uint8_t **rpp, uint i)
+static int load_one_pag(
+    struct VmData *vmd,
+    struct Norris *nor,
+    const uint8_t **rpp)
 {
-    struct Norris *nor = &pag->nor[i];
     nor->ari = read_u8(rpp);
     nor->lne = read_u32(rpp);
     switch (read_u8(rpp)) {
-      case 0x00: nor->ano = TRUE; break;
+      case 0x00:
+        nor->nam = NULL;
+        break;
       case 0xFF:
-        nor->ano = FALSE;
-        nor->nam = read_u16(rpp);
+        nor->nam = &vmd->idf.arr[read_u16(rpp)];
         break;
       default:
         eputln("error: one of pages is not correct format");

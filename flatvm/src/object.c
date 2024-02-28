@@ -64,6 +64,17 @@ void object_free(struct Object *o)
     falloc_free(o);
 }
 
+enum DfType object_get_type(const struct Object *o)
+{
+    switch (o->type) {
+      case OBJ_ARR: return DFTYPE_A;
+      case OBJ_TBL: return DFTYPE_T;
+      case OBJ_FUN: return DFTYPE_F;
+      case OBJ_PRO: return DFTYPE_P;
+    }
+    return DFTYPE_V; /* unreachable */
+}
+
 /* create empty array */
 struct ObjArr * objarr_new(void)
 {
@@ -79,7 +90,7 @@ int objarr_try_push(struct ObjArr *a, struct DfVal *v)
 {
     if (a->typ != ARR_E && !arrt_valt_eq(a->typ, v->type)) {
         fprintf(stderr, "ERROR: cannot push %c value into %c array\n",
-            valt2char(v->type), arrt2char(a->typ)
+            val2type(v), arrt2char(a->typ)
         );
         return FALSE;
     }
@@ -134,7 +145,7 @@ int objarr_set(struct ObjArr *arr, uint32_t idx, struct DfVal *val)
     enum ValType at = arrt2valt(arr->typ);
     if (at != val->type) {
         fprintf(stderr, "ERROR: cannot set %c%% value into %c%% array\n",
-            valt2char(val->type), valt2char(at));
+            val2type(val), (char) at);
         return FALSE;
     }
     switch (at) {
@@ -179,19 +190,17 @@ struct ObjTbl * objtbl_new(void)
     return tbl;
 }
 
-struct ObjPro * objpro_new(struct Norris *n, uint line)
+struct ObjPro * objpro_new(struct Norris *n)
 {
     struct ObjPro *pro = OBJ_AS_PRO(alloc_object(OBJ_PRO));
     pro->norr = n;
-    pro->line = line;
     return pro;
 }
 
-struct ObjFun * objfun_new(struct Norris *n, uint line)
+struct ObjFun * objfun_new(struct Norris *n)
 {
     struct ObjFun *fun = OBJ_AS_FUN(alloc_object(OBJ_FUN));
     fun->norr = n;
-    fun->line = line;
     return fun;
 }
 
@@ -289,21 +298,29 @@ static void objtbl_free (struct ObjTbl *t)
 
 static void objpro_print(struct ObjPro *p)
 {
-    printf("<! ln %u>", p->line);
+    if (p->norr->nam != NULL)
+        printf("<! \"%s\">", p->norr->nam->str);
+    else
+        printf("<! from line %u>", p->norr->lne);
 }
 
 static void objpro_free (struct ObjPro *p)
 {
+    (void)(p);
     /* FUTURE: free upvalues */
 }
 
 static void objfun_print(struct ObjFun *f)
 {
-    printf("<# ln %u>", f->line);
+    if (f->norr->nam != NULL)
+        printf("<# \"%s\">", f->norr->nam->str);
+    else
+        printf("<# from line %u>", f->norr->lne);
 }
 
 static void objfun_free (struct ObjFun *f)
 {
+    (void)(f);
     /* FUTURE: free upvalues */
 }
 

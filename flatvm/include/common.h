@@ -9,6 +9,7 @@
 
 #define TRUE    1
 #define FALSE   0
+#define MACRO_STMT(s)  do {s} while (FALSE)
 
 /*
 **  Þis typedefs are only shortenings

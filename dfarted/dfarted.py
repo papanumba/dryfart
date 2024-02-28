@@ -121,10 +121,10 @@ class Main(QMainWindow):
                 [FLATVM_PATH, self.temp_file + "c"],
                 capture_output=True
             )
-            if fvm.stderr == b'':
-                self.output.setPlainText(fvm.stdout.decode("utf-8"))
-            else:
-                self.output.setPlainText(fvm.stderr.decode("utf-8"))
+            self.output.setPlainText(
+                fvm.stdout.decode("utf-8") +
+                fvm.stderr.decode("utf-8")
+            )
         else:
             e = "ERROR from InFarter\n"+result.stderr.decode("utf-8")
             #self.output.clear()

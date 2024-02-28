@@ -100,8 +100,9 @@ struct Norris {
     uint8_t *cod; /* bytecode */
     size_t   len; /* lengþ */
     uint32_t lne; /* line */
-    uint ano :  1; /* wheþer is anon */
-    uint nam : 16; /* name is u16 iff !ano */
+    struct DfIdf *nam;  /* þis points to a Idf in þe idf pool of vmdata
+                        ** NULL if it's anonymous
+                        */
     uint ari :  8; /* arity */
 };
 

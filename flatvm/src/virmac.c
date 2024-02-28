@@ -21,9 +21,10 @@ static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
 static int push_call   (struct VirMac *, struct DfVal *, struct Norris *);
 static int pop_call    (struct VirMac *);
+static void print_calls(const struct VirMac *);
 static void set_norris (struct VirMac *, struct Norris *);
-void err_cant_op  (const char *, enum ValType);
-void err_dif_types(const char *, enum ValType, enum ValType);
+void err_cant_op  (const char *, struct DfVal *);
+void err_dif_types(const char *, enum DfType, enum DfType);
 
 static int dfval_eq(struct DfVal *, struct DfVal *);
 static int dfval_ne(struct DfVal *, struct DfVal *);
@@ -125,7 +126,10 @@ enum ItpRes virmac_run(struct VirMac *vm, struct VmData *prog)
     vm->dat = prog;
     /* start main */
     push_call(vm, vm->stack, &prog->pag.nor[0]);
-    return run(vm);
+    enum ItpRes res = run(vm);
+    if (res != ITP_OK)
+        print_calls(vm);
+    return res;
 }
 
 void virmac_push(struct VirMac *vm, struct DfVal *v)
@@ -287,8 +291,7 @@ static enum ItpRes run(struct VirMac *vm)
             struct DfVal val;
             uint idx = read_u16(&vm->ip);
             val.type = VAL_O;
-            struct Norris *n = &vm->dat->pag.nor[idx];
-            val.as.o = (void *) objpro_new(n, 0);
+            val.as.o = (void *) objpro_new(&vm->dat->pag.nor[idx]);
             virmac_push(vm, &val);
             break;
           }
@@ -297,8 +300,7 @@ static enum ItpRes run(struct VirMac *vm)
             struct DfVal val;
             uint idx = read_u16(&vm->ip);
             val.type = VAL_O;
-            struct Norris *n = &vm->dat->pag.nor[idx];
-            val.as.o = (void *) objfun_new(n, 0);
+            val.as.o = (void *) objfun_new(&vm->dat->pag.nor[idx]);
             virmac_push(vm, &val);
             break;
           }
@@ -314,6 +316,8 @@ static enum ItpRes run(struct VirMac *vm)
           }
           case OP_POP: virmac_pop(vm); break;
           case OP_HLT:
+            puts("VM HALTED");
+            print_calls(vm);
             print_stack(vm);
             reset_stack(vm);
             garcol_do(vm);
@@ -331,7 +335,7 @@ static void print_stack(struct VirMac *vm)
     for (slot = &vm->stack[0];
          slot != vm->sp;
          slot++) {
-        printf("[%c%%", valt2char(slot->type));
+        printf("[%c%%", val2type(slot));
         values_print(slot);
         printf("]");
     }
@@ -379,6 +383,19 @@ static int pop_call(struct VirMac *vm)
     return TRUE;
 }
 
+static void print_calls(const struct VirMac *vm)
+{
+    puts("Call stack (top oldest):\n    !main");
+    int last = vm->callnum;
+#define BASURA(vp) MACRO_STMT(printf("    "); values_print(vp); puts("");)
+    for (int i = 1; i < last; ++i)
+        BASURA(vm->calls[i]);
+    if (last > 0)
+        BASURA(vm->bp);
+    puts("");
+#undef BASURA
+}
+
 static void set_norris(struct VirMac *vm, struct Norris *n)
 {
     vm->nor = n;
@@ -386,17 +403,19 @@ static void set_norris(struct VirMac *vm, struct Norris *n)
 }
 
 /* error message for same type but invalid operations */
-void err_cant_op(const char *op, enum ValType ty)
+void err_cant_op(const char *op, struct DfVal *v)
 {
-    fprintf(stderr, "ERROR: Cannot operate %s with %c value(s)\n",
-        op, valt2char(ty));
+    char ty = val2type(v);
+    fprintf(stderr, "ERROR: Cannot operate %s with %c value(s)\n", op, ty);
 }
 
-void err_dif_types(const char *op, enum ValType t1, enum ValType t2)
+void err_dif_types(const char *op, enum DfType t1, enum DfType t2)
 {
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
-        op, valt2char(t1), valt2char(t2));
+        op, t1, t2);
 }
+
+#define ERR_BINOP(msg)  err_dif_types(msg, val2type(&lhs), val2type(&rhs))
 
 static int dfval_eq(struct DfVal *v, struct DfVal *w)
 {
@@ -429,7 +448,7 @@ static int dfval_ne(struct DfVal *v, struct DfVal *w)
       case VAL_R: return TRUE;
       case VAL_O: return !object_eq(v->as.o, w->as.o); /* ! eq */
       default:
-        fputs("unknown type in dfval_ne\n", stderr);
+        eputln("unknown type in dfval_ne");
         return TRUE;
     }
 }
@@ -528,7 +547,7 @@ static int op_neg(struct VirMac *vm)
       case VAL_Z: res.as.z = -val.as.z; break;
       case VAL_R: res.as.r = -val.as.r; break;
       default:
-        err_cant_op("unary -", val.type);
+        err_cant_op("unary -", &val);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -541,7 +560,7 @@ static int op_add(struct VirMac *vm)
     rhs = virmac_pop(vm);
     lhs = virmac_pop(vm);
     if (lhs.type != rhs.type) {
-        err_dif_types("+", lhs.type, rhs.type);
+        ERR_BINOP("+");
         return FALSE;
     }
     res.type = lhs.type;
@@ -554,7 +573,7 @@ static int op_add(struct VirMac *vm)
             return FALSE;
         break;
       default:
-        err_cant_op("+", lhs.type);
+        err_cant_op("+", &lhs);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -578,7 +597,7 @@ static int op_add_o(
         if (arr == NULL)
             return FALSE;
         res->type = VAL_O;
-        res->as.o = (struct Object *) arr;
+        res->as.o = (void *) arr;
         break;
       }
       case OBJ_TBL:
@@ -600,7 +619,7 @@ static int op_sub(struct VirMac *vm)
     rhs = virmac_pop(vm);
     lhs = virmac_pop(vm);
     if (lhs.type != rhs.type) {
-        err_dif_types("-", lhs.type, rhs.type);
+        ERR_BINOP("-");
         return FALSE;
     }
     res.type = lhs.type;
@@ -608,7 +627,7 @@ static int op_sub(struct VirMac *vm)
       case VAL_Z: res.as.z = lhs.as.z - rhs.as.z; break;
       case VAL_R: res.as.r = lhs.as.r - rhs.as.r; break;
       default:
-        err_cant_op("-", lhs.type);
+        err_cant_op("-", &lhs);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -621,7 +640,7 @@ static int op_mul(struct VirMac *vm)
     rhs = virmac_pop(vm);
     lhs = virmac_pop(vm);
     if (lhs.type != rhs.type) {
-        err_dif_types("*", lhs.type, rhs.type);
+        ERR_BINOP("*");
         return FALSE;
     }
     res.type = lhs.type;
@@ -630,7 +649,7 @@ static int op_mul(struct VirMac *vm)
       case VAL_Z: res.as.z = lhs.as.z * rhs.as.z; break;
       case VAL_R: res.as.r = lhs.as.r * rhs.as.r; break;
       default:
-        err_cant_op("*", lhs.type);
+        err_cant_op("*", &lhs);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -643,20 +662,22 @@ static int op_div(struct VirMac *vm)
     rhs = virmac_pop(vm);
     lhs = virmac_pop(vm);
     if (lhs.type != rhs.type) {
-        err_dif_types("/", lhs.type, rhs.type);
+        ERR_BINOP("/");
         return FALSE;
     }
     res.type = lhs.type;
     switch (lhs.type) {
       case VAL_R:
 #ifdef SAFE
-        if (rhs.as.r == 0.0f)
-            panic("ERROR: Division by 0.0");
+        if (rhs.as.r == 0.0f) {
+            eputln("ERROR: Division by 0.0");
+            return FALSE;
+        }
 #endif /* SAFE */
         res.as.r = lhs.as.r / rhs.as.r;
         break;
       default:
-        err_cant_op("/", lhs.type);
+        err_cant_op("/", &lhs);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -668,7 +689,7 @@ static int op_inv(struct VirMac *vm)
 {
     struct DfVal *val = virmac_peek(vm);
     if (val->type != VAL_R) {
-        err_cant_op("unary /", val->type);
+        err_cant_op("unary /", val);
         return FALSE;
     }
     val->as.r = 1.0f / val->as.r;
@@ -682,7 +703,7 @@ static int op_inc(struct VirMac *vm)
         case VAL_N: val->as.n += 1; break;
         case VAL_Z: val->as.z += 1; break;
         default:
-            err_cant_op("1 +", val->type);
+            err_cant_op("1 +", val);
             return FALSE;
     }
     return TRUE;
@@ -692,10 +713,9 @@ static int op_dec(struct VirMac *vm)
 {
     struct DfVal *val = virmac_peek(vm);
     switch (val->type) {
-/*        case VAL_N: val->as.n += 1; break;*/
         case VAL_Z: val->as.z -= 1; break;
         default:
-            err_cant_op("1 +", val->type);
+            err_cant_op("1 +", val);
             return FALSE;
     }
     return TRUE;
@@ -728,7 +748,7 @@ static int name(struct VirMac *vm)      \
     lhs = virmac_pop(vm);               \
     switch ((cmp = cmp_fn(&lhs, &rhs))) { \
       case CMP_ERR:                     \
-        err_dif_types(msg, lhs.type, rhs.type); \
+        ERR_BINOP(msg);                 \
         return FALSE;                   \
       default:                          \
         res.type = VAL_B;               \
@@ -754,7 +774,7 @@ static int op_not(struct VirMac *vm)
       case VAL_B: res.as.b = !val.as.b; break;
       case VAL_N: res.as.n = ~val.as.n; break;
       default:
-        err_cant_op("unary ~", val.type);
+        err_cant_op("unary ~", &val);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -766,14 +786,16 @@ static int op_and(struct VirMac *vm)
     struct DfVal lhs, rhs, res;
     rhs = virmac_pop(vm);
     lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type)
+    if (lhs.type != rhs.type) {
+        ERR_BINOP("&");
         return FALSE;
+    }
     res.type = lhs.type;
     switch (lhs.type) {
       case VAL_B: res.as.b = lhs.as.b && rhs.as.b; break;
       case VAL_N: res.as.n = lhs.as.n &  rhs.as.n; break; /* bitwise */
       default:
-        err_cant_op("&", lhs.type);
+        err_cant_op("&", &lhs);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -785,14 +807,16 @@ static int op_ior(struct VirMac *vm)
     struct DfVal lhs, rhs, res;
     rhs = virmac_pop(vm);
     lhs = virmac_pop(vm);
-    if (lhs.type != rhs.type)
+    if (lhs.type != rhs.type) {
+        ERR_BINOP("|");
         return FALSE;
+    }
     res.type = lhs.type;
     switch (lhs.type) {
       case VAL_B: res.as.b = lhs.as.b || rhs.as.b; break;
       case VAL_N: res.as.n = lhs.as.n |  rhs.as.n; break; /* bitwise */
       default:
-        err_cant_op("|", lhs.type);
+        err_cant_op("|", &lhs);
         return FALSE;
     }
     virmac_push(vm, &res);
@@ -963,8 +987,9 @@ static int op_pcl(struct VirMac *vm)
     struct ObjPro *pro = OBJ_AS_PRO(val->as.o);
 #ifdef SAFE
     if (pro->norr->ari != arity) {
-        eput("wrong arity calling ");
+        printf("wrong arity calling ");
         object_print(val->as.o);
+        puts("");
         return FALSE;
     }
 #endif /* SAFE */
@@ -979,15 +1004,16 @@ static int op_fcl(struct VirMac *vm)
     struct DfVal *val = vm->sp - (arity + 1); /* args + callee */
 #ifdef SAFE
     if (val->type != VAL_O || val->as.o->type != OBJ_FUN) {
-        eputln("cannot #call a not #");
+        eputln("ERROR: cannot #call a not #");
         return FALSE;
     }
 #endif /* SAFE */
     struct ObjFun *fun = OBJ_AS_FUN(val->as.o);
 #ifdef SAFE
     if (fun->norr->ari != arity) {
-        eput("wrong arity calling ");
+        printf("ERROR: wrong arity calling ");
         object_print(val->as.o);
+        puts("");
         return FALSE;
     }
 #endif /* SAFE */
@@ -1071,7 +1097,7 @@ static int name(struct VirMac *vm)      \
     lhs = virmac_pop(vm);               \
     switch ((cmp = cmp_fn(&lhs, &rhs))) { \
       case CMP_ERR:                     \
-        err_dif_types(msg, lhs.type, rhs.type); \
+        ERR_BINOP(msg);                 \
         return FALSE;                   \
       default:                          \
         vm_jl_if(vm, cmp);              \
