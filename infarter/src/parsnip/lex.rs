@@ -361,16 +361,19 @@ impl<'src> Luthor<'src>
         return None;
     }
 
-    // gets called when current is a double quote "
+    // called when "
     fn get_string(&mut self) -> Token<'src>
     {
         let mut ended_string = false;
         while let Some(c) = self.peek::<0>() {
-            if *c != b'"' {
-                self.advance();
-            } else {
-                ended_string = true;
-                break;
+            match *c {
+                b'"' => { ended_string = true; break; },
+                b'`' => if self.peek::<1>().is_none() {
+                    panic!("unterminated escape chars at line {}", self.line);
+                } else {
+                    self.advance(); self.advance();
+                },
+                _ => self.advance(),
             }
         }
         if !ended_string {
@@ -381,11 +384,14 @@ impl<'src> Luthor<'src>
         return Token::String(raw);
     }
 
-    // gets called when current is a single quote '
+    // called when '
     fn comment(&mut self) -> Token<'src>
     {
         self.advance(); // '
         while !self.matches::<0>(b'\n') {
+            if self.is_at_end() {
+                break;
+            }
             self.advance();
         }
         return Token::Comment(self.lexeme());

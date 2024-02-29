@@ -663,9 +663,7 @@ impl<'src> Nip<'src>
     // called when curr tok is String
     fn string(&mut self, b: &[u8]) -> Result<Expr, String>
     {
-        let s = std::str::from_utf8(b)
-            .expect("sunþiŋ rroŋ when parsing string to utf8");
-        let a = Array::try_from(s)?;
+        let a = Array::try_from(b)?;
         self.advance();
         return Ok(Expr::Const(Val::from_array(a)));
     }

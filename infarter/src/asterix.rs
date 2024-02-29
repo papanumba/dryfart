@@ -51,7 +51,7 @@ impl Type
         match self {
             Self::V => Val::V,
             Self::B => Val::B(false),
-            Self::C => Val::C('\0'),
+            Self::C => Val::C(0),
             Self::N => Val::N(0),
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
@@ -106,7 +106,7 @@ pub enum Array
 {
     E,          // Empty array: unknown type until a val is pushed
     B(Vec<bool>),
-    C(Vec<char>),
+    C(Vec<u8>),
     N(Vec<u32>),
     Z(Vec<i32>),
     R(Vec<f32>),
@@ -138,7 +138,7 @@ impl Array
     {
         match t {
             Type::B => Self::B(Vec::<bool>::with_capacity(c)),
-            Type::C => Self::C(Vec::<char>::with_capacity(c)),
+            Type::C => Self::C(Vec::<u8>  ::with_capacity(c)),
             Type::N => Self::N(Vec::<u32> ::with_capacity(c)),
             Type::Z => Self::Z(Vec::<i32> ::with_capacity(c)),
             Type::R => Self::R(Vec::<f32> ::with_capacity(c)),
@@ -161,18 +161,6 @@ impl Array
             ),
         }
         Ok(())
-    }
-
-    // helper for Self::from<&str> kinda
-    // replace escape sequences: N$, T$, $$, "$
-    // TODO: is þere some way of not allocating new Strings?
-    fn replace_esc_seq(s: &str) -> String
-    {
-        return s
-            .replace("^N",  "\n")
-            .replace("^T",  "\t")
-            .replace("^\"", "\"")
-            .replace("^^",  "^");
     }
 
     pub fn get_type(&self) -> Option<Type>
@@ -275,18 +263,34 @@ impl std::convert::TryFrom<&[Val]> for Array
     }
 }
 
-impl std::convert::TryFrom<&str> for Array
+impl std::convert::TryFrom<&[u8]> for Array
 {
     type Error = &'static str;
-    // s is already stript, ie it has no `"` arround
-    fn try_from(s: &str) -> Result<Self, Self::Error>
+    // s is already stript, ie it has no " arround
+    fn try_from(s: &[u8]) -> Result<Self, Self::Error>
     {
-        return Ok(Self::C(
-            Self::replace_esc_seq(s)
-                .as_str()
-                .chars()
-                .collect(),
-        ));
+        let mut res = Self::default();
+        let mut i = 0;
+        while i < s.len() {
+            if s[i] == b'`' {
+                // from þe lexer, we know it's followed by a char
+                match s[i+1] {
+                    b'`' => res.try_push(&Val::C(b'`')),
+                    b'"' => res.try_push(&Val::C(b'"')),
+                    b'0' => res.try_push(&Val::C(b'\0')),
+                    b'N' => res.try_push(&Val::C(b'\n')),
+                    b'R' => res.try_push(&Val::C(b'\r')),
+                    b'T' => res.try_push(&Val::C(b'\t')),
+                    b'x' => todo!("hex escapes"),
+                    _ => return Err("unknown escape char"),
+                }.unwrap();
+                i += 1;
+            } else {
+                res.try_push(&Val::C(s[i])).unwrap();
+            }
+            i += 1;
+        }
+        return Ok(res);
     }
 }
 
@@ -296,11 +300,7 @@ impl std::fmt::Display for Array
     {
         // special case for strings (C)
         if let Self::C(a) = self {
-            write!(f, "\"")?;
-            for c in a {
-                write!(f, "{c}")?;
-            };
-            write!(f, "\"")?;
+            write!(f, "{}", std::str::from_utf8(a).unwrap())?;
             return Ok(());
         }
         write!(f, "_")?;
@@ -311,7 +311,7 @@ impl std::fmt::Display for Array
                 if *b {write!(f, "T, ",)?;}
                 else  {write!(f, "F, ",)?;}
             },
-            Self::C(_) => {}, // done
+            Self::C(_) => unreachable!(),
             Self::N(a) => for n in a { write!(f, "{n}, ")?; },
             Self::Z(a) => for z in a { write!(f, "{z}, ")?; },
             Self::R(a) => for r in a { write!(f, "{r}, ")?; },
@@ -321,29 +321,42 @@ impl std::fmt::Display for Array
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Table(HashMap<String, Val>);
+#[derive(Debug)]
+pub enum Table
+{
+    Nat(dflib::tables::NatTb),
+    Usr(HashMap<String, Val>),
+}
 
 impl Table
 {
     pub fn new() -> Self
     {
-        Table(HashMap::new())
+        Self::Usr(HashMap::new())
     }
 
-    pub fn get(&self, k: &str) -> Option<&Val>
+    pub fn get(&self, k: &str) -> Option<Val>
     {
-        self.0.get(k)
+        match &self {
+            Self::Nat(n) => n.get(k),
+            Self::Usr(u) => u.get(k).cloned(),
+        }
     }
 
     pub fn set(&mut self, k: String, v: Val)
     {
-        self.0.insert(k, v);
+        match &mut *self {
+            Self::Nat(_) => unreachable!("cannot set a native table"),
+            Self::Usr(u) => u.insert(k, v),
+        };
     }
 
     pub fn has(&self, k: &str) -> bool
     {
-        self.0.contains_key(k)
+        match &self {
+            Self::Nat(n) => n.has(k),
+            Self::Usr(u) => u.contains_key(k),
+        }
     }
 }
 
@@ -421,7 +434,7 @@ pub enum Val
 {
     V,
     B(bool),
-    C(char),
+    C(u8),
     N(u32),
     Z(i32),
     R(f32),
@@ -439,14 +452,6 @@ pub enum Val
 
 impl Val
 {
-    pub fn from_str_to_c(s: &str) -> Self
-    {
-        match s.chars().nth(3) {
-            Some(c) => return Self::C(c),
-            None => panic!("not valid char"),
-        }
-    }
-
     pub fn from_array(a: Array) -> Self
     {
         Self::A(Rc::new(RefCell::new(a)))
@@ -455,6 +460,11 @@ impl Val
     pub fn from_table(t: Table) -> Self
     {
         Self::T(Rc::new(RefCell::new(t)))
+    }
+
+    pub fn new_nat_tb(n: &'static str) -> Self
+    {
+        Self::from_table(Table::Nat(dflib::tables::NatTb::new(n)))
     }
 
     pub fn new_usr_fn(s: Rc<Subr>) -> Self

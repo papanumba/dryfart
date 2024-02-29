@@ -67,9 +67,11 @@ class DFHieliter(QSyntaxHighlighter):
             (r'(\b|_)[BCNZR]%',     0, STYLES['type']),
             (r'\b[TFV]\b',      0, STYLES['table']),
             (r'#(@[0-9]*)?',    0, STYLES['func']),
+            (r'(\b|_)[A-Za-z][A-Za-z\d]*#',    0, STYLES['func']),
             (r'!(@[0-9]*)?',    0, STYLES['proc']),
-            (r'[A-Za-z][A-Za-z\d]* *!',    0, STYLES['proc']),
+            (r'[A-Za-z][A-Za-z\d]*!',    0, STYLES['proc']),
             (r'\$(@[0-9]*)?',   0, STYLES['table']),
+            (r'(\b|_)[A-Za-z][A-Za-z\d]*\$',   0, STYLES['table']),
             (r'_',              0, STYLES['array']),
             (r'"([^"$]*["$NT]\$)*[^"$]*"', 0, STYLES['string']),
             (r"'[^\n]*", 0, STYLES['comment'])

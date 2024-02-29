@@ -1,0 +1,23 @@
+filterArr = #"filterArr" arr, len, test;
+  res = _;.
+  i = 0u. @ [[i < len]]
+    elem = arr_i.
+    [test#elem; => res = res + _elem;.]
+    i = i + 1u.
+  .
+  ##res.
+..
+
+mapArr = #"mapArr" arr, len, map;
+  res = _;.
+  i = 0u. @ [[i < len]]
+    res = res + _map#arr_i;;.
+    i = i + 1u.
+  .
+  ## res .
+..
+
+' test
+old = _10, 4, 5, 67, 3, 1;.
+'new = filterArr#old, 6u, #e; ##e > 10..;.
+'one =    mapArr#old, 6u, #e; ##e + 1..;.

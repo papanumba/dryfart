@@ -1,6 +1,6 @@
 /* src/main.rs */
 
-#![allow(unused_variables)]
+//#![allow(unused_variables)]
 
 use std::io::Write;
 
