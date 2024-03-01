@@ -5,8 +5,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
 };
-use crate::util;
-use crate::dflib;
+use crate::{util, dflib};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Type
@@ -58,7 +57,7 @@ impl Type
             Self::F => panic!("cannot default function"),
             Self::P => panic!("cannot default procedure"),
             Self::A => Val::from_array(Array::default()),
-            Self::T => Val::from_table(Table::new()),
+            Self::T => Val::T(Table::new()),
         }
     }
 }
@@ -321,25 +320,25 @@ impl std::fmt::Display for Array
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Table
 {
     Nat(dflib::tables::NatTb),
-    Usr(HashMap<String, Val>),
+    Usr(Rc<RefCell<HashMap<String, Val>>>),
 }
 
 impl Table
 {
     pub fn new() -> Self
     {
-        Self::Usr(HashMap::new())
+        Self::Usr(Rc::new(RefCell::new(HashMap::new())))
     }
 
     pub fn get(&self, k: &str) -> Option<Val>
     {
         match &self {
             Self::Nat(n) => n.get(k),
-            Self::Usr(u) => u.get(k).cloned(),
+            Self::Usr(u) => u.borrow().get(k).cloned(),
         }
     }
 
@@ -347,18 +346,38 @@ impl Table
     {
         match &mut *self {
             Self::Nat(_) => unreachable!("cannot set a native table"),
-            Self::Usr(u) => u.insert(k, v),
+            Self::Usr(u) => u.borrow_mut().insert(k, v),
         };
     }
 
     pub fn has(&self, k: &str) -> bool
     {
         match &self {
-            Self::Nat(n) => n.has(k),
-            Self::Usr(u) => u.contains_key(k),
+            Self::Nat(n) => n.get(k).is_some(),
+            Self::Usr(u) => u.borrow().contains_key(k),
         }
     }
 }
+
+// used for tables, procs, funcs
+macro_rules! impl_eq_nat_usr {
+    ($tname:ident) => {
+
+impl PartialEq for $tname {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Nat(n), Self::Nat(m)) => n == m,
+            (Self::Usr(u), Self::Usr(v)) => Rc::ptr_eq(u, v),
+            _ => false,
+        }
+    }
+}
+impl Eq for $tname {}
+
+    };
+}
+
+impl_eq_nat_usr!(Table);
 
 #[derive(Debug)]
 pub struct SubrMeta
@@ -382,20 +401,12 @@ impl Subr
     {
         self.pars.len()
     }
-
-/*    fn name(&self) -> Option<&str>
-    {
-        match &self.name {
-            Some(s) => Some(s),
-            None => None,
-        }
-    }*/
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SubrType { F, P }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Proc {
     Nat(dflib::procs::NatPc),
     Usr(Rc<Subr>),
@@ -412,7 +423,9 @@ impl Proc
     }
 }
 
-#[derive(Debug)]
+impl_eq_nat_usr!(Proc);
+
+#[derive(Debug, Clone)]
 pub enum Func {
 //    Nat(dflib::NatFn),
     Usr(Rc<Subr>),
@@ -438,10 +451,10 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f32),
-    F(Rc<Func>), // TODO: add upvalues
-    P(Rc<Proc>), // TODO: add upvalues
+    F(Func), // TODO: add upvalues
+    P(Proc), // TODO: add upvalues
     A(Rc<RefCell<Array>>),
-    T(Rc<RefCell<Table>>),
+    T(Table),
 }
 
 /*
@@ -457,29 +470,24 @@ impl Val
         Self::A(Rc::new(RefCell::new(a)))
     }
 
-    pub fn from_table(t: Table) -> Self
-    {
-        Self::T(Rc::new(RefCell::new(t)))
-    }
-
     pub fn new_nat_tb(n: &'static str) -> Self
     {
-        Self::from_table(Table::Nat(dflib::tables::NatTb::new(n)))
+        Self::T(Table::Nat(dflib::tables::NatTb::new(n)))
     }
 
     pub fn new_usr_fn(s: Rc<Subr>) -> Self
     {
-        Self::F(Rc::new(Func::Usr(s)))
+        Self::F(Func::Usr(s))
     }
 
     pub fn new_usr_pc(s: Rc<Subr>) -> Self
     {
-        Self::P(Rc::new(Proc::Usr(s)))
+        Self::P(Proc::Usr(s))
     }
 
     pub fn new_nat_proc(n: &'static str) -> Self
     {
-        Self::P(Rc::new(Proc::Nat(dflib::procs::NatPc::new(n))))
+        Self::P(Proc::Nat(dflib::procs::NatPc::new(n)))
     }
 }
 
@@ -493,10 +501,10 @@ impl PartialEq for Val
             (Val::C(c), Val::C(d)) => c == d,
             (Val::N(n), Val::N(m)) => n == m,
             (Val::Z(z), Val::Z(a)) => z == a,
-            (Val::F(f), Val::F(g)) => Rc::ptr_eq(f, g),
-            (Val::P(p), Val::P(q)) => Rc::ptr_eq(p, q),
+            (Val::F(_), Val::F(_)) => false,//Rc::ptr_eq(f, g),
+            (Val::P(p), Val::P(q)) => p == q,
             (Val::A(a), Val::A(b)) => *a.borrow() == *b.borrow(),
-            (Val::T(t), Val::T(r)) => Rc::ptr_eq(t, r),
+            (Val::T(t), Val::T(r)) => t == r,
             _ => false,
         }
     }

@@ -10,6 +10,7 @@ filterArr = #"filterArr" arr, len, test;
 
 mapArr = #"mapArr" arr, len, map;
   res = _;.
+  x = T + T.
   i = 0u. @ [[i < len]]
     res = res + _map#arr_i;;.
     i = i + 1u.
@@ -20,4 +21,4 @@ mapArr = #"mapArr" arr, len, map;
 ' test
 old = _10, 4, 5, 67, 3, 1;.
 'new = filterArr#old, 6u, #e; ##e > 10..;.
-'one =    mapArr#old, 6u, #e; ##e + 1..;.
+one =    mapArr#old, 6u, #e; ##e + 1..;.

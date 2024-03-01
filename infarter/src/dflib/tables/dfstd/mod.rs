@@ -10,14 +10,6 @@ pub fn get(k: &str) -> Option<Val>
     }
 }
 
-pub fn has(k: &str) -> bool
-{
-    match k {
-        "io" => true,
-        _ => false,
-    }
-}
-
 pub mod io
 {
     use crate::asterix::Val;
@@ -28,15 +20,6 @@ pub mod io
             "put"   => Some(Val::new_nat_proc(&"put")),
             "putLn" => Some(Val::new_nat_proc(&"putLn")),
             _ => None,
-        }
-    }
-
-    pub fn has(k: &str) -> bool
-    {
-        match k {
-            "put"   |
-            "putLn" => true,
-            _ => false,
         }
     }
 }

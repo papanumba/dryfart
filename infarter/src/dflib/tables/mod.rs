@@ -3,7 +3,7 @@
 use crate::asterix::Val;
 mod dfstd;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct NatTb
 {
     name: &'static str,
@@ -21,15 +21,6 @@ impl NatTb
         match self.name {
             "STD" => dfstd::get(k),
             "STD$io" => dfstd::io::get(k),
-            _ => panic!("unknown nat table"),
-        }
-    }
-
-    pub fn has(&self, k: &str) -> bool
-    {
-        match self.name {
-            "STD" => dfstd::has(k),
-            "STD$io" => dfstd::io::has(k),
             _ => panic!("unknown nat table"),
         }
     }

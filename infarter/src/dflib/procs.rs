@@ -2,7 +2,7 @@
 
 use crate::asterix::Val;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct NatPc
 {
     name: &'static str,

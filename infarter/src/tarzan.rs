@@ -1,6 +1,6 @@
 /* src/tarzan.rs */
 
-#![allow(dead_code, unused_variables, unused_parens)]
+#![allow(unused_parens)]
 
 /*use std::{
     collections::HashMap
@@ -145,9 +145,9 @@ impl<'a> Scope<'a>
     // t$f = e.
     fn do_tbl_ass(&self, t: &Expr, f: &str, e: &Expr)
     {
-        if let Val::T(t) = self.eval_expr(t) {
+        if let Val::T(mut t) = self.eval_expr(t) {
             let e_val = self.eval_expr(e);
-            t.borrow_mut().set(f.to_string(), e_val);
+            t.set(f.to_string(), e_val);
         } else {
             panic!("not a table");
         }
@@ -255,7 +255,7 @@ impl<'a> Scope<'a>
                 panic!("not correct arity ({}) calling {:?}", a.len(), p);
             }
             let args = self.eval_args(a);
-            match &*p {
+            match p {
                 Proc::Nat(n) => n.exec(&args),
                 Proc::Usr(u) => exec_usr_proc(pc_val.clone(), &u, args),
             }
@@ -340,7 +340,7 @@ impl<'a> Scope<'a>
                 panic!("not correct arity ({}) calling {:?}", a.len(), f);
             }
             let args = self.eval_args(a);
-            match &*f {
+            match f {
                 Func::Usr(u) => eval_usr_func(fn_val.clone(), &u, args),
             }
         } else {
@@ -455,15 +455,15 @@ impl<'a> Scope<'a>
             let v = self.eval_expr(ve);
             t.set(k.clone(), v);
         }
-        return Val::from_table(t);
+        return Val::T(t);
     }
 
     fn eval_tblfd(&self, t: &Expr, f: &String) -> Val
     {
         let tbl = self.eval_expr(t);
         if let Val::T(trc) = tbl {
-            match trc.borrow().get(f) {
-                Some(v) => return v.clone(),
+            match trc.get(f) {
+                Some(v) => return v,
                 None => panic!("{:?} table hasn't ${}", t, f),
             }
         } else {

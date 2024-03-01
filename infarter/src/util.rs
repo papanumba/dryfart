@@ -1,7 +1,5 @@
 /* src/util.rs */
 
-//use ascii;
-
 macro_rules! format_err {
     ($($args:expr),+) => (
         Err(String::from(format!($($args),+)))

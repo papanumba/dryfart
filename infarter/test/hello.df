@@ -1,3 +1,6 @@
 ' Hello world in DryFart
 
-STD$io$put!"Hello, world!`N".
+i = 0u. @ [[i < 10000u]]
+  STD$io$put!"`0".
+  i = i + 1u.
+.
