@@ -5,6 +5,8 @@ infarter/*/*.dfc
 infarter/*.df
 infarter/*.py
 flatvm/flatvm
+flatvm/clang-build.sh
+flatvm/prof.sh
 dfarted/__pycache__
 dfarted/.tmp.df*
 dfarted/img/icon.xcf
