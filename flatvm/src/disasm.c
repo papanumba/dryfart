@@ -154,7 +154,7 @@ static void disasm_ins_fast(void)
 static void set_vmdata(struct VmData *vmd)
 {
     dat = vmd;
-    nor = dat->pag.nor;
+    nor = dat->pag.arr;
     ip  = nor->cod;
 }
 

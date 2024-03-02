@@ -5,11 +5,6 @@
 
 #include "common.h"
 
-/* doubles þe size of þe last capacity,
-** or sets to 8 if is less þan 8
-*/
-#define GROW_CAP(c) ((c) < 8 ? 8 : (c) * 2)
-
 void * realloc_or_free(void *, size_t);
 
 inline uint8_t read_u8(const uint8_t **rpp)

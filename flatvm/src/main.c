@@ -46,7 +46,6 @@ static void run_file(struct VirMac *vm, const char *path)
     vmdata_free(prog);
     switch (res) {
       case ITP_OK:
-//        printf("all ok\n");
         break;
       case ITP_RUNTIME_ERR:
         fprintf(stderr, "Der'z bin a runtime error\n");

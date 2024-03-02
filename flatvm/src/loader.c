@@ -13,7 +13,7 @@ static int load_ctn     (struct Values *, const uint8_t **);
 static int load_pag     (struct VmData *, const uint8_t **);
 static int load_one_idf (struct Idents *, const uint8_t **);
 static int load_one_ctn (struct Values *, const uint8_t **);
-static int load_one_pag (struct VmData *, struct Norris *, const uint8_t **);
+static int init_one_pag (struct VmData *, struct Norris *, const uint8_t **);
 static void load_val_n  (struct Values *, const uint8_t **);
 static void load_val_z  (struct Values *, const uint8_t **);
 static void load_val_r  (struct Values *, const uint8_t **);
@@ -66,8 +66,8 @@ static int check_magic_df(const uint8_t **rpp)
 
 static int load_idf(struct Idents *idf, const uint8_t **rpp)
 {
-    idents_init(idf);
     uint len = read_u16(rpp);
+    idents_w_cap(idf, len);
     for (uint i = 0; i < len; ++i) {
         if (!load_one_idf(idf, rpp))
             return FALSE;
@@ -77,8 +77,8 @@ static int load_idf(struct Idents *idf, const uint8_t **rpp)
 
 static int load_ctn(struct Values *ctn, const uint8_t **rpp)
 {
-    values_init(ctn);
     uint len = read_u16(rpp);
+    values_w_cap(ctn, len);
     for (uint i = 0; i < len; ++i) {
         if (!load_one_ctn(ctn, rpp))
             return FALSE;
@@ -90,10 +90,12 @@ static int load_pag(struct VmData *vmd, const uint8_t **rpp)
 {
     struct NorVec *pag = &vmd->pag;
     uint len = read_u16(rpp);
-    norvec_with_cap(pag, len);
+    norvec_w_cap(pag, len);
     for (uint i = 0; i < len; ++i) {
-        if (!load_one_pag(vmd, &pag->nor[i], rpp))
+        struct Norris n;
+        if (!init_one_pag(vmd, &n, rpp))
             return FALSE;
+        norvec_push(pag, n);
     }
     return TRUE;
 }
@@ -124,7 +126,7 @@ static int load_one_ctn(struct Values *ctn, const uint8_t **rpp)
     return TRUE;
 }
 
-static int load_one_pag(
+static int init_one_pag(
     struct VmData *vmd,
     struct Norris *nor,
     const uint8_t **rpp)

@@ -5,7 +5,6 @@
 #include "idents.h"
 #include "alzhmr.h"
 
-static void grow(struct Idents *, size_t);
 static uint32_t hash_buff(const uint8_t *, size_t);
 
 static void dfidf_init(struct DfIdf *i)
@@ -41,32 +40,22 @@ void dfidf_free(struct DfIdf *idf)
 
 void idents_init(struct Idents *i)
 {
-    i->arr = NULL;
-    i->len = 0;
-    i->cap = 0;
+    DYNARR_INIT(*i);
+}
+
+void idents_w_cap(struct Idents *i, size_t cap)
+{
+    DYNARR_W_CAP(*i, cap);
 }
 
 void idents_free(struct Idents *ids)
 {
-    for (size_t i = 0; i < ids->len; ++i)
-        dfidf_free(&ids->arr[i]);
-    realloc_or_free(ids->arr, 0);
-    idents_init(ids); /* set all to 0 */
+    DYNARR_FREE(*ids, dfidf_free);
 }
 
 void idents_push(struct Idents *i, struct DfIdf idf)
 {
-    if (i->cap < i->len + 1)
-        grow(i, GROW_CAP(i->cap));
-    i->arr[i->len] = idf;
-    i->len++;
-}
-
-static void grow(struct Idents *i, size_t newcap)
-{
-    size_t new_size = newcap * sizeof(struct DfIdf);
-    i->arr = realloc_or_free(i->arr, new_size);
-    i->cap = newcap;
+    DYNARR_PUSH(*i, idf);
 }
 
 /* FNV-1a (Fowler-Noll-Vo) hash function for 32 bit */

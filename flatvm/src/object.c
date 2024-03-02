@@ -95,15 +95,15 @@ int objarr_try_push(struct ObjArr *a, struct DfVal *v)
         return FALSE;
     }
     if (a->typ == ARR_E)
-        a->typ = valt2arrt(v->type); // checked þat are compatible
-        // here a will have v's type, but size 0
+        a->typ = valt2arrt(v->type); /* checked þat are compatible */
+        /* here a will have v's type, but size 0 */
     if (a->typ == ARR_B)
         panic("todo: arrb push");
     if (a->cap < a->len + 1)
         objarr_grow(a, GROW_CAP(a->cap));
     switch (a->typ) {
-      case ARR_E: break; // unreachable
-      case ARR_B: break; // todo
+      case ARR_E: break; /* unreachable */
+      case ARR_B: break; /* todo */
       case ARR_C: a->as.c[a->len] = v->as.c; break;
       case ARR_N: a->as.n[a->len] = v->as.n; break;
       case ARR_Z: a->as.z[a->len] = v->as.z; break;
@@ -210,7 +210,7 @@ static void objarr_print(struct ObjArr *arr)
 {
     size_t i;
     size_t len = arr->len;
-    if (arr->typ == ARR_C) { // string special case
+    if (arr->typ == ARR_C) { /* string special case */
         putchar('"');
         for (i = 0; i < arr->len; ++i)
             putchar(arr->as.c[i]);
@@ -226,7 +226,7 @@ static void objarr_print(struct ObjArr *arr)
             printf("%c, ", b?'T':'F');
         }
         break;
-      case ARR_C: break; // unreachable
+      case ARR_C: break; /* unreachable */
       case ARR_N:
         for (i = 0; i < len; ++i)
             printf("%lu, ", (ulong) arr->as.n[i]);
@@ -248,7 +248,7 @@ static void objarr_free(struct ObjArr *arr)
 {
     if (arr->typ == ARR_E)
         return;
-    realloc_or_free(arr->as.c, 0); // any would do
+    realloc_or_free(arr->as.c, 0); /* any would do */
 }
 
 static void objarr_grow(struct ObjArr *arr, uint newcap)

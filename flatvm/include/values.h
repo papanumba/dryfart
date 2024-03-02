@@ -4,6 +4,7 @@
 #define FLATVM_VALUES_H
 
 #include "common.h"
+#include "dynarr.h"
 
 struct Object; /* to avoid cyclic dependency */
 
@@ -45,13 +46,10 @@ struct DfVal {
     } as;
 };
 
-struct Values {
-    struct DfVal *arr;
-    size_t        len;
-    size_t        cap;
-};
+STRUCT_DYNARR(Values, struct DfVal);
 
 void values_init(struct Values *);
+void values_w_cap(struct Values *, size_t);
 void values_free(struct Values *);
 void values_push(struct Values *, struct DfVal);
 void values_print   (const struct DfVal *);

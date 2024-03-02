@@ -4,6 +4,7 @@
 #define FLATVM_NORRIS_H
 
 #include "common.h"
+#include "dynarr.h"
 
 enum OpCode {
     OP_NOP = 0x00,
@@ -98,26 +99,21 @@ enum OpCode {
 /* chunk norris */
 struct Norris {
     uint8_t *cod; /* bytecode */
-    size_t   len; /* lengþ */
+    uint32_t len; /* lengþ */
     uint32_t lne; /* line */
     struct DfIdf *nam;  /* þis points to a Idf in þe idf pool of vmdata
-                        ** NULL if it's anonymous
-                        */
+                        ** NULL if it's anonymous */
     uint ari :  8; /* arity */
 };
 
-struct NorVec {
-    struct Norris *nor;
-    size_t         len;
-    size_t         cap;
-};
+STRUCT_DYNARR(NorVec, struct Norris);
 
 void norris_init     (struct Norris *);
 void norris_cpy_buff (struct Norris *, const uint8_t *, size_t);
 void norris_free     (struct Norris *);
-void norvec_init     (struct NorVec *);
-void norvec_with_cap (struct NorVec *, size_t);
-void norvec_push     (struct NorVec *, struct Norris);
-void norvec_free     (struct NorVec *);
+void norvec_init (struct NorVec *);
+void norvec_w_cap(struct NorVec *, size_t);
+void norvec_push (struct NorVec *, struct Norris);
+void norvec_free (struct NorVec *);
 
 #endif /* FLATVM_NORRIS_H */

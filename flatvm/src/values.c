@@ -5,31 +5,30 @@
 #include "object.h"
 #include "alzhmr.h"
 
-static void grow(struct Values *, uint);
-
 void values_init(struct Values *v)
 {
-    v->arr = NULL;
-    v->len = 0;
-    v->cap = 0;
+    DYNARR_INIT(*v);
+}
+
+void values_w_cap(struct Values *v, size_t cap)
+{
+    DYNARR_W_CAP(*v, cap);
+}
+
+static inline void free_value(struct DfVal *v)
+{
+    if (v->type == VAL_O)
+        object_free(v->as.o);
 }
 
 void values_free(struct Values *v)
 {
-    for (size_t i = 0; i < v->len; ++i) {
-        if (v->arr[i].type == VAL_O)
-            object_free(v->arr[i].as.o);
-    }
-    realloc_or_free(v->arr, 0);
-    values_init(v); /* set all to 0 */
+    DYNARR_FREE(*v, free_value);
 }
 
 void values_push(struct Values *v, struct DfVal value)
 {
-    if (v->cap < v->len + 1)
-        grow(v, GROW_CAP(v->cap));
-    v->arr[v->len] = value;
-    v->len++;
+    DYNARR_PUSH(*v, value);
 }
 
 int values_eq(struct DfVal *v, struct DfVal *w)
@@ -79,11 +78,4 @@ enum DfType val2type(const struct DfVal *v)
         case VAL_O: t = object_get_type(v->as.o); break;
     }
     return t;
-}
-
-static void grow(struct Values *v, uint newcap)
-{
-    size_t new_size = newcap * sizeof(struct DfVal);
-    v->arr = realloc_or_free(v->arr, new_size);
-    v->cap = newcap;
 }

@@ -125,7 +125,7 @@ enum ItpRes virmac_run(struct VirMac *vm, struct VmData *prog)
     assert(vm != NULL);
     vm->dat = prog;
     /* start main */
-    push_call(vm, vm->stack, &prog->pag.nor[0]);
+    push_call(vm, vm->stack, &prog->pag.arr[0]);
     enum ItpRes res = run(vm);
     if (res != ITP_OK)
         print_calls(vm);
@@ -291,7 +291,7 @@ static enum ItpRes run(struct VirMac *vm)
             struct DfVal val;
             uint idx = read_u16(&vm->ip);
             val.type = VAL_O;
-            val.as.o = (void *) objpro_new(&vm->dat->pag.nor[idx]);
+            val.as.o = (void *) objpro_new(&vm->dat->pag.arr[idx]);
             virmac_push(vm, &val);
             break;
           }
@@ -300,7 +300,7 @@ static enum ItpRes run(struct VirMac *vm)
             struct DfVal val;
             uint idx = read_u16(&vm->ip);
             val.type = VAL_O;
-            val.as.o = (void *) objfun_new(&vm->dat->pag.nor[idx]);
+            val.as.o = (void *) objfun_new(&vm->dat->pag.arr[idx]);
             virmac_push(vm, &val);
             break;
           }
@@ -1028,12 +1028,10 @@ static int op_ret(struct VirMac *vm)
     if (!pop_call(vm))
         return FALSE;
     virmac_push(vm, &ret);
-//    puts("return ");
-//    values_print(virmac_peek(vm));
     return TRUE;
 }
 
-/* Load Local Short */
+/* Load Local Short (u8) */
 static void op_lls(struct VirMac *vm)
 {
     uint index = READ_BYTE();
