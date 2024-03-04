@@ -106,8 +106,7 @@ struct Norris {
     uint ari :  8; /* arity */
 };
 
-STRUCT_DYNARR(NorVec, struct Norris)
-DYNARR_API_H (NorVec, struct Norris, norvec)
+DYNARR_DECLAR(NorVec, struct Norris, norvec)
 
 void norris_init     (struct Norris *);
 void norris_cpy_buff (struct Norris *, const uint8_t *, size_t);

@@ -46,8 +46,7 @@ struct DfVal {
     } as;
 };
 
-STRUCT_DYNARR(Values, struct DfVal)
-DYNARR_API_H (Values, struct DfVal, values)
+DYNARR_DECLAR(Values, struct DfVal, values)
 
 void values_print   (const struct DfVal *);
 enum DfType val2type(const struct DfVal *);

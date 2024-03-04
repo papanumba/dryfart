@@ -13,8 +13,7 @@ struct DfIdf {
     uint32_t hsh;
 };
 
-STRUCT_DYNARR(Idents, struct DfIdf)
-DYNARR_API_H (Idents, struct DfIdf, idents)
+DYNARR_DECLAR(Idents, struct DfIdf, idents)
 
 struct DfIdf dfidf_from_chars(const char *, size_t);
 void dfidf_free (struct DfIdf *);

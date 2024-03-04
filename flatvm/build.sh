@@ -1,18 +1,23 @@
 #!/bin/sh
 
+CC="clang"
 CFLAGS="-std=c99 -Wpedantic -Wall -Wextra -Iinclude -o flatvm"
+if [ "$CC" = "clang" ]; then
+    CFLAGS="$CFLAGS -flto"
+fi
+FILES=$(ls src/*.c -I vm-ops.c | grep -v vm-ops.c)
 
 if [ "$1" = "-g" ];
 then
     echo "Building debug"
-    gcc $CFLAGS -g -DSAFE -DDEBUG src/*.c
+    $CC $CFLAGS -g -DSAFE -DDEBUG $FILES
 elif [ "$1" = "-unsafe" ];
 then
     echo "Building unsafe"
-    gcc $CFLAGS -O3 src/*.c
+    $CC $CFLAGS -O3 $FILES
 else
     echo "Building normal"
-    gcc $CFLAGS -O3 -DSAFE src/*.c
+    $CC $CFLAGS -O3 -DSAFE $FILES
 fi
 
 exit 0

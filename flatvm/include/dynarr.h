@@ -20,7 +20,7 @@ struct Name {   \
     size_t cap; \
 };
 
-/* sets all to 0, where da is of type struct Name */
+/* sets all to 0, where `da` is of type struct Name */
 #define DYNARR_INIT(da) \
 MACRO_STMT(           \
     (da).arr = NULL; \
@@ -104,5 +104,9 @@ void pf ## _free(struct Name *da)               \
 {                                               \
     DYNARR_FREE(*da, free_elem);                \
 }
+
+#define DYNARR_DECLAR(Name, T, pf) \
+STRUCT_DYNARR(Name, T) \
+DYNARR_API_H (Name, T, pf)
 
 #endif /* FLATVM_DYNARR_H */
