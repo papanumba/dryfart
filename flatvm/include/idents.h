@@ -13,14 +13,11 @@ struct DfIdf {
     uint32_t hsh;
 };
 
-STRUCT_DYNARR(Idents, struct DfIdf);
+STRUCT_DYNARR(Idents, struct DfIdf)
+DYNARR_API_H (Idents, struct DfIdf, idents)
 
 struct DfIdf dfidf_from_chars(const char *, size_t);
 void dfidf_free (struct DfIdf *);
 void dfidf_print(struct DfIdf *);
-void idents_init(struct Idents *);
-void idents_w_cap(struct Idents *, size_t);
-void idents_free(struct Idents *);
-void idents_push(struct Idents *, struct DfIdf);
 
 #endif /* FLATVM_IDENTS_H */

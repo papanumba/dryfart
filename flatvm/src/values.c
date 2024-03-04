@@ -5,31 +5,13 @@
 #include "object.h"
 #include "alzhmr.h"
 
-void values_init(struct Values *v)
-{
-    DYNARR_INIT(*v);
-}
-
-void values_w_cap(struct Values *v, size_t cap)
-{
-    DYNARR_W_CAP(*v, cap);
-}
-
 static inline void free_value(struct DfVal *v)
 {
     if (v->type == VAL_O)
         object_free(v->as.o);
 }
 
-void values_free(struct Values *v)
-{
-    DYNARR_FREE(*v, free_value);
-}
-
-void values_push(struct Values *v, struct DfVal value)
-{
-    DYNARR_PUSH(*v, value);
-}
+DYNARR_API_C(Values, struct DfVal, values, free_value)
 
 int values_eq(struct DfVal *v, struct DfVal *w)
 {

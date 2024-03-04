@@ -30,22 +30,4 @@ void norris_cpy_buff(struct Norris *nor, const uint8_t *buf, size_t len)
     }
 }
 
-void norvec_init(struct NorVec *n)
-{
-    DYNARR_INIT(*n);
-}
-
-void norvec_w_cap(struct NorVec *n, size_t cap)
-{
-    DYNARR_W_CAP(*n, cap);
-}
-
-void norvec_push(struct NorVec *n, struct Norris nor)
-{
-    DYNARR_PUSH(*n, nor);
-}
-
-void norvec_free(struct NorVec *n)
-{
-    DYNARR_FREE(*n, norris_free);
-}
+DYNARR_API_C(NorVec, struct Norris, norvec, norris_free)

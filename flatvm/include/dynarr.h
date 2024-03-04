@@ -18,7 +18,7 @@ struct Name {   \
     T     *arr; \
     size_t len; \
     size_t cap; \
-}
+};
 
 /* sets all to 0, where da is of type struct Name */
 #define DYNARR_INIT(da) \
@@ -28,8 +28,9 @@ MACRO_STMT(           \
     (da).cap = 0;    \
 )
 
+/* Þe following meθods act on struct Name &da */
+
 /*
-**  @param da        : struct Name
 **  @param elem_free : void fn(T *)
 */
 #define DYNARR_FREE(da, elem_free) \
@@ -44,7 +45,6 @@ do { /* FIXME y doesn't MACRO_STMT wanna work here? */ \
 } while (FALSE)
 
 /*
-**  @param da   : struct Name
 **  @param elem : T
 */
 #define DYNARR_PUSH(da, elem) \
@@ -60,7 +60,6 @@ MACRO_STMT(                             \
 )
 
 /*
-**  @param da : struct Name
 **  @param nc : size_t
 */
 #define DYNARR_GROW(da, new_cap) \
@@ -71,7 +70,6 @@ MACRO_STMT(                                         \
 )
 
 /*
-**  @param da : struct Name (maybe uninit)
 **  @param c  : size_t
 */
 #define DYNARR_W_CAP(da, c) \
@@ -80,5 +78,31 @@ MACRO_STMT(             \
     DYNARR_GROW(da, c); \
 )
 
+#define DYNARR_API_H(Name, T, prefix) \
+void prefix ## _init (struct Name *);           \
+void prefix ## _w_cap(struct Name *, size_t);   \
+void prefix ## _push (struct Name *, T);        \
+void prefix ## _free (struct Name *);
+
+#define DYNARR_API_C(Name, T, pf, free_elem) \
+void pf ## _init(struct Name *da)               \
+{                                               \
+    DYNARR_INIT(*da);                           \
+}                                               \
+\
+void pf ## _w_cap(struct Name *da, size_t cap)  \
+{                                               \
+    DYNARR_W_CAP(*da, cap);                     \
+}                                               \
+\
+void pf ## _push(struct Name *da, T elem)       \
+{                                               \
+    DYNARR_PUSH(*da, elem);                     \
+}                                               \
+\
+void pf ## _free(struct Name *da)               \
+{                                               \
+    DYNARR_FREE(*da, free_elem);                \
+}
 
 #endif /* FLATVM_DYNARR_H */

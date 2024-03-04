@@ -38,25 +38,7 @@ void dfidf_free(struct DfIdf *idf)
     dfidf_init(idf);
 }
 
-void idents_init(struct Idents *i)
-{
-    DYNARR_INIT(*i);
-}
-
-void idents_w_cap(struct Idents *i, size_t cap)
-{
-    DYNARR_W_CAP(*i, cap);
-}
-
-void idents_free(struct Idents *ids)
-{
-    DYNARR_FREE(*ids, dfidf_free);
-}
-
-void idents_push(struct Idents *i, struct DfIdf idf)
-{
-    DYNARR_PUSH(*i, idf);
-}
+DYNARR_API_C(Idents, struct DfIdf, idents, dfidf_free)
 
 /* FNV-1a (Fowler-Noll-Vo) hash function for 32 bit */
 static uint32_t hash_buff(const uint8_t *buf, size_t len)

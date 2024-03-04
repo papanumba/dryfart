@@ -106,14 +106,11 @@ struct Norris {
     uint ari :  8; /* arity */
 };
 
-STRUCT_DYNARR(NorVec, struct Norris);
+STRUCT_DYNARR(NorVec, struct Norris)
+DYNARR_API_H (NorVec, struct Norris, norvec)
 
 void norris_init     (struct Norris *);
 void norris_cpy_buff (struct Norris *, const uint8_t *, size_t);
 void norris_free     (struct Norris *);
-void norvec_init (struct NorVec *);
-void norvec_w_cap(struct NorVec *, size_t);
-void norvec_push (struct NorVec *, struct Norris);
-void norvec_free (struct NorVec *);
 
 #endif /* FLATVM_NORRIS_H */
