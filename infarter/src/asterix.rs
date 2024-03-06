@@ -237,6 +237,19 @@ impl Array
             panic!("array too long to fit in u32");
         }
     }
+
+    pub fn add(&self, other: &Self) -> Result<Self, String>
+    {
+        if self.len() == 0 {
+            return Ok(other.clone());
+        }
+        let mut res = self.clone();
+        let len = other.len();
+        for i in 0..len {
+            res.try_push(&other.get(i).unwrap())?;
+        }
+        return Ok(res);
+    }
 }
 
 impl Default for Array {

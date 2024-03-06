@@ -661,6 +661,12 @@ fn eval_binop_val(l: &Val, o: &BinOpcode, r: &Val) -> Val
             BinOpcode::Div => Val::R(vl / vr),
             _ => panic!("not valid operation btwin R%"),
         },
+        (Val::A(a), Val::A(b)) => match o {
+            BinOpcode::Add => Val::from_array(a.borrow().add(&b.borrow())
+                .unwrap()),
+            _ => panic!("not valid operation btwin _%"),
+
+        },
         _ => panic!("not valid operation btwin {:?} and {:?}", l, r),
     }
 }
