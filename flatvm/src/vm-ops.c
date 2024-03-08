@@ -460,7 +460,8 @@ static int op_tsf(struct VirMac *vm)
     }
 #endif /* SAFE */
     struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
-    htable_set(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, val);
+    if (!objtbl_set(OBJ_AS_TBL(tbl.as.o), idf, val))
+        return FALSE;
     virmac_push(vm, &tbl);
     return TRUE;
 }
@@ -476,7 +477,7 @@ static int op_tgf(struct VirMac *vm)
     }
 #endif /* SAFE */
     struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
-    int res = htable_get(&OBJ_AS_TBL(tbl.as.o)->tbl, idf, &val);
+    int res = objtbl_get(OBJ_AS_TBL(tbl.as.o), idf, &val);
     if (!res)
         fprintf(stderr, "field $%s' not found in table\n", idf->str);
     else
@@ -496,16 +497,18 @@ static int op_pcl(struct VirMac *vm)
 #endif /* SAFE */
     struct ObjPro *pro = OBJ_AS_PRO(val->as.o);
 #ifdef SAFE
-    if (pro->norr->ari != arity) {
+    if (pro->obj.is_nat) {
+        int res = pro->as.nat.exec(vm, vm->sp - arity, arity);
+        return res;
+    }
+    if (pro->as.usr->ari != arity) {
         printf("wrong arity calling ");
         object_print(val->as.o);
         puts("");
         return FALSE;
     }
 #endif /* SAFE */
-    if (!push_call(vm, val, pro->norr))
-        return FALSE;
-    return TRUE;
+    return push_call(vm, val, pro->as.usr);
 }
 
 static int op_fcl(struct VirMac *vm)
@@ -574,27 +577,22 @@ static int op_jbf(struct VirMac *vm)
     return TRUE;
 }
 
-static int op_jfs(struct VirMac *vm)
-{
-    struct DfVal b = virmac_pop(vm);
-    if (b.type != VAL_B) {
-        fputs("condition is not B\n", stderr);
-        return FALSE;
-    }
-    vm_js_if(vm, !b.as.b);
-    return TRUE;
+#define OP_JFX(x) \
+static int op_jf ## x (struct VirMac *vm) \
+{                                     \
+    struct DfVal b = virmac_pop(vm);  \
+    if (b.type != VAL_B) {            \
+        eputln("condition is not B"); \
+        return FALSE;                 \
+    }                                 \
+    vm_j ## x ## _if(vm, !b.as.b);    \
+    return TRUE;                      \
 }
 
-static int op_jfl(struct VirMac *vm)
-{
-    struct DfVal b = virmac_pop(vm);
-    if (b.type != VAL_B) {
-        fputs("condition is not B\n", stderr);
-        return FALSE;
-    }
-    vm_jl_if(vm, !b.as.b);
-    return TRUE;
-}
+OP_JFX(s)
+OP_JFX(l)
+
+#undef OP_JFX
 
 #define OP_J_CMP(name, cmp_fn, msg) \
 static int name(struct VirMac *vm)      \

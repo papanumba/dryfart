@@ -17,7 +17,7 @@ then
     $CC $CFLAGS -O3 $FILES
 else
     echo "Building normal"
-    $CC $CFLAGS -O3 -DSAFE $FILES
+    $CC $CFLAGS -O3 -DSAFE $FILES && strip flatvm
 fi
 
 exit 0

@@ -9,7 +9,7 @@ macro_rules! format_err {
 pub(crate) use format_err;
 
 pub type StrRes<T> = Result<T, String>;
-
+pub type MutRc<T> = std::rc::Rc<std::cell::RefCell<T>>;
 
 #[derive(Debug, Copy, Clone)]
 pub struct StaVec<const N: usize, T>

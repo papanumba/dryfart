@@ -16,6 +16,11 @@ impl NatTb
         Self { name: s }
     }
 
+    pub fn name(&self) -> &str
+    {
+        return self.name;
+    }
+
     pub fn get(&self, k: &str) -> Option<Val>
     {
         match self.name {

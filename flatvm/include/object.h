@@ -7,6 +7,7 @@
 #include "values.h"
 #include "htable.h"
 #include "norris.h"
+#include "df-std.h"
 
 #define OBJ_AS_ARR(o)   ((struct ObjArr *) (o))
 #define OBJ_AS_TBL(o)   ((struct ObjTbl *) (o))
@@ -22,7 +23,8 @@ enum ObjType {
 
 struct Object {
     enum ObjType type;
-    uint gc_mark;
+    uint gc_mark : 1;
+    uint is_nat  : 1;
 };
 
 enum ArrType {
@@ -50,13 +52,18 @@ struct ObjArr {
 
 struct ObjTbl {
     struct Object obj;
-    struct Htable tbl;
+    union {
+        struct Htable usr;
+        enum NatTb    nat;
+    } as;
 };
 
 struct ObjPro {
     struct Object obj;
-    struct Norris *norr;
-    /* FUTURE: eke upvalues */
+    union {
+        struct Norris *usr;/* FUTURE: eke upvalues */
+        struct NatPc   nat;
+    } as;
 };
 
 struct ObjFun {
@@ -87,8 +94,13 @@ int             objarr_set     (struct ObjArr *, uint32_t, struct DfVal *);
 struct ObjArr * objarr_concat  (struct ObjArr *, struct ObjArr *);
 
 struct ObjTbl * objtbl_new(void);
-struct ObjPro * objpro_new(struct Norris *);
-struct ObjFun * objfun_new(struct Norris *);
+struct ObjTbl * objtbl_new_nat(enum NatTb);
+int objtbl_get(struct ObjTbl *, struct DfIdf *, struct DfVal *);
+int objtbl_set(struct ObjTbl *, struct DfIdf *, struct DfVal);
 
+struct ObjPro * objpro_new(struct Norris *);
+struct ObjPro * objpro_new_nat(enum NatPcTag);
+
+struct ObjFun * objfun_new(struct Norris *);
 
 #endif /* FLATVM_OBJECT_H */

@@ -256,9 +256,11 @@ static enum ItpRes run(struct VirMac *vm)
           }
           case OP_POP: virmac_pop(vm); break;
           case OP_HLT:
+#ifdef DEBUG
             puts("VM HALTED");
             print_calls(vm);
             print_stack(vm);
+#endif
             reset_stack(vm);
             garcol_do(vm);
             return ITP_OK;

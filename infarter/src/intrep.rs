@@ -315,14 +315,6 @@ impl<'a> Compiler<'a>
         return program;
     }
 
-/*    #[allow(dead_code)]
-    pub fn print_edges(&self)
-    {
-        for (i, x) in self.blocks.iter().enumerate() {
-            println!("{:?} -> {}", x.pred, i);
-        }
-    }*/
-
     #[inline]
     fn locsize(&self) -> usize
     {
@@ -669,6 +661,8 @@ impl<'a> Compiler<'a>
                 _ => {},
             },
             Val::R(_) => {},
+            Val::T(Table::Nat(_)) => {},
+            Val::A(_) => {},
             _ => todo!("oþer consts {:?}", v),
         }
         self.e_new_const(v);
@@ -683,6 +677,11 @@ impl<'a> Compiler<'a>
 
     fn e_ident(&mut self, id: &'a str)
     {
+        if id == "STD" {
+            //let s = Val::new_nat_tb("STD");
+            todo!("STD");
+            //self.e_new_const(&s.clone());
+        }
         let i = self.resolve_local(&id)
             .expect(&format!("cannot resolve symbol {id}"));
         self.push_op(ImOp::LLX(*i));
@@ -809,20 +808,5 @@ impl<'a> Compiler<'a>
         };
         let m = PageMeta { line: s.meta.line, name: low_name };
         return self.term_subr(s.arity(), m, outer);
-    }
-}
-
-impl From<&Type> for u8
-{
-    fn from(t: &Type) -> u8
-    {
-        match t {
-            Type::B => 0x02,
-            Type::C => 0x04,
-            Type::N => 0x06,
-            Type::Z => 0x08,
-            Type::R => 0x0A,
-            _ => todo!(),
-        }
     }
 }

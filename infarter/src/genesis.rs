@@ -4,6 +4,7 @@
 use crate::{
     intrep::*,
     asterix::*,
+    dflib,
 };
 
 pub fn comp_into_bytes<'a>(c: &Compiler<'a>) -> Vec<u8>
@@ -427,10 +428,27 @@ impl<'a> Phil // 'a lifetime of AST
     fn extend_val(&mut self, v: &Val)
     {
         match v {
+            Val::C(c) => self.extend(*c as u8),
             Val::N(n) => self.extend(*n),
             Val::Z(z) => self.extend(*z),
             Val::R(r) => self.extend(*r),
-            _ => unreachable!(),
+            Val::T(Table::Nat(nt)) => self.extend(*nt),
+            Val::A(a) => self.extend_array(&a.borrow()),
+            _ => unreachable!("{:?}", v),
+        }
+    }
+
+    fn extend_array(&mut self, a: &Array)
+    {
+        if a.len() == 0 {
+            todo!("empty arrays");
+        }
+        self.extend(ser_ctn_type(&a.get(0).unwrap()));
+        self.extend(u16::try_from(a.len())
+            .expect("array too long to serialize"));
+        for i in 0..a.len() {
+            let elem = a.get(i).unwrap();
+            self.extend_val(&elem);
         }
     }
 
@@ -455,7 +473,7 @@ impl<'a> Phil // 'a lifetime of AST
             .expect(&format!("Too many constants (max = {})", u16::MAX))
         );
         for cn in consts {
-            self.extend(u8::from(&Type::from(*cn)));
+            self.extend(ser_ctn_type(cn));
             self.extend_val(cn);
         }
     }
@@ -541,6 +559,25 @@ fn write_lb_term(
     lblocks[i].write_jmp(t, dist as isize);
 }
 
+// for serializing þe constant pool
+fn ser_ctn_type(v: &Val) -> u8
+{
+    match v {
+        Val::V => unreachable!("can't ctn V"),
+        Val::B(_) => unreachable!("can't ctn a B"),
+        Val::C(_) => 0x02,
+        Val::N(_) => 0x03,
+        Val::Z(_) => 0x04,
+        Val::R(_) => 0x05,
+        Val::T(t) => match t {
+            Table::Usr(_) => todo!(),
+            Table::Nat(_) => 0x07,
+        },
+        Val::A(_) => 0x08,
+        _ => todo!(),
+    }
+}
+
 // fixed size to bytes
 trait ToBytes: Copy
 {
@@ -594,5 +631,16 @@ impl ToBytes for f32 {
     type Bytes = [u8; 4];
     fn to_bytes(&self) -> Self::Bytes {
         return self.to_be_bytes();
+    }
+}
+
+impl ToBytes for dflib::tables::NatTb {
+    type Bytes = [u8; 4];
+    fn to_bytes(&self) -> Self::Bytes {
+        (match self.name() {
+            "STD" => 0,
+            "STD$io" => 1,
+            _ => todo!(),
+        } as u32).to_be_bytes()
     }
 }

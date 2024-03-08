@@ -9,7 +9,7 @@ pub mod parsnip;
 pub mod asterix;
 pub mod tarzan;
 pub mod dflib;
-//pub mod semanal;
+pub mod semanal;
 pub mod intrep;
 pub mod optimus;
 pub mod genesis;
@@ -55,7 +55,8 @@ pub fn transfart(ifname: &str, opt: bool)
     let taco: String = read_file_to_string(ifname);
     let mut ofname: String = ifname.to_owned();
     ofname.push('c');
-    let ast = parsnip::parse(&taco).unwrap(); // prints parsnip error
+    let mut ast = parsnip::parse(&taco).unwrap(); // prints parsnip error
+    semanal::check(&mut ast);
     let mut cfg = intrep::Compiler::from_asterix(&ast);
     if opt {
         optimus::opt_bblocks(&mut cfg);

@@ -5,7 +5,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
 };
-use crate::{util, dflib};
+use crate::{util, dflib, util::MutRc};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Type
@@ -466,7 +466,7 @@ pub enum Val
     R(f32),
     F(Func), // TODO: add upvalues
     P(Proc), // TODO: add upvalues
-    A(Rc<RefCell<Array>>),
+    A(MutRc<Array>),
     T(Table),
 }
 

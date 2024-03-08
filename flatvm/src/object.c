@@ -186,14 +186,48 @@ struct ObjArr * objarr_concat(struct ObjArr *a, struct ObjArr *b)
 struct ObjTbl * objtbl_new(void)
 {
     struct ObjTbl *tbl = OBJ_AS_TBL(alloc_object(OBJ_TBL));
-    htable_init(&tbl->tbl);
+    tbl->obj.is_nat = FALSE;
+    htable_init(&tbl->as.usr);
     return tbl;
+}
+
+struct ObjTbl * objtbl_new_nat(enum NatTb nt)
+{
+    struct ObjTbl *tbl = OBJ_AS_TBL(alloc_object(OBJ_TBL));
+    tbl->obj.is_nat = TRUE;
+    tbl->as.nat = nt;
+    return tbl;
+}
+
+int objtbl_get(struct ObjTbl *t, struct DfIdf *k, struct DfVal *v)
+{
+    if (t->obj.is_nat)
+        return nat_tb_get(t->as.nat, k, v);
+    else
+        return htable_get(&t->as.usr, k, v);
+}
+
+int objtbl_set(struct ObjTbl *t, struct DfIdf *k, struct DfVal v)
+{
+    if (t->obj.is_nat)
+        return FALSE; /* immutable native tables */
+    else
+        return htable_set(&t->as.usr, k, v);
 }
 
 struct ObjPro * objpro_new(struct Norris *n)
 {
     struct ObjPro *pro = OBJ_AS_PRO(alloc_object(OBJ_PRO));
-    pro->norr = n;
+    pro->obj.is_nat = FALSE;
+    pro->as.usr = n;
+    return pro;
+}
+
+struct ObjPro * objpro_new_nat(enum NatPcTag t)
+{
+    struct ObjPro *pro = OBJ_AS_PRO(alloc_object(OBJ_PRO));
+    pro->obj.is_nat = TRUE;
+    pro->as.nat = nat_pc_from(t);
     return pro;
 }
 
@@ -211,10 +245,8 @@ static void objarr_print(struct ObjArr *arr)
     size_t i;
     size_t len = arr->len;
     if (arr->typ == ARR_C) { /* string special case */
-        putchar('"');
         for (i = 0; i < arr->len; ++i)
             putchar(arr->as.c[i]);
-        putchar('"');
         return;
     }
     putchar('_');
@@ -288,20 +320,29 @@ static int objarr_eq(struct ObjArr *a0, struct ObjArr *a1)
 
 static void objtbl_print(struct ObjTbl *t)
 {
-    htable_print(&t->tbl);
+    if (t->obj.is_nat)
+        nat_tb_print(t->as.nat);
+    else
+        htable_print(&t->as.usr);
 }
 
 static void objtbl_free (struct ObjTbl *t)
 {
-    htable_free(&t->tbl);
+    if (!t->obj.is_nat)
+        htable_free(&t->as.usr);
 }
 
 static void objpro_print(struct ObjPro *p)
 {
-    if (p->norr->nam != NULL)
-        printf("<! \"%s\">", p->norr->nam->str);
+    if (p->obj.is_nat) {
+        nat_pc_print(p->as.nat.tag);
+        return;
+    }
+    struct Norris *nor = p->as.usr;
+    if (nor->nam != NULL)
+        printf("<! \"%s\">", nor->nam->str);
     else
-        printf("<! from line %u>", p->norr->lne);
+        printf("<! from line %u>", nor->lne);
 }
 
 static void objpro_free (struct ObjPro *p)

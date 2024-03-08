@@ -15,13 +15,18 @@
 2 bytes (u16): number of constants
 
 1 constant is
-    1st byte is ValType (from values.h),
-    þen þe following bytes by type (V & B are not stored)
-    (multibyte numbers are stored in Big Endian format)
-        C: 1 byte (ASCII C char, u8 from 0 to 127)
-        N: 4 byte uint32
-        Z: 4 byte int32
-        R: 4 byte float32 (IEEE 754)
+    1st byte is þe type of þe serialized value:
+        0x02 = C: 1 byte (ASCII C char, u8 from 0 to 127)
+        0x03 = N: 4 byte uint32
+        0x04 = Z: 4 byte int32
+        0x05 = R: 4 byte float32 (IEEE 754)
+        0x07 = $ native: 4 byte u32 see df-std.h for each tag
+        0x08 = _:
+            þe next byte tells þe type of elements: C, N, Z, R (of þis table)
+            þe next 2 bytes (u16) tells þe lengþ
+            þe next bytes are serialized values of þe foresaid type
+            (can be memcpy'd directly)
+                for example: N, 3(u16), [u32] {3, 4, 5}
 
 # pages pool
 2 bytes (u16): number of pages

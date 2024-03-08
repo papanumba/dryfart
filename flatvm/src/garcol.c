@@ -104,9 +104,11 @@ static void blacken_obj(struct Object *obj)
     switch (obj->type) {
       case OBJ_ARR:
         return;
-      case OBJ_TBL:
-        mark_htable(&OBJ_AS_TBL(obj)->tbl);
+      case OBJ_TBL: {
+        if (!obj->is_nat)
+            mark_htable(&OBJ_AS_TBL(obj)->as.usr);
         return;
+      }
       case OBJ_PRO: /* fall-þru */
       case OBJ_FUN:
         /* FUTURE: mark upvalues */
