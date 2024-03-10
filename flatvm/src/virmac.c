@@ -16,7 +16,9 @@
 #define CMP_ERR     2
 
 /* static functions */
+#ifdef DEBUG
 static void print_stack(struct VirMac *);
+#endif
 static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
 static int push_call   (struct VirMac *, struct DfVal *, struct Norris *);
@@ -271,6 +273,7 @@ static enum ItpRes run(struct VirMac *vm)
     }
 }
 
+#ifdef DEBUG
 static void print_stack(struct VirMac *vm)
 {
     struct DfVal *slot = NULL;
@@ -283,6 +286,7 @@ static void print_stack(struct VirMac *vm)
     }
     printf("\n");
 }
+#endif /* DEBUG */
 
 static int push_call(struct VirMac *vm, struct DfVal *c, struct Norris *n)
 {

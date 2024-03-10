@@ -27,16 +27,16 @@ struct VmData * vmdata_from_dfc(const uint8_t *buff, size_t len)
 {
     const uint8_t *rp = buff; /* reading pointer */
     assert(buff != NULL && len != 0);
-    struct VmData *vmd = realloc_or_free(NULL, sizeof(struct VmData));
-    vmdata_init(vmd);
     if (!check_magic_df(&rp))
         return NULL;
-    if (!load_idf(&vmd->idf, &rp))
+    struct VmData *vmd = realloc_or_free(NULL, sizeof(struct VmData));
+    vmdata_init(vmd);
+    if (!load_idf(&vmd->idf, &rp) ||
+        !load_ctn(&vmd->ctn, &rp) ||
+        !load_pag(vmd, &rp)) {
+        vmdata_free(vmd);
         return NULL;
-    if (!load_ctn(&vmd->ctn, &rp))
-        return NULL;
-    if (!load_pag(vmd, &rp))
-        return NULL;
+    }
     return vmd;
 }
 
