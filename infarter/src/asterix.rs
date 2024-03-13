@@ -498,9 +498,9 @@ impl Val
         Self::P(Proc::Usr(s))
     }
 
-    pub fn new_nat_proc(n: &'static str) -> Self
+    pub fn new_nat_proc(np: dflib::procs::NatPc) -> Self
     {
-        Self::P(Proc::Nat(dflib::procs::NatPc::new(n)))
+        Self::P(Proc::Nat(np))
     }
 }
 

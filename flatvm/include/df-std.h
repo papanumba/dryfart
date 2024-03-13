@@ -15,6 +15,7 @@ enum NatTb {
 
 enum NatPcTag {
     DF_STD_IO_PUT = 0,
+    DF_STD_GC,
 };
 
 struct NatPc {

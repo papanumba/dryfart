@@ -2,34 +2,41 @@
 
 use crate::asterix::Val;
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct NatPc
+pub enum NatPc
 {
-    name: &'static str,
+    IO_PUT,
+    IO_PUTLN,
+    GC,
 }
 
 impl NatPc
 {
-    pub fn new(s: &'static str) -> Self
+    pub fn try_from_name(s: &str) -> Result<Self, ()>
     {
-        Self { name: s }
+        match s {
+            "put"   => Ok(Self::IO_PUT),
+            "putLn" => Ok(Self::IO_PUTLN),
+            _ => Err(()),
+        }
     }
 
     pub fn arity(&self) -> usize
     {
-        match self.name {
-            "put" => 1,
-            "putLn" => 1,
-            _ => panic!("unknown native proc {}", self.name),
+        match self {
+            Self::IO_PUT   => 1,
+            Self::IO_PUTLN => 1,
+            Self::GC       => 0,
         }
     }
 
     pub fn exec(&self, args: &[Val])
     {
-        match self.name {
-            "put" => put(args),
-            "putLn" => put_ln(args),
-            _ => panic!("unknown native proc {}", self.name),
+        match self {
+            Self::IO_PUT   => put(args),
+            Self::IO_PUTLN => put_ln(args),
+            Self::GC       => {}, // tarzan's Rc
         }
     }
 }

@@ -496,11 +496,12 @@ static int op_pcl(struct VirMac *vm)
     }
 #endif /* SAFE */
     struct ObjPro *pro = OBJ_AS_PRO(val->as.o);
-#ifdef SAFE
     if (pro->obj.is_nat) {
         int res = pro->as.nat.exec(vm, vm->sp - arity, arity);
+        vm->sp -= arity + 1;
         return res;
     }
+#ifdef SAFE
     if (pro->as.usr->ari != arity) {
         printf("wrong arity calling ");
         object_print(val->as.o);

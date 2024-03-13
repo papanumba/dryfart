@@ -101,6 +101,13 @@ static int disasm(const char *path)
 
 static void wellcum(void)
 {
-    puts("Wellcome to the FlatVM: The VM for the DryFart language");
-    puts("usage: ./flatvm [dfc-file]");
+    const char msg[] =
+        "Wellcome to the FlatVM: The VM for the DryFart language\n\n"
+        "usage:\n"
+        "    to run bytecode: ./flatvm example.dfc\n"
+        "    to disassemble:  ./flatvm d example.dfc\n"
+    ;
+
+    if (-1 == write(STDOUT_FILENO, msg, sizeof(msg)))
+        exit(1);
 }
