@@ -145,7 +145,7 @@ impl Array
         }
     }
 
-    fn try_push(&mut self, v: &Val) -> Result<(), String>
+    pub fn try_push(&mut self, v: &Val) -> Result<(), String>
     {
         match (&mut *self, v) {
             (Self::E, _) => *self = Self::singleton(v),
@@ -483,11 +483,6 @@ impl Val
         Self::A(Rc::new(RefCell::new(a)))
     }
 
-    pub fn new_nat_tb(n: &'static str) -> Self
-    {
-        Self::T(Table::Nat(dflib::tables::NatTb::new(n)))
-    }
-
     pub fn new_usr_fn(s: Rc<Subr>) -> Self
     {
         Self::F(Func::Usr(s))
@@ -524,6 +519,14 @@ impl PartialEq for Val
 }
 
 impl Eq for Val {}
+
+impl From<dflib::tables::NatTb> for Val
+{
+    fn from(nt: dflib::tables::NatTb) -> Val
+    {
+        Self::T(Table::Nat(nt))
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BinOpcode {

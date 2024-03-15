@@ -11,11 +11,13 @@ struct VirMac;
 enum NatTb {
     DF_STD    = 0,
     DF_STD_IO = 1,
+    DF_STD_A,
 };
 
 enum NatPcTag {
     DF_STD_IO_PUT = 0,
     DF_STD_GC,
+    DF_STD_A_EKE,
 };
 
 struct NatPc {

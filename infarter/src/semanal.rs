@@ -1,6 +1,9 @@
 /* semanal.rs */
 
-use crate::asterix::*;
+use crate::{
+    asterix::*,
+    dflib::tables::NatTb,
+};
 
 pub fn check(b: &mut Block)
 {
@@ -32,7 +35,7 @@ fn check_expr(e: &mut Expr)
 {
     match e {
         Expr::Ident(i) => if i == "STD" {
-            *e = Expr::Const(Val::new_nat_tb("STD"));
+            *e = Expr::Const(Val::from(NatTb::STD));
         },
         Expr::Tcast(_, b) => check_expr(b),
         Expr::BinOp(f, _, g) => {check_expr(f); check_expr(g);},

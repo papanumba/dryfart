@@ -9,25 +9,18 @@ pub enum NatPc
     IO_PUT,
     IO_PUTLN,
     GC,
+    A_EKE,
 }
 
 impl NatPc
 {
-    pub fn try_from_name(s: &str) -> Result<Self, ()>
-    {
-        match s {
-            "put"   => Ok(Self::IO_PUT),
-            "putLn" => Ok(Self::IO_PUTLN),
-            _ => Err(()),
-        }
-    }
-
     pub fn arity(&self) -> usize
     {
         match self {
             Self::IO_PUT   => 1,
             Self::IO_PUTLN => 1,
             Self::GC       => 0,
+            Self::A_EKE    => 2,
         }
     }
 
@@ -37,6 +30,7 @@ impl NatPc
             Self::IO_PUT   => put(args),
             Self::IO_PUTLN => put_ln(args),
             Self::GC       => {}, // tarzan's Rc
+            Self::A_EKE    => a_eke(args),
         }
     }
 }
@@ -61,4 +55,16 @@ fn put_ln(args: &[Val])
 {
     put(args);
     println!();
+}
+
+fn a_eke(args: &[Val])
+{
+    if args.len() != 2 {
+        panic!("STD$a$eke must recieve 2 args");
+    }
+    if let Val::A(a) = &args[0] {
+        a.borrow_mut().try_push(&args[1]).unwrap();
+    } else {
+        panic!("passed arg0 to STD$a$eke must be _%");
+    }
 }

@@ -4,29 +4,30 @@ use crate::asterix::Val;
 mod dfstd;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct NatTb
+pub enum NatTb
 {
-    name: &'static str,
+    STD,
+    IO,
+    A,
 }
 
 impl NatTb
 {
-    pub fn new(s: &'static str) -> Self
-    {
-        Self { name: s }
-    }
-
-    pub fn name(&self) -> &str
-    {
-        return self.name;
-    }
-
     pub fn get(&self, k: &str) -> Option<Val>
     {
-        match self.name {
-            "STD" => dfstd::get(k),
-            "STD$io" => dfstd::io::get(k),
-            _ => panic!("unknown nat table"),
+        match self {
+            Self::STD => dfstd::get(k),
+            Self::IO => dfstd::io::get(k),
+            Self::A  => dfstd::a::get(k),
+        }
+    }
+
+    pub fn name(&self) -> &'static str
+    {
+        match self {
+            Self::STD => "STD",
+            Self::IO => "STD$io",
+            Self::A => "STD$a",
         }
     }
 }

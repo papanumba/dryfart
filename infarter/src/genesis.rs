@@ -640,6 +640,7 @@ impl ToBytes for dflib::tables::NatTb {
         (match self.name() {
             "STD" => 0,
             "STD$io" => 1,
+            "STD$a"  => 2,
             _ => todo!(),
         } as u32).to_be_bytes()
     }
