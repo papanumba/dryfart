@@ -1,5 +1,6 @@
 /* src/intrep.rs */
 
+use std::rc::Rc;
 use crate::{util::*, asterix::*};
 
 // Intermediate Opcodes
@@ -281,15 +282,15 @@ pub struct Page
 }
 
 #[derive(Debug)]
-pub struct Compiler<'ast>
+pub struct Compiler
 {
-    pub consts:  ArraySet<&'ast Val>,   // constant pool
-    pub idents:  ArraySet<&'ast str>,   // identifier pool
+    pub consts:  ArraySet<Val>,        // constant pool
+    pub idents:  ArraySet<Rc<String>>, // identifier pool
     pub subrs:   Vec<Page>,
     pub curr:    SubrEnv,
 }
 
-impl<'a> Compiler<'a>
+impl Compiler
 {
     fn new() -> Self
     {
@@ -301,7 +302,7 @@ impl<'a> Compiler<'a>
         }
     }
 
-    pub fn from_asterix(main: &'a Block) -> Self
+    pub fn from_asterix(main: &Block) -> Self
     {
         let mut program = Self::new();
         program.subrs.push(Page::default()); // dummy main
@@ -335,15 +336,23 @@ impl<'a> Compiler<'a>
     }
 
     #[inline]
-    fn push_ident(&mut self, id: &'a str) -> IdfIdx
+    fn push_ident(&mut self, id: &Rc<String>) -> IdfIdx
     {
-        return self.idents.add(id);
+        if let Some(i) = self.idents.index_of(id) {
+            i
+        } else {
+            self.idents.add(id.clone()) // return þe new index
+        }
     }
 
     #[inline]
-    fn push_const(&mut self, v: &'a Val) -> CtnIdx
+    fn push_const(&mut self, v: &Val) -> CtnIdx
     {
-        return self.consts.add(v);
+        if let Some(i) = self.consts.index_of(v) {
+            i
+        } else {
+            self.consts.add(v.clone()) // return þe new index
+        }
     }
 
     #[inline]
@@ -408,19 +417,19 @@ impl<'a> Compiler<'a>
     }
 
     #[inline]
-    fn resolve_local(&self, id: &'a str) -> Option<&LocIdx>
+    fn resolve_local(&self, id: &Rc<String>) -> Option<&LocIdx>
     {
-        let idx = self.idents.index_of(&id)?;
+        let idx = self.idents.index_of(id)?;
         return self.curr.locals.get(&idx);
     }
 
     #[inline]
-    fn exists_var(&self, id: &'a str) -> bool
+    fn exists_var(&self, id: &Rc<String>) -> bool
     {
         return self.resolve_local(id).is_some();
     }
 
-    fn block(&mut self, b: &'a Block)
+    fn block(&mut self, b: &Block)
     {
         let presize = self.locsize();
         self.curr.enter_scope();
@@ -430,14 +439,14 @@ impl<'a> Compiler<'a>
     }
 
     #[inline]
-    fn no_env_block(&mut self, b: &'a Block) //-> Patches
+    fn no_env_block(&mut self, b: &Block) //-> Patches
     {
         for s in b {
             self.stmt(s);
         }
     }
 
-    fn stmt(&mut self, s: &'a Stmt)
+    fn stmt(&mut self, s: &Stmt)
     {
         match s {
             Stmt::Assign(v, e)    => self.s_assign(v, e),
@@ -450,7 +459,7 @@ impl<'a> Compiler<'a>
         }
     }
 
-    fn s_assign(&mut self, v: &'a Expr, ex: &'a Expr)
+    fn s_assign(&mut self, v: &Expr, ex: &Expr)
     {
         match v {
             Expr::Ident(s) => self.s_varass(s, ex),
@@ -463,13 +472,13 @@ impl<'a> Compiler<'a>
     }
 
     #[inline]
-    fn new_local(&mut self, id: &'a str)
+    fn new_local(&mut self, id: &Rc<String>)
     {
         let idx = self.push_ident(id);
         self.curr.assign(idx);
     }
 
-    fn s_varass(&mut self, id: &'a str, ex: &'a Expr)
+    fn s_varass(&mut self, id: &Rc<String>, ex: &Expr)
     {
         self.expr(ex);
         self.new_local(id);
@@ -477,9 +486,9 @@ impl<'a> Compiler<'a>
 
     fn s_arrass(
         &mut self,
-        arr: &'a Expr,
-        idx: &'a Expr,
-        exp: &'a Expr)
+        arr: &Expr,
+        idx: &Expr,
+        exp: &Expr)
     {
         self.expr(arr);
         self.expr(idx);
@@ -489,9 +498,9 @@ impl<'a> Compiler<'a>
 
     fn s_tblass(
         &mut self,
-        t: &'a Expr,
-        f: &'a str,
-        e: &'a Expr)
+        t: &Expr,
+        f: &Rc<String>,
+        e: &Expr)
     {
         self.expr(t);
         self.expr(e);
@@ -501,9 +510,9 @@ impl<'a> Compiler<'a>
     }
 
     fn s_ifstmt(&mut self,
-        cond: &'a Expr,
-        bloq: &'a Block,
-        elbl: &'a Option<Block>)
+        cond: &Expr,
+        bloq: &Block,
+        elbl: &Option<Block>)
     {
         /*
         **  [cond]--+
@@ -527,7 +536,7 @@ impl<'a> Compiler<'a>
         }
     }
 
-    fn s_loopif(&mut self, lo: &'a Loop)
+    fn s_loopif(&mut self, lo: &Loop)
     {
         self.curr.enter_scope();
         self.lvv_loop(lo);
@@ -540,7 +549,7 @@ impl<'a> Compiler<'a>
 
     // assigns all loop's locals to Void
     // so as not to enter & exit its scope at every
-    fn lvv_loop(&mut self, lo: &'a Loop)
+    fn lvv_loop(&mut self, lo: &Loop)
     {
         let block = match lo {
             Loop::Inf(b) => b,
@@ -553,7 +562,7 @@ impl<'a> Compiler<'a>
     }
 
     // helper
-    fn lvv_in_block(&mut self, block: &'a Block)
+    fn lvv_in_block(&mut self, block: &Block)
     {
         for s in block {
             if let Stmt::Assign(v, _) = s {
@@ -566,7 +575,7 @@ impl<'a> Compiler<'a>
         }
     }
 
-    fn s_inf_loop(&mut self, b: &'a Block)
+    fn s_inf_loop(&mut self, b: &Block)
     {
         /*
         **  [b]<-+ (h)
@@ -580,9 +589,9 @@ impl<'a> Compiler<'a>
     }
 
     fn s_cdt_loop(&mut self,
-        b0:   &'a Block,    // miȝt be empty
-        cond: &'a Expr,
-        b1:   &'a Block)
+        b0:   &Block,    // miȝt be empty
+        cond: &Expr,
+        b1:   &Block)
     {
         /*
         **  [b0]<--+
@@ -602,7 +611,7 @@ impl<'a> Compiler<'a>
         self.curr.patch_jump(branch, Term::JFX(self.curr.curr_idx()));
     }
 
-    fn s_pccall(&mut self, proc: &'a Expr, args: &'a [Expr])
+    fn s_pccall(&mut self, proc: &Expr, args: &[Expr])
     {
         self.expr(proc);
         for a in args {
@@ -613,13 +622,13 @@ impl<'a> Compiler<'a>
         self.push_op(ImOp::PCL(ari));
     }
 
-    fn s_return(&mut self, e: &'a Expr)
+    fn s_return(&mut self, e: &Expr)
     {
         self.expr(e);
         self.term_curr_bb(Term::RET);
     }
 
-    fn expr(&mut self, ex: &'a Expr)
+    fn expr(&mut self, ex: &Expr)
     {
         match ex {
             Expr::Const(v)       => self.e_const(v),
@@ -632,7 +641,7 @@ impl<'a> Compiler<'a>
             Expr::Table(v)       => self.e_table(v),
             Expr::TblFd(t, f)    => self.e_tblfd(t, f),
             Expr::RecsT(l)       => self.e_recst(l),
-            Expr::FnDef(s)       => self.e_fndef(&*s),
+            Expr::FnDef(s)       => self.e_fndef(&s.borrow()),
             Expr::Fcall(f, a)    => self.e_fcall(f, a),
             Expr::PcDef(s)       => self.e_pcdef(&*s),
             Expr::RecFn |
@@ -641,7 +650,7 @@ impl<'a> Compiler<'a>
     }
 
     // þis checks predefined consts
-    fn e_const(&mut self, v: &'a Val)
+    fn e_const(&mut self, v: &Val)
     {
         match v {
             Val::V => return self.push_op(ImOp::LVV),
@@ -669,15 +678,15 @@ impl<'a> Compiler<'a>
     }
 
     // called when self couldn't find a predefined L op
-    fn e_new_const(&mut self, v: &'a Val)
+    fn e_new_const(&mut self, v: &Val)
     {
         let idx = self.push_const(v);
         self.push_op(ImOp::LKX(idx));
     }
 
-    fn e_ident(&mut self, id: &'a str)
+    fn e_ident(&mut self, id: &Rc<String>)
     {
-        if id == "STD" {
+        if **id == "STD" {
             //let s = Val::new_nat_tb("STD");
             todo!("STD");
             //self.e_new_const(&s.clone());
@@ -688,7 +697,7 @@ impl<'a> Compiler<'a>
     }
 
 
-    fn e_tcast(&mut self, t: &Type, e: &'a Expr)
+    fn e_tcast(&mut self, t: &Type, e: &Expr)
     {
         self.expr(e);
         match t {
@@ -699,13 +708,13 @@ impl<'a> Compiler<'a>
         }
     }
 
-    fn e_uniop(&mut self, e: &'a Expr, o: &UniOpcode)
+    fn e_uniop(&mut self, e: &Expr, o: &UniOpcode)
     {
         self.expr(e);
         self.push_uniop(o);
     }
 
-    fn e_binop(&mut self, l: &'a Expr, o: &BinOpcode, r: &'a Expr)
+    fn e_binop(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
     {
         if o.is_sce() {
             todo!("short circuits");
@@ -715,7 +724,7 @@ impl<'a> Compiler<'a>
         self.push_binop(o);
     }
 
-    fn e_cmpop(&mut self, l: &'a Expr, v: &'a [(BinOpcode, Expr)])
+    fn e_cmpop(&mut self, l: &Expr, v: &[(BinOpcode, Expr)])
     {
         self.expr(l);
         match v.len() {
@@ -728,7 +737,7 @@ impl<'a> Compiler<'a>
         }
     }
 
-    fn e_array(&mut self, a: &'a [Expr])
+    fn e_array(&mut self, a: &[Expr])
     {
         self.push_op(ImOp::AMN);
         for e in a {
@@ -737,7 +746,7 @@ impl<'a> Compiler<'a>
         }
     }
 
-    fn e_table(&mut self, v: &'a [(String, Expr)])
+    fn e_table(&mut self, v: &[(Rc<String>, Expr)])
     {
         self.push_op(ImOp::TMN);
         self.curr.rect.push(self.locsize()); // new $@0 will be on þe stack
@@ -751,7 +760,7 @@ impl<'a> Compiler<'a>
         self.decloc();
     }
 
-    fn e_tblfd(&mut self, t: &'a Expr, f: &'a str)
+    fn e_tblfd(&mut self, t: &Expr, f: &Rc<String>)
     {
         self.expr(t);
         let idx = self.push_ident(f);
@@ -767,13 +776,13 @@ impl<'a> Compiler<'a>
         }
     }
 
-    pub fn e_fndef(&mut self, subr: &'a Subr)
+    pub fn e_fndef(&mut self, subr: &Subr)
     {
         let pagidx = self.comp_subr(subr, SubrType::F);
         self.push_op(ImOp::FMN(pagidx));
     }
 
-    pub fn e_fcall(&mut self, func: &'a Expr, args: &'a [Expr])
+    pub fn e_fcall(&mut self, func: &Expr, args: &[Expr])
     {
         self.expr(func);
         for arg in args {
@@ -784,13 +793,13 @@ impl<'a> Compiler<'a>
         self.push_op(ImOp::FCL(ari));
     }
 
-    pub fn e_pcdef(&mut self, subr: &'a Subr /* eke upvals here */ )
+    pub fn e_pcdef(&mut self, subr: &Subr /* eke upvals here */ )
     {
         let pagidx = self.comp_subr(subr, SubrType::P);
         self.push_op(ImOp::PMN(pagidx));
     }
 
-    pub fn comp_subr(&mut self, s: &'a Subr, stype: SubrType) -> PagIdx
+    pub fn comp_subr(&mut self, s: &Subr, stype: SubrType) -> PagIdx
     {
         let outer = std::mem::replace(&mut self.curr, SubrEnv::default());
         self.incloc(); // !@ xor #@

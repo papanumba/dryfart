@@ -1,13 +1,13 @@
 /* src/genesis.rs */
 
-//use std::collections::HashMap;
+use std::rc::Rc;
 use crate::{
     intrep::*,
     asterix::*,
     dflib,
 };
 
-pub fn comp_into_bytes<'a>(c: &Compiler<'a>) -> Vec<u8>
+pub fn comp_into_bytes(c: &Compiler) -> Vec<u8>
 {
     return Phil::transfart(c);
 }
@@ -386,9 +386,9 @@ struct Phil
     out: Vec<u8> // accumulator for state machine
 }
 
-impl<'a> Phil // 'a lifetime of AST
+impl Phil // 'a lifetime of AST
 {
-    pub fn transfart(comp: &Compiler<'a>) -> Vec<u8>
+    pub fn transfart(comp: &Compiler) -> Vec<u8>
     {
         let mut collins = Self { out: vec![] };
         collins.extend_bytes(&DF_MAGIC);
@@ -452,7 +452,7 @@ impl<'a> Phil // 'a lifetime of AST
         }
     }
 
-    fn push_idents(&mut self, idents: &[&str])
+    fn push_idents(&mut self, idents: &[Rc<String>])
     {
         self.extend(u16::try_from(idents.len())
             .expect(&format!("Too many identifiers (max = {})", u16::MAX))
@@ -467,7 +467,7 @@ impl<'a> Phil // 'a lifetime of AST
         }
     }
 
-    fn push_consts(&mut self, consts: &[&Val])
+    fn push_consts(&mut self, consts: &[Val])
     {
         self.extend(u16::try_from(consts.len())
             .expect(&format!("Too many constants (max = {})", u16::MAX))

@@ -4,7 +4,7 @@ use crate::intrep::*;
 
 const OPT_PASSES: usize = 5;
 
-pub fn opt_bblocks(comp: &mut Compiler<'_>)
+pub fn opt_bblocks(comp: &mut Compiler)
 {
     /*
     **  ideas TODO:

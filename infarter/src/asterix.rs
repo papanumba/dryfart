@@ -3,7 +3,6 @@
 use std::{
     rc::Rc,
     cell::RefCell,
-    collections::HashMap,
 };
 use crate::{util, dflib, util::MutRc};
 
@@ -337,29 +336,43 @@ impl std::fmt::Display for Array
 pub enum Table
 {
     Nat(dflib::tables::NatTb),
-    Usr(Rc<RefCell<HashMap<String, Val>>>),
+    Usr(MutRc<Vec<(Rc<String>, Val)>>),
 }
 
 impl Table
 {
     pub fn new() -> Self
     {
-        Self::Usr(Rc::new(RefCell::new(HashMap::new())))
+        Self::Usr(Rc::new(RefCell::new(vec![])))
     }
 
     pub fn get(&self, k: &str) -> Option<Val>
     {
         match &self {
             Self::Nat(n) => n.get(k),
-            Self::Usr(u) => u.borrow().get(k).cloned(),
+            Self::Usr(u) => {
+                for p in u.borrow().iter() {
+                    if *p.0 == k {
+                        return Some(p.1.clone());
+                    }
+                }
+                return None;
+            },
         }
     }
 
-    pub fn set(&mut self, k: String, v: Val)
+    pub fn set(&mut self, k: &Rc<String>, v: Val)
     {
         match &mut *self {
             Self::Nat(_) => unreachable!("cannot set a native table"),
-            Self::Usr(u) => u.borrow_mut().insert(k, v),
+            Self::Usr(u) => {
+                for p in &mut u.borrow_mut().iter_mut() {
+                    if &p.0 == k {
+                        p.1 = v;
+                        return;
+                    }
+                }
+            },
         };
     }
 
@@ -367,7 +380,14 @@ impl Table
     {
         match &self {
             Self::Nat(n) => n.get(k).is_some(),
-            Self::Usr(u) => u.borrow().contains_key(k),
+            Self::Usr(u) => {
+                for p in u.borrow().iter() {
+                    if *p.0 == k {
+                        return true;
+                    }
+                }
+                return false;
+            },
         }
     }
 }
@@ -396,14 +416,14 @@ impl_eq_nat_usr!(Table);
 pub struct SubrMeta
 {
     pub line: usize, // line where it started (# xor !)
-    pub name: Option<String>,
+    pub name: Option<Rc<String>>,
 }
 
 #[derive(Debug)]
 pub struct Subr
 {
     pub meta: SubrMeta,
-    pub pars: Vec<String>,
+    pub pars: Vec<Rc<String>>,
     pub body: Block,
 }
 
@@ -440,8 +460,8 @@ impl_eq_nat_usr!(Proc);
 
 #[derive(Debug, Clone)]
 pub enum Func {
-//    Nat(dflib::NatFn),
-    Usr(Rc<Subr>),
+    Nat(dflib::funcs::NatFn),
+    Usr(MutRc<Subr>),
 }
 
 impl Func
@@ -449,8 +469,8 @@ impl Func
     pub fn arity(&self) -> usize
     {
         match &self {
-//            Self::Nat(n) => n.arity(),
-            Self::Usr(u) => u.arity(),
+            Self::Nat(n) => n.arity(),
+            Self::Usr(u) => u.borrow().arity(),
         }
     }
 }
@@ -483,7 +503,7 @@ impl Val
         Self::A(Rc::new(RefCell::new(a)))
     }
 
-    pub fn new_usr_fn(s: Rc<Subr>) -> Self
+    pub fn new_usr_fn(s: MutRc<Subr>) -> Self
     {
         Self::F(Func::Usr(s))
     }
@@ -525,6 +545,14 @@ impl From<dflib::tables::NatTb> for Val
     fn from(nt: dflib::tables::NatTb) -> Val
     {
         Self::T(Table::Nat(nt))
+    }
+}
+
+impl From<dflib::funcs::NatFn> for Val
+{
+    fn from(nf: dflib::funcs::NatFn) -> Val
+    {
+        Self::F(Func::Nat(nf))
     }
 }
 
@@ -635,18 +663,18 @@ pub enum Stmt
 pub enum Expr
 {
     Const(Val),
-    Ident(String),
+    Ident(Rc<String>),
     Tcast(Type, Box<Expr>),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
     CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
-    FnDef(Rc<Subr>), // TODO upvalues
+    FnDef(MutRc<Subr>), // TODO upvalues
     Fcall(Box<Expr>, Vec<Expr>),
     RecFn,
     PcDef(Rc<Subr>),
     RecPc,
     Array(Vec<Expr>),
-    Table(Vec<(String, Expr)>),
-    TblFd(Box<Expr>, String),
+    Table(Vec<(Rc<String>, Expr)>),
+    TblFd(Box<Expr>, Rc<String>),
     RecsT(u32),
 }

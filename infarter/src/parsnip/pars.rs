@@ -2,7 +2,10 @@
 
 #![allow(dead_code)]
 
-use std::rc::Rc;
+use std::{
+    rc::Rc,
+    cell::RefCell,
+};
 use super::toki::{Token, TokenType, PrimType};
 use crate::asterix::*;
 use crate::util;
@@ -403,32 +406,32 @@ impl<'src> Nip<'src>
                     let casted = self.cast_expr()?;
                     Ok(Expr::Tcast(pt.into(), Box::new(casted)))
                 }
-                _ => self.acc_expr(),
+                _ => self.fn_call(),
             },
             _ => eof_err!("type%, ident or literal"),
         }
     }
 
-    fn acc_expr(&mut self) -> Result<Expr, String>
-    {
-        let mut e = self.fn_call()?;
-        while self.matches::<0>(TokenType::Dollar) {
-            self.advance(); // $
-            let i = self.consume_ident()?;
-            e = Expr::TblFd(Box::new(e),
-                String::from(std::str::from_utf8(i).unwrap()),
-            );
-        }
-        return Ok(e);
-    }
-
     fn fn_call(&mut self) -> Result<Expr, String>
     {
-        let mut e = self.nucle()?;
+        let mut e = self.acc_expr()?;
         while self.matches::<0>(TokenType::Hash) {
             self.advance(); // #
             let args = self.comma_ex(TokenType::Semic)?;
             e = Expr::Fcall(Box::new(e), args);
+        }
+        return Ok(e);
+    }
+
+    fn acc_expr(&mut self) -> Result<Expr, String>
+    {
+        let mut e = self.nucle()?;
+        while self.matches::<0>(TokenType::Dollar) {
+            self.advance(); // $
+            let i = self.consume_ident()?;
+            e = Expr::TblFd(Box::new(e),
+                Rc::new(String::from(std::str::from_utf8(i).unwrap())),
+            );
         }
         return Ok(e);
     }
@@ -460,8 +463,8 @@ impl<'src> Nip<'src>
             },
             Token::Ident(id) => {
                 self.advance();
-                return Ok(Expr::Ident(std::str::from_utf8(id)
-                    .unwrap().to_owned()))
+                return Ok(Expr::Ident(Rc::new(std::str::from_utf8(id)
+                    .unwrap().to_owned())))
             },
             // literals
             Token::ValB(b) => Ok(self.valb(b)),
@@ -561,7 +564,7 @@ impl<'src> Nip<'src>
     {
         const MSG: &'static str = "Ident or ;";
         self.advance(); // $
-        let mut tbl_e: Vec<(String, Expr)> = vec![];
+        let mut tbl_e = vec![];
         loop {
             if let Some(t) = self.peek::<0>() {
                 match t.0 {
@@ -576,7 +579,7 @@ impl<'src> Nip<'src>
             self.exp_adv(TokenType::Equal)?;
             let e = self.expr()?;
             self.exp_adv(TokenType::Period)?;
-            let i = String::from(std::str::from_utf8(i).unwrap());
+            let i = Rc::new(String::from(std::str::from_utf8(i).unwrap()));
             tbl_e.push((i, e));
         }
         self.advance(); // ;
@@ -599,9 +602,9 @@ impl<'src> Nip<'src>
     fn subr(&mut self, line: usize, st: SubrType) -> Result<Expr, String>
     {
         self.advance(); // # or !
-        let name: Option<String> = match self.peek::<0>() {
+        let name = match self.peek::<0>() {
             Some((Token::String(s), _)) =>
-                Some(std::str::from_utf8(*s).unwrap().to_string()),
+                Some(Rc::new(std::str::from_utf8(*s).unwrap().to_string())),
             _ => None,
         };
         if name.is_some() {
@@ -611,18 +614,17 @@ impl<'src> Nip<'src>
             SubrType::F => TokenType::Semic,
             SubrType::P => TokenType::Period,
         };
-        let pars: Vec<String> = self.pars(end_tok)?
+        let pars: Vec<Rc<String>> = self.pars(end_tok)?
             .iter()
-            .map(|b| String::from(std::str::from_utf8(b).unwrap()))
+            .map(|b| Rc::new(String::from(std::str::from_utf8(b).unwrap())))
             .collect();
         let bloq = self.block()?;
         self.exp_adv(TokenType::Period)?;
         let meta = SubrMeta { line: line, name: name };
         let subr = Subr { meta: meta, pars: pars, body: bloq };
-        let rced = Rc::new(subr);
         return Ok(match st{
-            SubrType::F => Expr::FnDef(rced),
-            SubrType::P => Expr::PcDef(rced),
+            SubrType::F => Expr::FnDef(Rc::new(RefCell::new(subr))),
+            SubrType::P => Expr::PcDef(Rc::new(subr)),
         });
     }
 

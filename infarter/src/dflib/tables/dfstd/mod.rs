@@ -30,12 +30,16 @@ pub mod io
 pub mod a
 {
     use crate::asterix::Val;
-    use crate::dflib::procs::NatPc;
+    use crate::dflib::{
+        procs::NatPc,
+        funcs::NatFn,
+    };
 
     pub fn get(k: &str) -> Option<Val>
     {
         match k {
             "eke"   => Some(Val::new_nat_proc(NatPc::A_EKE)),
+            "len"   => Some(Val::from(NatFn::A_LEN)),
             _ => None,
         }
     }

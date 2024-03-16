@@ -2,13 +2,11 @@
 
 #![allow(unused_parens)]
 
-/*use std::{
-    collections::HashMap
-};*/
 use std::rc::Rc;
 use crate::{
     asterix::*,
     util,
+    util::MutRc,
     dflib,
 };
 
@@ -21,19 +19,19 @@ pub fn exec_main(prog: &Block)
     }
 }
 
-fn exec_block<'a>(b: &'a Block) -> Option<BlockAction>
+fn exec_block(b: &Block) -> Option<BlockAction>
 {
-    let mut scope = Scope::<'a>::new();
+    let mut scope = Scope::new();
     return scope.do_block(b);
 }
 
-pub struct Scope<'a>
+pub struct Scope
 {
-    vars: util::VecMap<&'a str, Val>,
+    vars: util::VecMap<Rc<String>, Val>,
     callee: Option<Val>, // main, func or proc
 }
 
-impl<'a> Scope<'a>
+impl Scope
 {
     fn new() -> Self
     {
@@ -59,14 +57,14 @@ impl<'a> Scope<'a>
         self.vars.trunc(pre);
     }
 
-    fn declar(&mut self, v: &'a str, e: Val)
+    fn declar(&mut self, v: &Rc<String>, e: Val)
     {
-        self.vars.set(&v, e);
+        self.vars.set(v.clone(), e);
     }
 
     /******** executing functions ********/
 
-    pub fn do_block(&mut self, block: &'a Block) -> Option<BlockAction>
+    pub fn do_block(&mut self, block: &Block) -> Option<BlockAction>
     {
         if block.is_empty() { // optimizing
             return None;
@@ -78,7 +76,7 @@ impl<'a> Scope<'a>
     }
 
     #[inline]
-    fn no_env_block(&mut self, block: &'a Block) -> Option<BlockAction>
+    fn no_env_block(&mut self, block: &Block) -> Option<BlockAction>
     {
         for s in block {
             if let Some(ba) = self.do_stmt(s) {
@@ -88,7 +86,7 @@ impl<'a> Scope<'a>
         return None;
     }
 
-    fn do_stmt(&mut self, s: &'a Stmt) -> Option<BlockAction>
+    fn do_stmt(&mut self, s: &Stmt) -> Option<BlockAction>
     {
         match s {
             Stmt::Assign(v, e)    => self.do_assign(v, e),
@@ -107,7 +105,7 @@ impl<'a> Scope<'a>
     }
 
     #[inline]
-    fn do_assign(&mut self, ad: &'a Expr, ex: &Expr)
+    fn do_assign(&mut self, ad: &Expr, ex: &Expr)
     {
         match ad {
             Expr::Ident(i) =>
@@ -122,7 +120,7 @@ impl<'a> Scope<'a>
 
     // v = e.
     #[inline]
-    fn do_var_ass(&mut self, v: &'a str, e: &Expr)
+    fn do_var_ass(&mut self, v: &Rc<String>, e: &Expr)
     {
         self.declar(v, self.eval_expr(e));
     }
@@ -143,11 +141,11 @@ impl<'a> Scope<'a>
     }
 
     // t$f = e.
-    fn do_tbl_ass(&self, t: &Expr, f: &str, e: &Expr)
+    fn do_tbl_ass(&self, t: &Expr, f: &Rc<String>, e: &Expr)
     {
         if let Val::T(mut t) = self.eval_expr(t) {
             let e_val = self.eval_expr(e);
-            t.set(f.to_string(), e_val);
+            t.set(&f, e_val);
         } else {
             panic!("not a table");
         }
@@ -156,7 +154,7 @@ impl<'a> Scope<'a>
     /*#[inline]
     fn do_operon<'a>(
         sc: &mut Scope::<'a>,
-        id: &'a str,
+        id: &str,
         op: &BinOpcode,
         ex: &Expr)
     {
@@ -185,8 +183,8 @@ impl<'a> Scope<'a>
     fn do_ifstmt(
         &mut self,
         cd: &Expr,
-        bl: &'a Block,
-        eb: &'a Option<Block>)
+        bl: &Block,
+        eb: &Option<Block>)
      -> Option<BlockAction>
     {
          if self.eval_cond(cd) {
@@ -199,7 +197,7 @@ impl<'a> Scope<'a>
         }
     }
 
-    fn do_loopif(&mut self, lo: &'a Loop) -> Option<BlockAction>
+    fn do_loopif(&mut self, lo: &Loop) -> Option<BlockAction>
     {
         let pre = self.vars.size();
         //self.enter_loop(lo); // preset Vs
@@ -214,7 +212,7 @@ impl<'a> Scope<'a>
         }
     }
 
-    fn do_inf_loop(&mut self, block: &'a Block) -> Option<BlockAction>
+    fn do_inf_loop(&mut self, block: &Block) -> Option<BlockAction>
     {
         loop {
             if let Some(ba) = self.no_env_block(block) {
@@ -226,9 +224,9 @@ impl<'a> Scope<'a>
 
     fn do_cdt_loop(
         &mut self,
-        blok0: &'a Block,
+        blok0: &Block,
         condt: &Expr,
-        blok1: &'a Block)
+        blok1: &Block)
      -> Option<BlockAction>
     {
         loop {
@@ -294,10 +292,10 @@ impl<'a> Scope<'a>
     }
 
     #[inline]
-    fn eval_ident(&self, i: &str) -> Val
+    fn eval_ident(&self, i: &Rc<String>) -> Val
     {
         // try variable
-        if let Some(v) = self.vars.get(&i) {
+        if let Some(v) = self.vars.get(i) {
             return v.clone();
         }
         // try built in
@@ -341,7 +339,9 @@ impl<'a> Scope<'a>
             }
             let args = self.eval_args(a);
             match f {
-                Func::Usr(u) => eval_usr_func(fn_val.clone(), &u, args),
+                Func::Usr(u) => eval_usr_func(
+                    fn_val.clone(), &u.borrow(), args),
+                Func::Nat(n) => n.eval(&args).unwrap(),
             }
         } else {
             panic!("cannot call function {:?}", fn_val);
@@ -404,7 +404,7 @@ impl<'a> Scope<'a>
     }
 
     #[inline]
-    fn make_func(&self, subr: &Rc<Subr>) -> Val
+    fn make_func(&self, subr: &MutRc<Subr>) -> Val
     {
         Val::new_usr_fn(subr.clone())
     }
@@ -447,13 +447,13 @@ impl<'a> Scope<'a>
         )
     }
 
-    fn eval_table(&self, e: &[(String, Expr)]) -> Val
+    fn eval_table(&self, e: &[(Rc<String>, Expr)]) -> Val
     {
         let mut t = Table::new();
         // TODO eke $@
         for (k, ve) in e {
             let v = self.eval_expr(ve);
-            t.set(k.clone(), v);
+            t.set(k, v);
         }
         return Val::T(t);
     }
@@ -483,7 +483,7 @@ impl<'a> Scope<'a>
         return eval_fn_ok(f, &args);
     }*/
 
-/*    fn eval_fn_ok<'a>(f: &'a Func, args: &'a [Val]) -> Val
+/*    fn eval_fn_ok<'a>(f: &Func, args: &[Val]) -> Val
     {
         let mut func_sc = Scope::<'a>::new();
         // decl args as vars
@@ -510,7 +510,7 @@ impl<'a> Scope<'a>
 
     /*fn exec_pc<'a, 's>(
         sc: &'s mut Scope::<'a>,
-        pc: &'a Proc,
+        pc: &Proc,
         args: &Vec<Val>)
      -> Option<BlockAction>
     {
@@ -680,7 +680,7 @@ fn eval_binop_val(l: &Val, o: &BinOpcode, r: &Val) -> Val
 
 pub fn exec_usr_proc(rec_val: Val, subr: &Subr, mut args: Vec<Val>)
 {
-    let mut proc_scope = Scope::<'_>::with_callee(rec_val);
+    let mut proc_scope = Scope::with_callee(rec_val);
     for name in subr.pars.iter().rev() {
         let val = args.pop().unwrap(); // already checked arity
         proc_scope.declar(name, val);
@@ -695,7 +695,7 @@ pub fn exec_usr_proc(rec_val: Val, subr: &Subr, mut args: Vec<Val>)
 
 pub fn eval_usr_func(rec_val: Val, subr: &Subr, mut args: Vec<Val>) -> Val
 {
-    let mut func_scope = Scope::<'_>::with_callee(rec_val);
+    let mut func_scope = Scope::with_callee(rec_val);
     for name in subr.pars.iter().rev() {
         let val = args.pop().unwrap(); // already checked arity
         func_scope.declar(name, val);

@@ -2,7 +2,7 @@
 
 use crate::asterix::Val;
 
-//pub mod funcs;
+pub mod funcs;
 pub mod procs;
 pub mod tables;
 
