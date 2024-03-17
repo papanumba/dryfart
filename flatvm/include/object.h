@@ -68,8 +68,10 @@ struct ObjPro {
 
 struct ObjFun {
     struct Object obj;
-    struct Norris *norr;
-    /* FUTURE: eke upvalues */
+    union {
+        struct Norris *usr; /* FUTURE: eke upvalues */
+        struct NatFn   nat;
+    } as;
 };
 
 /* aux union for þe allocator */
@@ -102,5 +104,6 @@ struct ObjPro * objpro_new(struct Norris *);
 struct ObjPro * objpro_new_nat(enum NatPcTag);
 
 struct ObjFun * objfun_new(struct Norris *);
+struct ObjFun * objfun_new_nat(enum NatFnTag);
 
 #endif /* FLATVM_OBJECT_H */

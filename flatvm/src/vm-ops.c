@@ -454,8 +454,9 @@ static int op_tsf(struct VirMac *vm)
     val = virmac_pop(vm);
     tbl = virmac_pop(vm);
 #ifdef SAFE
-    if (tbl.type != VAL_O || tbl.as.o->type != OBJ_TBL) {
-        eputln("ERROR: value is not a table");
+    if (val2type(&tbl) != DFTYPE_T) {
+        fprintf(stderr, "ERROR: value (%c%%) is not a table\n",
+            val2type(&tbl));
         return FALSE;
     }
 #endif /* SAFE */
@@ -471,8 +472,9 @@ static int op_tgf(struct VirMac *vm)
     struct DfVal tbl, val;
     tbl = virmac_pop(vm);
 #ifdef SAFE
-    if (tbl.type != VAL_O || tbl.as.o->type != OBJ_TBL) {
-        eputln("ERROR: value is not a table");
+    if (val2type(&tbl) != DFTYPE_T) {
+        fprintf(stderr, "ERROR: value (%c%%) is not a table\n",
+            val2type(&tbl));
         return FALSE;
     }
 #endif /* SAFE */
@@ -517,23 +519,30 @@ static int op_fcl(struct VirMac *vm)
     uint8_t arity = READ_BYTE();
     struct DfVal *val = vm->sp - (arity + 1); /* args + callee */
 #ifdef SAFE
-    if (val->type != VAL_O || val->as.o->type != OBJ_FUN) {
+    if (val2type(val) != DFTYPE_F) {
         eputln("ERROR: cannot #call a not #");
         return FALSE;
     }
 #endif /* SAFE */
     struct ObjFun *fun = OBJ_AS_FUN(val->as.o);
+    if (fun->obj.is_nat) {
+        struct DfVal ret;
+        int res = fun->as.nat.eval(vm, vm->sp - arity, arity, &ret);
+        if (!res)
+            return FALSE;
+        vm->sp -= arity + 1;
+        virmac_push(vm, &ret);
+        return res;
+    }
 #ifdef SAFE
-    if (fun->norr->ari != arity) {
-        printf("ERROR: wrong arity calling ");
+    if (fun->as.usr->ari != arity) {
+        printf("wrong arity calling ");
         object_print(val->as.o);
         puts("");
         return FALSE;
     }
 #endif /* SAFE */
-    if (!push_call(vm, val, fun->norr))
-        return FALSE;
-    return TRUE;
+    return push_call(vm, val, fun->as.usr);
 }
 
 static int op_ret(struct VirMac *vm)

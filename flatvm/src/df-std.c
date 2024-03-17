@@ -27,6 +27,8 @@ static int df_std_io_put(struct VirMac *, struct DfVal *, size_t);
 static int df_std_gc    (struct VirMac *, struct DfVal *, size_t);
 
 static int df_std_a_eke (struct VirMac *, struct DfVal *, size_t);
+static int df_std_a_len (
+    struct VirMac *, struct DfVal *, size_t, struct DfVal *);
 
 void nat_tb_print(enum NatTb t)
 {
@@ -72,6 +74,26 @@ struct NatPc nat_pc_from(enum NatPcTag t)
     return np;
 }
 
+void nat_fn_print(enum NatFnTag t)
+{
+    switch (t) {
+      case DF_STD_A_LEN: printf("\"STD$a$eke#\""); break;
+    }
+}
+
+struct NatFn nat_fn_from(enum NatFnTag t)
+{
+    struct NatFn nf;
+    nf.tag = t;
+    switch (t) {
+      case DF_STD_A_LEN: nf.eval = df_std_a_len; break;
+    }
+    return nf;
+}
+
+
+/* private stuff */
+
 static int df_std_get(struct DfIdf *i, struct DfVal *v)
 {
     switch (i->len) {
@@ -111,6 +133,11 @@ static int df_std_io_get(struct DfIdf *i, struct DfVal *v)
 
 static int df_std_a_get(struct DfIdf *i, struct DfVal *v)
 {
+    if (IDF_EQ(i, "len")) {
+        v->type = VAL_O;
+        v->as.o = (void *) objfun_new_nat(DF_STD_A_LEN);
+        return TRUE;
+    }
     if (IDF_EQ(i, "eke")) {
         v->type = VAL_O;
         v->as.o = (void *) objpro_new_nat(DF_STD_A_EKE);
@@ -146,4 +173,21 @@ static int df_std_a_eke(struct VirMac *vm, struct DfVal *argv, size_t argc)
         return FALSE;
     }
     return objarr_try_push(OBJ_AS_ARR(argv[0].as.o), &argv[1]);
+}
+
+static int df_std_a_len(
+    struct VirMac *vm,
+    struct DfVal  *argv,
+    size_t         argc,
+    struct DfVal  *ret)
+{
+    (void)(vm);
+    CHECK_ARGC("STD$a$len", 1);
+    if (val2type(&argv[0]) != DFTYPE_A) {
+        eputln("first arg to STD$a$len is not _%");
+        return FALSE;
+    }
+    ret->type = VAL_N;
+    ret->as.n = OBJ_AS_ARR(argv[0].as.o)->len;
+    return TRUE;
 }

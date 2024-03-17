@@ -26,6 +26,7 @@ fn check_stmt(s: &mut Stmt)
             check(b);
             if let Some(m) = e { check(m); }
         },
+        Stmt::LoopIf(l) => check_loop(l),
         Stmt::PcCall(p, a) => {
             check_expr(p);
             for e in a {
@@ -33,6 +34,19 @@ fn check_stmt(s: &mut Stmt)
             }
         },
         _ => {},
+    }
+}
+
+#[inline]
+fn check_loop(l: &mut Loop)
+{
+    match l {
+        Loop::Inf(b) => check_block(b),
+        Loop::Cdt(b, e, c) => {
+            check_block(b);
+            check_expr(e);
+            check_block(c);
+        },
     }
 }
 

@@ -234,7 +234,15 @@ struct ObjPro * objpro_new_nat(enum NatPcTag t)
 struct ObjFun * objfun_new(struct Norris *n)
 {
     struct ObjFun *fun = OBJ_AS_FUN(alloc_object(OBJ_FUN));
-    fun->norr = n;
+    fun->as.usr = n;
+    return fun;
+}
+
+struct ObjFun * objfun_new_nat(enum NatFnTag t)
+{
+    struct ObjFun *fun = OBJ_AS_FUN(alloc_object(OBJ_FUN));
+    fun->obj.is_nat = TRUE;
+    fun->as.nat = nat_fn_from(t);
     return fun;
 }
 
@@ -353,10 +361,15 @@ static void objpro_free (struct ObjPro *p)
 
 static void objfun_print(struct ObjFun *f)
 {
-    if (f->norr->nam != NULL)
-        printf("<# \"%s\">", f->norr->nam->str);
+    if (f->obj.is_nat) {
+        nat_fn_print(f->as.nat.tag);
+        return;
+    }
+    struct Norris *nor = f->as.usr;
+    if (nor->nam != NULL)
+        printf("<# \"%s\">", nor->nam->str);
     else
-        printf("<# from line %u>", f->norr->lne);
+        printf("<# from line %u>", nor->lne);
 }
 
 static void objfun_free (struct ObjFun *f)
