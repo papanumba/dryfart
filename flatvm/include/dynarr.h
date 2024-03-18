@@ -14,10 +14,10 @@
 
 /* to declare þe type */
 #define STRUCT_DYNARR(Name, T) \
-struct Name {   \
-    T     *arr; \
-    size_t len; \
-    size_t cap; \
+struct Name {     \
+    T       *arr; \
+    uint32_t len; \
+    uint32_t cap; \
 };
 
 /* sets all to 0, where `da` is of type struct Name */
@@ -35,13 +35,13 @@ MACRO_STMT(           \
 */
 #define DYNARR_FREE(da, elem_free) \
 do { /* FIXME y doesn't MACRO_STMT wanna work here? */ \
-    size_t len, i;               \
-    len = (da).len;              \
-    for (i = 0; i < len; ++i)    \
-        elem_free(&(da).arr[i]); \
-    if ((da).arr != NULL)        \
-        free((da).arr);          \
-    DYNARR_INIT(da);             \
+    size_t len = (da).len;          \
+    if (len == 0) break;            \
+    size_t i;                       \
+    for (i = 0; i < len; ++i)       \
+        elem_free(&(da).arr[i]);    \
+    free((da).arr);                 \
+    DYNARR_INIT(da);                \
 } while (FALSE)
 
 /*

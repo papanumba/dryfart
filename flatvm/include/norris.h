@@ -103,7 +103,7 @@ struct Norris {
     uint32_t lne; /* line */
     struct DfIdf *nam;  /* þis points to a Idf in þe idf pool of vmdata
                         ** NULL if it's anonymous */
-    uint ari :  8; /* arity */
+    uint8_t ari : 8; /* arity */
 };
 
 DYNARR_DECLAR(NorVec, struct Norris, norvec)

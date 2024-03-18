@@ -24,7 +24,7 @@ int values_eq(struct DfVal *v, struct DfVal *w)
       case VAL_N: return v->as.n == w->as.n;
       case VAL_Z: return v->as.z == w->as.z;
       case VAL_R: return FALSE;
-      case VAL_O: return object_eq(v->as.o, w->as.o);
+      case VAL_O: return v->as.o == w->as.o;
       default:
         fputs("unknown type in values_eq\n", stderr);
         return FALSE;

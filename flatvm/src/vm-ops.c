@@ -445,7 +445,7 @@ static int op_ase(struct VirMac *vm)
         return FALSE;
     }
     struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
-    return objarr_set(a, idx.as.n, &val); /* OK or ERR result */
+    return objarr_set(a, idx.as.n, val); /* OK or ERR result */
 }
 
 static int op_tsf(struct VirMac *vm)

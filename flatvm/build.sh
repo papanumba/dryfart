@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CC="gcc"
+CC="clang"
 CFLAGS="-std=c99 -Wpedantic -Wall -Wextra -Iinclude -o flatvm"
 if [ "$CC" = "clang" ]; then
     CFLAGS="$CFLAGS -flto"

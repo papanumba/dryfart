@@ -27,27 +27,23 @@ struct Object {
     uint is_nat  : 1;
 };
 
-enum ArrType {
-    ARR_E,
-    ARR_B,
-    ARR_C,
-    ARR_N,
-    ARR_Z,
-    ARR_R
-};
+DYNARR_DECLAR(DfCarr, uint8_t,  dfcarr)
+DYNARR_DECLAR(DfNarr, uint32_t, dfnarr)
+DYNARR_DECLAR(DfZarr, int32_t,  dfzarr)
+DYNARR_DECLAR(DfRarr, float,    dfrarr)
 
 struct ObjArr {
     struct Object obj;
-    size_t        len;
-    size_t        cap;
-    enum ArrType  typ;
+    enum DfType   typ; /* V here means empty */
     union {
-        uint8_t  *b; /* packed bit array */
-        char     *c;
-        uint32_t *n;
-        int32_t  *z;
-        float    *r;
-    }             as;
+        /* TODO: B% bit array */
+#define BASURA(M, m) struct Df ## M ## arr m
+        BASURA(C, c);
+        BASURA(N, n);
+        BASURA(Z, z);
+        BASURA(R, r);
+#undef  BASURA
+    } as;
 };
 
 struct ObjTbl {
@@ -85,15 +81,15 @@ typedef union {
 } objs_u;
 
 void object_print(struct Object *);
-int  object_eq   (struct Object *, struct Object *);
 void object_free (struct Object *);
 enum DfType object_get_type(const struct Object *);
 
 struct ObjArr * objarr_new     (void);
+uint32_t        objarr_len     (const struct ObjArr *);
 int             objarr_try_push(struct ObjArr *, struct DfVal *);
-struct DfVal    objarr_get     (struct ObjArr *, uint32_t);
-int             objarr_set     (struct ObjArr *, uint32_t, struct DfVal *);
-struct ObjArr * objarr_concat  (struct ObjArr *, struct ObjArr *);
+struct DfVal    objarr_get     (const struct ObjArr *, uint32_t);
+int             objarr_set     (struct ObjArr *, uint32_t, struct DfVal);
+struct ObjArr * objarr_concat  (const struct ObjArr *, const struct ObjArr *);
 
 struct ObjTbl * objtbl_new(void);
 struct ObjTbl * objtbl_new_nat(enum NatTb);

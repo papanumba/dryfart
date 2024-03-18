@@ -9,7 +9,7 @@
 /* once malloc'd, stays const */
 struct DfIdf {
     char    *str; /* NUL-term'd, so len+1 */
-    size_t   len; /* counts only non-NUL  */
+    uint32_t len; /* counts only non-NUL  */
     uint32_t hsh;
 };
 

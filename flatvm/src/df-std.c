@@ -188,6 +188,6 @@ static int df_std_a_len(
         return FALSE;
     }
     ret->type = VAL_N;
-    ret->as.n = OBJ_AS_ARR(argv[0].as.o)->len;
+    ret->as.n = objarr_len(OBJ_AS_ARR(argv[0].as.o));
     return TRUE;
 }

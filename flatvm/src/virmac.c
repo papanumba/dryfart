@@ -373,11 +373,8 @@ static int dfval_eq(struct DfVal *v, struct DfVal *w)
       case VAL_C: return v->as.c == w->as.c;
       case VAL_N: return v->as.n == w->as.n;
       case VAL_Z: return v->as.z == w->as.z;
-      case VAL_R: return FALSE;
-      case VAL_O: return object_eq(v->as.o, w->as.o);
-      default:
-        fputs("unknown type in dfval_eq\n", stderr);
-        return FALSE;
+      case VAL_R: return FALSE; /* must do ε */
+      case VAL_O: return v->as.o == w->as.o;
     }
 }
 
@@ -392,7 +389,7 @@ static int dfval_ne(struct DfVal *v, struct DfVal *w)
       case VAL_N: return v->as.n != w->as.n;
       case VAL_Z: return v->as.z != w->as.z;
       case VAL_R: return TRUE;
-      case VAL_O: return !object_eq(v->as.o, w->as.o); /* ! eq */
+      case VAL_O: return v->as.o != w->as.o;
       default:
         eputln("unknown type in dfval_ne");
         return TRUE;
