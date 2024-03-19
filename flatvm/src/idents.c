@@ -23,7 +23,7 @@ struct DfIdf dfidf_from_chars(const char *str, size_t len)
     memcpy(idf.str, str, len);
     idf.str[len] = '\0';
     idf.len = len;
-    idf.hsh = hash_buff((uint8_t *) str, len);
+    idf.hsh = hash_buff((const uint8_t *) str, len);
     return idf;
 }
 

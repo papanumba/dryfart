@@ -1,11 +1,10 @@
-/* df-std.h */
+/* native.h */
 
-#ifndef FLATVM_DF_STD_H
-#define FLATVM_DF_STD_H
+#ifndef FLATVM_NATIVE_H
+#define FLATVM_NATIVE_H
 
-#include "idents.h"
-#include "values.h"
-
+struct DfVal;
+struct DfIdf;
 struct VirMac;
 
 enum NatTb {
@@ -48,4 +47,4 @@ struct NatPc nat_pc_from (enum NatPcTag);
 void         nat_fn_print(enum NatFnTag);
 struct NatFn nat_fn_from (enum NatFnTag);
 
-#endif /* FLATVM_DF_STD_H */
+#endif /* FLATVM_NATIVE_H */

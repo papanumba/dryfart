@@ -376,6 +376,7 @@ static int dfval_eq(struct DfVal *v, struct DfVal *w)
       case VAL_R: return FALSE; /* must do ε */
       case VAL_O: return v->as.o == w->as.o;
     }
+    return FALSE; /* gcc complains */
 }
 
 static int dfval_ne(struct DfVal *v, struct DfVal *w)

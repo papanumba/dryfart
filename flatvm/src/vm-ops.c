@@ -402,6 +402,7 @@ static int op_ape(struct VirMac *vm)
     struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
     if (!objarr_try_push(a, &elem)) {
         fputs("ERROR: some error pushing into array\n", stderr);
+        return FALSE;
     }
     virmac_push(vm, &arr);
     return TRUE;

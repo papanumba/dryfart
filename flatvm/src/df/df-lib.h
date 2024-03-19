@@ -3,7 +3,8 @@
 #ifndef DF_LIB_H
 #define DF_LIB_H
 
-#include "virmac.h"
+struct VirMac;
+struct DfVal;
 
 #define DF_PROC(name) \
 int df_std_ ## name(struct VirMac *, struct DfVal *, size_t)

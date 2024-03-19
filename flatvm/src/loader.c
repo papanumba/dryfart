@@ -4,7 +4,7 @@
 #include <string.h>
 #include "loader.h"
 #include "alzhmr.h"
-#include "df-std.h"
+#include "native.h"
 #include "object.h"
 
 static void vmdata_init(struct VmData *);

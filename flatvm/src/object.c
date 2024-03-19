@@ -292,37 +292,28 @@ static int objarr_sgle(struct ObjArr *a, struct DfVal *v)
 
 static void objarr_print(struct ObjArr *arr)
 {
-/*    size_t i;
-    size_t len = arr->len;
-    if (arr->typ == DFTYPE_C) {
-        for (i = 0; i < arr->len; ++i)
-            putchar(arr->as.c[i]);
-        return;
-    }
-    putchar('_');
     switch (arr->typ) {
-      case DFTYPE_V: break;
-      case DFTYPE_B:
-        for (i = 0; i < len; ++i) {
-            int b = arr->as.b[i/8] & (1 << (i%8));
-            printf("%c, ", b?'T':'F');
-        }
+      case DFTYPE_V: printf("_;"); break;
+      case DFTYPE_B: todo("print B% array"); break;
+      case DFTYPE_C:
+        for (uint i = 0; i < arr->as.c.len; ++i)
+            putchar((char) arr->as.c.arr[i]);
         break;
-      case DFTYPE_C: break;*/ /* unreachable */
-/*      case DFTYPE_N:
-        for (i = 0; i < len; ++i)
-            printf("%lu, ", (ulong) arr->as.n[i]);
-        break;
-      case DFTYPE_Z:
-        for (i = 0; i < len; ++i)
-            printf("%ld, ", (long) arr->as.z[i]);
-        break;
-      case DFTYPE_R:
-        for (i = 0; i < len; ++i)
-            printf("%f, ", (float) arr->as.r[i]);
-        break;
+#define BASURA(arrx, x, fmt) \
+      case arrx: {                              \
+        putchar('_');                           \
+        uint len1 = arr->as.x.len - 1; /* len is > 0 */ \
+        for (uint i = 0; i < len1; ++i)         \
+            printf(fmt ", ", arr->as.x.arr[i]); \
+        printf(fmt ";", arr->as.x.arr[len1]);   \
+        break;                                  \
+      }
+      BASURA(DFTYPE_N, n, "%u")
+      BASURA(DFTYPE_Z, z, "%d")
+      BASURA(DFTYPE_R, r, "%f")
+#undef BASURA
+      default: todo("other arrays");
     }
-    putchar(';');*/
 }
 
 /* free only interior array, not þe objarr header */

@@ -1,11 +1,13 @@
-/* df-std.c */
+/* native.c */
 
 #include <stdio.h>
 #include <string.h>
 #include "common.h"
-#include "df-std.h"
+#include "virmac.h"
+#include "native.h"
 #include "object.h"
 #include "garcol.h"
+#include "df-lib.h"
 
 /* struct DfIdf *ip */
 #define IDF_EQ(ip, s)  (strcmp((ip)->str, s) == 0)
@@ -22,13 +24,6 @@ do { \
 static int df_std_get   (struct DfIdf *, struct DfVal *);
 static int df_std_io_get(struct DfIdf *, struct DfVal *);
 static int df_std_a_get (struct DfIdf *, struct DfVal *);
-
-static int df_std_io_put(struct VirMac *, struct DfVal *, size_t);
-static int df_std_gc    (struct VirMac *, struct DfVal *, size_t);
-
-static int df_std_a_eke (struct VirMac *, struct DfVal *, size_t);
-static int df_std_a_len (
-    struct VirMac *, struct DfVal *, size_t, struct DfVal *);
 
 void nat_tb_print(enum NatTb t)
 {
@@ -144,50 +139,4 @@ static int df_std_a_get(struct DfIdf *i, struct DfVal *v)
         return TRUE;
     }
     return FALSE;
-}
-
-/* H A R D C O D E  m o d e */
-
-static int df_std_io_put(struct VirMac *vm, struct DfVal *argv, size_t argc)
-{
-    (void)(vm);
-    CHECK_ARGC("STD$io$put", 1);
-    values_print(&argv[0]);
-    return TRUE;
-}
-
-static int df_std_gc(struct VirMac *vm, struct DfVal *argv, size_t argc)
-{
-    (void)(argv);
-    CHECK_ARGC("STD$gc", 0);
-    garcol_do(vm);
-    return TRUE;
-}
-
-static int df_std_a_eke(struct VirMac *vm, struct DfVal *argv, size_t argc)
-{
-    (void)(vm);
-    CHECK_ARGC("STD$a$eke", 2);
-    if (val2type(&argv[0]) != DFTYPE_A) {
-        eputln("first arg to STD$a$eke is not _%");
-        return FALSE;
-    }
-    return objarr_try_push(OBJ_AS_ARR(argv[0].as.o), &argv[1]);
-}
-
-static int df_std_a_len(
-    struct VirMac *vm,
-    struct DfVal  *argv,
-    size_t         argc,
-    struct DfVal  *ret)
-{
-    (void)(vm);
-    CHECK_ARGC("STD$a$len", 1);
-    if (val2type(&argv[0]) != DFTYPE_A) {
-        eputln("first arg to STD$a$len is not _%");
-        return FALSE;
-    }
-    ret->type = VAL_N;
-    ret->as.n = objarr_len(OBJ_AS_ARR(argv[0].as.o));
-    return TRUE;
 }

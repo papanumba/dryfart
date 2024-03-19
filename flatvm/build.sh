@@ -1,11 +1,12 @@
 #!/bin/sh
 
 CC="clang"
-CFLAGS="-std=c99 -Wpedantic -Wall -Wextra -Iinclude -o flatvm"
+WARNINGS="-Wall -Wextra -Wcast-align"
+CFLAGS="$WARNINGS -std=c99 -pedantic -Iinclude -o flatvm"
 if [ "$CC" = "clang" ]; then
     CFLAGS="$CFLAGS -flto"
 fi
-FILES=$(ls src/*.c -I vm-ops.c | grep -v vm-ops.c)
+FILES=$(ls src/*/*.c src/*.c -I vm-ops.c | grep -v vm-ops.c)
 
 if [ "$1" = "-g" ];
 then

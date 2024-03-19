@@ -7,7 +7,7 @@
 #include "values.h"
 #include "htable.h"
 #include "norris.h"
-#include "df-std.h"
+#include "native.h"
 
 #define OBJ_AS_ARR(o)   ((struct ObjArr *) (o))
 #define OBJ_AS_TBL(o)   ((struct ObjTbl *) (o))
