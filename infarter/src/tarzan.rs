@@ -129,12 +129,14 @@ impl Scope
     fn do_arr_ass(&self, a: &Expr, i: &Expr, e: &Expr)
     {
         if let Val::A(arr) = self.eval_expr(a) {
-            if let Val::N(idx) = self.eval_expr(i) {
-                let e_val = self.eval_expr(e);
-                arr.borrow_mut().try_set(idx as usize, e_val).unwrap();
-            } else {
-                panic!("not an index");
-            }
+            let idx: u32 = match self.eval_expr(i) {
+                Val::N(n) => n,
+                Val::Z(z) => u32::try_from(z)
+                    .expect("ERROR: negative index"),
+                _ => panic!("ERROR: index is not N% or Z%"),
+            };
+            let e_val = self.eval_expr(e);
+            arr.borrow_mut().try_set(idx as usize, e_val).unwrap();
         } else {
             panic!("not indexable");
         }
@@ -392,7 +394,9 @@ impl Scope
             _ => panic!("ERROR: {:?} is not indexable", a),
         };
         let i_val = match self.eval_expr(i) {
-            Val::N(idx) => idx,
+            Val::N(n) => n,
+            Val::Z(z) => u32::try_from(z)
+                .expect("ERROR: negative index"),
             _ => panic!("cannot use {:?} as index", i),
         };
         let a_ref = a_val.borrow();

@@ -417,16 +417,24 @@ static int op_age(struct VirMac *vm)
         eputln("ERROR: value is not an array");
         return FALSE;
     }
-    if (idx.type != VAL_N) {
-        eputln("ERROR: index is not N%");
+    uint32_t idx_n = 0;
+    switch (idx.type) {
+      case VAL_N: idx_n = idx.as.n; break;
+      case VAL_Z:
+        if (idx.as.z < 0) {
+            eputln("ERROR: Z% index is negative");
+            return FALSE;
+        }
+        idx_n = (uint32_t) idx.as.z;
+        break;
+      default:
+        eputln("ERROR: index is not N% or Z%");
         return FALSE;
     }
     struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
-    struct DfVal val = objarr_get(a, idx.as.n);
-    if (val.type == VAL_V) {
-        eputln("ERROR: index out of bounds");
+    struct DfVal val = objarr_get(a, idx_n);
+    if (val.type == VAL_V)
         return FALSE;
-    }
     virmac_push(vm, &val);
     return TRUE;
 }

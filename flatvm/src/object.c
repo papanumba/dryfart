@@ -88,7 +88,8 @@ uint32_t objarr_len(const struct ObjArr *arr)
       BASURA(DFTYPE_Z, z)
       BASURA(DFTYPE_R, r)
 #undef BASURA
-      default: todo("other array types");
+      default:
+        todo("len other array types");
     }
     return len;
 }
@@ -113,7 +114,7 @@ int objarr_try_push(struct ObjArr *a, struct DfVal *v)
       BASURA(DFTYPE_Z, z);
       BASURA(DFTYPE_R, r);
 #undef BASURA
-      default: todo("other array types");
+      default: todo("push other array types");
     }
     return TRUE;
 }
@@ -126,21 +127,22 @@ struct DfVal objarr_get(const struct ObjArr *arr, uint32_t idx)
       case DFTYPE_V: eputln("cannot get from empty array"); break;
       case DFTYPE_B: todo("get from B% array"); break;
 #define BASURA(arrx, x) \
-      case arrx: do {                       \
+      case arrx: {                          \
         uint32_t len = arr->as.x.len;       \
         if (idx >= len) {                   \
             print_out_of_bounds(idx, len);  \
+            return val; /* V */             \
         }                                   \
         val.type = arrt2valt(arrx);         \
         val.as.x = arr->as.x.arr[idx];      \
         break;                              \
-      } while (FALSE)
-      BASURA(DFTYPE_C, c);
-      BASURA(DFTYPE_N, n);
-      BASURA(DFTYPE_Z, z);
-      BASURA(DFTYPE_R, r);
+      }
+      BASURA(DFTYPE_C, c)
+      BASURA(DFTYPE_N, n)
+      BASURA(DFTYPE_Z, z)
+      BASURA(DFTYPE_R, r)
 #undef BASURA
-      default: todo("other array types");
+      default: todo("get other array types");
     }
     return val;
 }
@@ -312,7 +314,7 @@ static void objarr_print(struct ObjArr *arr)
       BASURA(DFTYPE_Z, z, "%d")
       BASURA(DFTYPE_R, r, "%f")
 #undef BASURA
-      default: todo("other arrays");
+      default: todo("print other arrays");
     }
 }
 
@@ -330,9 +332,8 @@ static void objarr_free(struct ObjArr *arr)
     BASURA(DFTYPE_Z, z);
     BASURA(DFTYPE_R, r);
 #undef BASURA
-      default: todo("other array types");
+      default: todo("free other array types");
     }
-    /*realloc_or_free(arr->as.c, 0);*/ /* any would do */
 }
 
 static void objtbl_print(struct ObjTbl *t)

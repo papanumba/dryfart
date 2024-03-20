@@ -1,7 +1,7 @@
 #!/bin/sh
 
 CC="clang"
-WARNINGS="-Wall -Wextra -Wcast-align"
+WARNINGS="-Wall -Wextra" # -Wcast-align
 CFLAGS="$WARNINGS -std=c99 -pedantic -Iinclude -o flatvm"
 if [ "$CC" = "clang" ]; then
     CFLAGS="$CFLAGS -flto"
