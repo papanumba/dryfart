@@ -1,6 +1,6 @@
 ## Arrays
 
-Arrays must have all the elements of the same type: `Z%` array `_0, 1, 2;`,
+Arrays must have all the elements of the same type, e.g. `Z%` array `_0, 1, 2;`,
 `R%` array `_0.0, 1.0, 2.0;`, etc.
 
 Array constructors are denoted starting by underscore `_`, then the elements

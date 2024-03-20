@@ -1,3 +1,4 @@
+
 <div align="center">
   <h1 align="center">DryFart</h1>
   <h4>A Programming Language as Dry as a Fart</h4>
@@ -5,19 +6,20 @@
 <div align="center">
   <a href="https://github.com/papanumba/dryfart/blob/main/doc/index.md"><img alt="Documentation" src="https://img.shields.io/badge/docs-meh-blue"></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-green"></a>
-    <a href="https://github.com/papanumba/dryfart"><img alt="License" src="https://img.shields.io/badge/fart-dry-orange"></a>
+    <a href="https://github.com/papanumba/dryfart"><img alt="yea" src="https://img.shields.io/badge/fart-dry-orange"></a>
+    <a href="https://github.com/papanumba/dryfart"><img alt="Lines of Code" src="https://img.shields.io/badge/SLOC-~8k-0"></a>
 </div>
 
 :warning: wARNING: this project is still under construction. :construction:
 
 ## Description
 
-DryFart is a partly-esoteric toy language that I've been developing while learn about compilers, languages, Rust and more. Its features range from the ugly syntax of some esoteric languages to the uselessness of toy languages, altogether with the slow<sup><a name="footnote1">1</a></sup> performance of dynamically-typed interpreted languages.
+DryFart is a toy language that I've been developing while learning about compilers, languages, Rust, and more. Its features range from the ugly syntax of some esoteric languages to the uselessness of toy languages, together with the slow<sup><a name="footnote1">1</a></sup> performance of dynamically typed, interpreted languages.
 
 The project contains:
 - `InFarter`: tree-walk interpreter and bytecode compiler, written in Rust.
-- `FlatVM`: bytecode VM, written in C99. I started it by following the one from [Crafting Interpreters](https://craftinginterpreters.com/), but then reworked it and diverged a bit.
-- `DFartEd`: a very small editor with syntax highlighting, written in Python3.
+- `FlatVM`: stack-based bytecode VM, written in C99. I started it by following the one from [Crafting Interpreters](https://craftinginterpreters.com/a-bytecode-virtual-machine.html), but then reworked it and diverged a bit.
+- `DFartEd`: a very small editor with syntax highlighting, written in Python.
 
 The documentation about the language will be in the `doc` folder: [Start here](/doc/index.md).
 
@@ -38,7 +40,7 @@ Then, the binary will be located at `./target/release/`.
 
 ### FlatVM
 
-In its folder, here's a bash script for building, which can work both with `gcc` & `clang`, just change the `$CC` variable. Running it with no argument is the default and "release" build.
+In its folder, there's a sh script for building, which can work both with `gcc` & `clang`, just change the `$CC` variable. Running it with no argument is the default and "release" build.
 
 ``` bash
 cd flatvm
