@@ -621,10 +621,16 @@ impl<'src> Nip<'src>
         let bloq = self.block()?;
         self.exp_adv(TokenType::Period)?;
         let meta = SubrMeta { line: line, name: name };
-        let subr = Subr { meta: meta, pars: pars, body: bloq };
-        return Ok(match st{
-            SubrType::F => Expr::FnDef(Rc::new(RefCell::new(subr))),
-            SubrType::P => Expr::PcDef(Rc::new(subr)),
+        let subr = Subr {
+            meta: meta,
+            upvs: vec![],
+            pars: pars,
+            body: bloq
+        };
+        let mrs = Rc::new(RefCell::new(subr));
+        return Ok(match st {
+            SubrType::F => Expr::FnDef(mrs),
+            SubrType::P => Expr::PcDef(mrs),
         });
     }
 

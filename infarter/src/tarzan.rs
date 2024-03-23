@@ -1,13 +1,10 @@
 /* src/tarzan.rs */
 
-#![allow(unused_parens)]
-
 use std::rc::Rc;
 use crate::{
     asterix::*,
     util,
     util::MutRc,
-    dflib,
 };
 
 
@@ -28,7 +25,7 @@ fn exec_block(b: &Block) -> Option<BlockAction>
 pub struct Scope
 {
     vars: util::VecMap<Rc<String>, Val>,
-    callee: Option<Val>, // main, func or proc
+    callee: Option<Val>, // main (None), func or proc
 }
 
 impl Scope
@@ -250,17 +247,16 @@ impl Scope
     fn do_pccall(&mut self, p: &Expr, a: &[Expr])
     {
         let pc_val = self.eval_expr(p);
-        if let Val::P(p) = pc_val.clone() {
-            if p.arity() != a.len() {
-                panic!("not correct arity ({}) calling {:?}", a.len(), p);
-            }
-            let args = self.eval_args(a);
-            match p {
-                Proc::Nat(n) => n.exec(&args),
-                Proc::Usr(u) => exec_usr_proc(pc_val.clone(), &u, args),
-            }
-        } else {
+        let Val::P(p) = pc_val.clone() else {
             panic!("cannot call procedure {:?}", pc_val);
+        };
+        if p.arity() != a.len() {
+            panic!("not correct arity ({}) calling {:?}", a.len(), p);
+        }
+        let args = self.eval_args(a);
+        match p {
+            Proc::Nat(n) => n.exec(&args),
+            Proc::Usr(u, s) => self.exec_usr_proc(&u, args, &s),
         }
     }
 
@@ -272,6 +268,35 @@ impl Scope
          .collect()
     }
 
+    fn exec_usr_proc(
+        &self,
+            subr: &MutRc<Subr>,
+        mut args: Vec<Val>,
+            upvs: &UpVals,
+        )
+    {
+        // Future optimization: doesn't need a callee if it's not !@
+        let mut proc_scope = Scope::with_callee(
+            Val::new_usr_pc(subr.clone(), upvs.clone())
+        );
+        let subr = subr.borrow();
+        if let Some(uv) = upvs {
+            for (name, upval) in std::iter::zip(&subr.upvs, &**uv) {
+                proc_scope.declar(name, upval.clone());
+            }
+        }
+        for name in subr.pars.iter().rev() {
+            let val = args.pop().unwrap(); // already checked arity
+            proc_scope.declar(name, val);
+        }
+        if let Some(ba) = proc_scope.do_block(&subr.body) {
+            match ba {
+                BlockAction::End => return, // ok
+                _ => panic!("cannot return or break from proc"),
+            }
+        };
+    }
+
     fn eval_expr(&self, e: &Expr) -> Val
     {
         match e {
@@ -281,10 +306,10 @@ impl Scope
             Expr::BinOp(l, o, r) => self.eval_binop(l, o, r),
             Expr::UniOp(t, o)    => eval_uniop(&self.eval_expr(t), o),
             Expr::CmpOp(f, o)    => self.eval_cmpop(f, o),
-            Expr::FnDef(s)       => self.make_func(s),
+            Expr::FnDef(s)       => self.eval_fndef(s),
             Expr::Fcall(c, a)    => self.eval_fcall(c, a),
             Expr::RecFn          => self.get_rec_f(),
-            Expr::PcDef(s)       => self.make_proc(s),
+            Expr::PcDef(s)       => self.eval_pcdef(s),
             Expr::RecPc          => self.get_rec_p(),
             Expr::Array(a)       => self.eval_array(a),
             Expr::Table(v)       => self.eval_table(v),
@@ -298,10 +323,6 @@ impl Scope
     {
         // try variable
         if let Some(v) = self.vars.get(i) {
-            return v.clone();
-        }
-        // try built in
-        if let Some(v) = dflib::get(i) {
             return v.clone();
         }
         panic!("cannot find {i} in scope");
@@ -332,21 +353,63 @@ impl Scope
     }
 
     #[inline]
+    fn eval_fndef(&self, s: &MutRc<Subr>) -> Val
+    {
+        let mut upvals = vec![];
+        let su = &s.borrow().upvs;
+        if su.is_empty() {
+            return Val::new_usr_fn(s.clone(), None);
+        }
+        for name in &s.borrow().upvs {
+            upvals.push(self.eval_ident(name));
+        }
+        return Val::new_usr_fn(s.clone(), Some(Rc::new(upvals)));
+    }
+
+    #[inline]
     fn eval_fcall(&self, f: &Expr, a: &[Expr]) -> Val
     {
         let fn_val = self.eval_expr(f);
-        if let Val::F(f) = fn_val.clone() {
-            if f.arity() != a.len() {
-                panic!("not correct arity ({}) calling {:?}", a.len(), f);
-            }
-            let args = self.eval_args(a);
-            match f {
-                Func::Usr(u) => eval_usr_func(
-                    fn_val.clone(), &u.borrow(), args),
-                Func::Nat(n) => n.eval(&args).unwrap(),
-            }
-        } else {
+        let Val::F(f) = fn_val.clone() else {
             panic!("cannot call function {:?}", fn_val);
+        };
+        if f.arity() != a.len() {
+            panic!("not correct arity ({}) calling {:?}", a.len(), f);
+        }
+        let args = self.eval_args(a);
+        match f {
+            Func::Usr(u, s) => self.eval_usr_func(&u, args, &s),
+            Func::Nat(n) => n.eval(&args).unwrap(),
+        }
+    }
+
+    fn eval_usr_func(
+        &self,
+            subr: &MutRc<Subr>,
+        mut args: Vec<Val>,
+            upvs: &UpVals,
+        ) -> Val
+    {
+        // Future optimization: doesn't need a callee if it's not #@
+        let mut func_scope = Scope::with_callee(
+            Val::new_usr_fn(subr.clone(), upvs.clone())
+        );
+        let subr = subr.borrow();
+        if let Some(uv) = upvs {
+            for (name, upval) in std::iter::zip(&subr.upvs, &**uv) {
+                func_scope.declar(name, upval.clone());
+            }
+        }
+        for name in subr.pars.iter().rev() {
+            let val = args.pop().unwrap(); // already checked arity
+            func_scope.declar(name, val);
+        }
+        let Some(ba) = func_scope.do_block(&subr.body) else {
+            panic!("ended function w/o returning a value");
+        };
+        match ba {
+            BlockAction::Ret(v) => return v,
+            _ => panic!("cannot return or break from func"),
         }
     }
 
@@ -408,15 +471,17 @@ impl Scope
     }
 
     #[inline]
-    fn make_func(&self, subr: &MutRc<Subr>) -> Val
+    fn eval_pcdef(&self, s: &MutRc<Subr>) -> Val
     {
-        Val::new_usr_fn(subr.clone())
-    }
-
-    #[inline]
-    fn make_proc(&self, subr: &Rc<Subr>) -> Val
-    {
-        Val::new_usr_pc(subr.clone())
+        let mut upvals = vec![];
+        let su = &s.borrow().upvs;
+        if su.is_empty() {
+            return Val::new_usr_pc(s.clone(), None);
+        }
+        for name in &s.borrow().upvs {
+            upvals.push(self.eval_ident(name));
+        }
+        return Val::new_usr_pc(s.clone(), Some(Rc::new(upvals)));
     }
 
     #[inline]
@@ -474,78 +539,6 @@ impl Scope
             panic!("{:?} is not a table", tbl);
         }
     }
-
-/*    fn eval_fn(scope: &Scope, f: &Func, raw_args: &Vec<Expr>) -> Val
-    {
-        // check numba'v args
-        if f.parc() != raw_args.len() {
-            panic!("not rite numba ov args, calling func");
-        }
-        // eval every arg
-        let args: Vec<Val> = eval_args(scope, raw_args);
-        // all checked ok, let's go
-        return eval_fn_ok(f, &args);
-    }*/
-
-/*    fn eval_fn_ok<'a>(f: &Func, args: &[Val]) -> Val
-    {
-        let mut func_sc = Scope::<'a>::new();
-        // decl args as vars
-        for (i, par) in f.pars().iter().enumerate() {
-            func_sc.vars.insert(&par, args[i].clone());
-            //do_assign(&mut func_bs, &par.1, &Expr::Const(args[i]));
-        }
-        // add idself to be recursive
-        func_sc.vars.insert("@", Val::F(f.clone()));
-        // --------------------------------
-        // exec body
-        // code similar to do_block
-        if let Some(ba) = do_block(&mut func_sc, f.body()) {
-            if let BlockAction::Ret(v) = ba {
-                // func_scope is destroyed
-                return v.clone();
-            } else {
-                panic!("cannot break or exit from func");
-            }
-        }
-        // func_scope is destroyed
-        panic!("EOF func w/o a return value");
-    }*/
-
-    /*fn exec_pc<'a, 's>(
-        sc: &'s mut Scope::<'a>,
-        pc: &Proc,
-        args: &Vec<Val>)
-     -> Option<BlockAction>
-    {
-        // number and types of args already checked
-        // proc scope = new BlockScope
-        let mut ps = BlockScope::<'a, 's>::from_scope(sc);
-        // decl args as vars
-        for (i, par) in pc.pars().iter().enumerate() {
-            let name = par.1.as_str();
-            if !ps.outer.vars.contains_key(name) {
-                ps.outer.vars.insert(name, args[i].clone());
-                ps.inner.vars.push(&name);
-            } else {
-                panic!("arg {name} already made");
-            }
-        }
-        // exec body
-        // code similar to do_loopif
-        for st in pc.body() {
-            if let Some(ba) = do_stmt(&mut ps, st) {
-                ps.clean();
-                return match ba {
-                    BlockAction::PcExit => None,
-                    _ => Some(ba),
-                };
-            }
-        }
-        ps.clean();
-        return None;
-    }
-    */
 }
 
 fn do_cast(t: &Type, v: &Val) -> Val
@@ -578,7 +571,7 @@ fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
         }
         UniOpcode::Inv => match t {
             Val::R(r) => return Val::R(1.0/(*r)),
-            _ => panic!("can only invert (-) a R% value"),
+            _ => panic!("can only invert (/) a R% value"),
         }
         UniOpcode::Not => match t {
             Val::B(b) => return Val::B(!(*b)),
@@ -672,45 +665,6 @@ fn eval_binop_val(l: &Val, o: &BinOpcode, r: &Val) -> Val
 
         },
         _ => panic!("not valid operation btwin {:?} and {:?}", l, r),
-    }
-}
-
-//fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-
-/*
-** þe next 2 functions get rec_val coz it may be used when !@ xor #@
-** rec_val is þe same as Val::P(Proc::Nat(proc)), but can be Rc-cloned
-*/
-
-pub fn exec_usr_proc(rec_val: Val, subr: &Subr, mut args: Vec<Val>)
-{
-    let mut proc_scope = Scope::with_callee(rec_val);
-    for name in subr.pars.iter().rev() {
-        let val = args.pop().unwrap(); // already checked arity
-        proc_scope.declar(name, val);
-    }
-    if let Some(ba) = proc_scope.do_block(&subr.body) {
-        match ba {
-            BlockAction::End => return,
-            _ => panic!("cannot return or break from proc"),
-        }
-    }
-}
-
-pub fn eval_usr_func(rec_val: Val, subr: &Subr, mut args: Vec<Val>) -> Val
-{
-    let mut func_scope = Scope::with_callee(rec_val);
-    for name in subr.pars.iter().rev() {
-        let val = args.pop().unwrap(); // already checked arity
-        func_scope.declar(name, val);
-    }
-    if let Some(ba) = func_scope.do_block(&subr.body) {
-        match ba {
-            BlockAction::Ret(v) => return v,
-            _ => panic!("cannot return or break from func"),
-        }
-    } else {
-        panic!("ended function w/o returning a value");
     }
 }
 

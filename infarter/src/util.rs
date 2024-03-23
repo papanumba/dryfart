@@ -8,6 +8,15 @@ macro_rules! format_err {
 
 pub(crate) use format_err;
 
+/*macro_rules! silent_panic {
+    ($($args:expr),+) => {
+        eprintln!($($args),+);
+        std::process::exit(1);
+    }
+}
+
+pub(crate) use silent_panic;*/
+
 pub type StrRes<T> = Result<T, String>;
 pub type MutRc<T> = std::rc::Rc<std::cell::RefCell<T>>;
 
@@ -168,6 +177,12 @@ where T: Eq + std::fmt::Debug
     }
 
     #[inline]
+    pub fn to_vec(self) -> Vec<T>
+    {
+        return self.set;
+    }
+
+    #[inline]
     pub fn as_slice(&self) -> &[T]
     {
         return self.set.as_slice();
@@ -287,7 +302,8 @@ where K: Eq + std::fmt::Debug,
     }
 }
 
-#[derive(Debug, Default)]
+#[repr(transparent)]
+#[derive(Debug, Clone, Default)]
 pub struct Stack<T>(Vec<T>);
 
 impl<T> Stack<T>
@@ -297,11 +313,31 @@ impl<T> Stack<T>
         Self(vec![])
     }
 
-    pub fn peek<'a>(&'a self, n: usize) -> Option<&'a T>
+    pub fn is_empty(&self) -> bool
+    {
+        return self.0.is_empty();
+    }
+
+    pub fn size(&self) -> usize
+    {
+        return self.0.len();
+    }
+
+    pub fn peek(&self, n: usize) -> Option<&T>
     {
         let len = self.0.len();
         if n < len {
             Some(&self.0[len-n-1])
+        } else {
+            None
+        }
+    }
+
+    pub fn peek_mut(&mut self, n: usize) -> Option<&mut T>
+    {
+        let len = self.0.len();
+        if n < len {
+            Some(&mut self.0[len-n-1])
         } else {
             None
         }
@@ -315,5 +351,10 @@ impl<T> Stack<T>
     pub fn pop(&mut self)
     {
         self.0.pop();
+    }
+
+    pub fn pop_last(&mut self) -> Option<T>
+    {
+        return self.0.pop();
     }
 }

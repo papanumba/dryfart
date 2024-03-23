@@ -37,10 +37,12 @@ fn main()
 pub fn parse_file(fname: &str)
 {
     let taco: String = read_file_to_string(fname);
-    match parsnip::parse(&taco) {
-        Ok(b) => tarzan::exec_main(&b),
-        Err(e) => println!("{e}"),
-    }
+    let mut ast = match parsnip::parse(&taco) {
+        Ok(b) => b,
+        Err(e) => panic!("{e}"),
+    };
+    semanal::check(&mut ast);
+    tarzan::exec_main(&ast);
 }
 
 #[inline]
@@ -55,7 +57,10 @@ pub fn transfart(ifname: &str, opt: bool)
     let taco: String = read_file_to_string(ifname);
     let mut ofname: String = ifname.to_owned();
     ofname.push('c');
-    let mut ast = parsnip::parse(&taco).unwrap(); // prints parsnip error
+    let mut ast = match parsnip::parse(&taco) {
+        Ok(b) => b,
+        Err(e) => panic!("{e}"),
+    };
     semanal::check(&mut ast);
     let mut cfg = intrep::Compiler::from_asterix(&ast);
     if opt {

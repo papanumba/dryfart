@@ -392,11 +392,7 @@ impl Table
     }
 }
 
-// used for tables, procs, funcs
-macro_rules! impl_eq_nat_usr {
-    ($tname:ident) => {
-
-impl PartialEq for $tname {
+impl PartialEq for Table {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Nat(n), Self::Nat(m)) => n == m,
@@ -405,12 +401,27 @@ impl PartialEq for $tname {
         }
     }
 }
+
+impl Eq for Table {}
+
+
+// used for procs & funcs
+macro_rules! impl_eq_nat_usr {
+    ($tname:ident) => {
+
+impl PartialEq for $tname {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Nat(n), Self::Nat(m)) => n == m,
+            (Self::Usr(u, _), Self::Usr(v, _)) => Rc::ptr_eq(u, v),
+            _ => false,
+        }
+    }
+}
 impl Eq for $tname {}
 
     };
 }
-
-impl_eq_nat_usr!(Table);
 
 #[derive(Debug)]
 pub struct SubrMeta
@@ -423,7 +434,8 @@ pub struct SubrMeta
 pub struct Subr
 {
     pub meta: SubrMeta,
-    pub pars: Vec<Rc<String>>,
+    pub upvs: Vec<Rc<String>>, // eval'd at definition
+    pub pars: Vec<Rc<String>>, // eval'd at call
     pub body: Block,
 }
 
@@ -439,10 +451,12 @@ impl Subr
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SubrType { F, P }
 
+pub type UpVals = Option<Rc<Vec<Val>>>;
+
 #[derive(Debug, Clone)]
 pub enum Proc {
     Nat(dflib::procs::NatPc),
-    Usr(Rc<Subr>),
+    Usr(MutRc<Subr>, UpVals),
 }
 
 impl Proc
@@ -451,7 +465,7 @@ impl Proc
     {
         match &self {
             Self::Nat(n) => n.arity(),
-            Self::Usr(u) => u.arity(),
+            Self::Usr(u, _) => u.borrow().arity(),
         }
     }
 }
@@ -461,7 +475,7 @@ impl_eq_nat_usr!(Proc);
 #[derive(Debug, Clone)]
 pub enum Func {
     Nat(dflib::funcs::NatFn),
-    Usr(MutRc<Subr>),
+    Usr(MutRc<Subr>, UpVals),
 }
 
 impl Func
@@ -470,7 +484,7 @@ impl Func
     {
         match &self {
             Self::Nat(n) => n.arity(),
-            Self::Usr(u) => u.borrow().arity(),
+            Self::Usr(u, _) => u.borrow().arity(),
         }
     }
 }
@@ -503,14 +517,14 @@ impl Val
         Self::A(Rc::new(RefCell::new(a)))
     }
 
-    pub fn new_usr_fn(s: MutRc<Subr>) -> Self
+    pub fn new_usr_fn(s: MutRc<Subr>, u: UpVals) -> Self
     {
-        Self::F(Func::Usr(s))
+        Self::F(Func::Usr(s, u))
     }
 
-    pub fn new_usr_pc(s: Rc<Subr>) -> Self
+    pub fn new_usr_pc(s: MutRc<Subr>, u: UpVals) -> Self
     {
-        Self::P(Proc::Usr(s))
+        Self::P(Proc::Usr(s, u))
     }
 
     pub fn new_nat_proc(np: dflib::procs::NatPc) -> Self
@@ -668,10 +682,10 @@ pub enum Expr
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
     CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
-    FnDef(MutRc<Subr>), // TODO upvalues
+    FnDef(MutRc<Subr>),
     Fcall(Box<Expr>, Vec<Expr>),
     RecFn,
-    PcDef(Rc<Subr>),
+    PcDef(MutRc<Subr>),
     RecPc,
     Array(Vec<Expr>),
     Table(Vec<(Rc<String>, Expr)>),

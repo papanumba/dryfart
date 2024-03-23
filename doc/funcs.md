@@ -1,93 +1,73 @@
-## Funcs
+# Funcs
 
-Functions make up the purely functional part of DryFart, since they are
-referentially transparent and can support Higher Order Functions.
+## Definition
 
-### Definition
+Functions are values. They are first defined as anonymous functions (which are considered expressions), then assigned to a variable, passed as an argument or whatever.
 
-Functions are stored in variables, as the other BCNZR types. First they are
-defined as anonymous functions (which are considered expressions), then assigned
-to a variable:
+A function definition expression has 2 parts:
+1. **Head**: mainly contains the names of the arguments. Starts by a hash `#`, then an optional debug name (string literal), then the comma-list of identifiers, and ends in a semicolon `;`.
+2. **Body**: a block of statements, among which (in most cases) one must be the return `##` \<Expr\> `.`; then a dot `.` marks the end of the body.
 
-```
-plusOne = #x;##x+1...
-```
-
-A function definition expression has 3 parts:
-1. The Signature: itself has 2 parts:
-1.1. Return type
-1.2. Parameters: has token regex = "#" "{" (\<Type\> \<Ident\> ",")* "}"
-2. The Body: a block of code, made of statements, of which one must be the
-"return".
-	2.1. Return: "##" \<Expr\> "."
-3. Body End: a pair of tokens `#.` which mark the end of the function
-definition.
-
-So, in the last example, the function was `N%#{N%x,} ##x+1. #.` and this
-expression was  in `plusOne = <expr> .` as in a normal assignment. Analyzing
-the func. def.:
-1. `N%#{N%x,}` gets a `N%` parameter called `x` and returns a `N%` value.
-2. The only statement `##x+1.` is the return of value `x+1`.
-3. just `#.`
-
-### Call
-
-Functions must be inside expressions, since they always return a value.
-Following the last example:
+Simple example:
 
 ```
-result = plusOne#{10,}.
+add = #a,b;##a+b...
 ```
 
-After exec, `result` will be of type `N%` and have a value of 11.
+Here, the function is `#a,b;##a+b..` and this expression is inside the assignment statement `add = <expr> .`.
 
-A more complex example:
+Analyzing the func. def.:
+1. The head is `#a,b;`, where `a` and `b` are the parameters
+2. The only statement in the body is `##a+b.`
 
-```
-result = plusOne#{plusOne#{10,},}.
-```
+## Call
 
-Here, `result` will be = 12.
-
-You can also call a function without having to assign it to an identifier.
-Just take the entire func. def. expr. and append the argument list.
+Following the last example, to call `add` and store the result in the `result` variable:
 
 ```
-result = N%#{N%x,} ##x+1. #. #{10,} .
+result = add#1,2;.
 ```
 
-### HOFs
+An important thing to notice is that this `#` is an operator and is not tied to the `add` identifier. So, it is equivalent to  `(add)#1,2;` and `(add)#(1),(2);`.
 
-Func. def. have their own type as the other expressions. The explicit func.
-type is used when returning or receiving functions in another function
-signature. It is just like a func. sign. but lacking the parameter identifiers,
-e. g. `plusOne`'s type is `N%#{N%,}`.
+Since function definitions are values, this is also the same as `#a,b;##a+b..#1,2;` or `(#a,b;##a+b..)#1,2;`.
 
-Another zero fun example:
+## HOFs
 
-```                      
-zeroFunFun = N%#{}#{}##N%#{}##0.#..#..
-zeroFun = zeroFunFun#{}.
-zero = zeroFun#{}.
+Let's start with an example:
+
+```
+zero = #;##0...
 ```
 
-By the end, `zero` will get the value 0, what a surprise. The first part
-`N%#{}` of `zeroFunFun` is its return type, which is the function later stored
-in `zeroFun`, which is a function that takes no arguments and returns a `N%`.
+This is a function with no parameters and always returns `0`. Now, to have some fun with functions, let's make one that returns the last example:
 
-All this can be extended to a madness of dry functional expressions, but that's
-up to you & your willingness to get head-aches.
+```
+zeroFun = #;###;##0.....
+```
+
+Even further:
+
+```
+zeroFunFun = #;###;###;##0.......
+```
+
+So, when executing:
+
+```
+zero = #;###;###;##0......#;#;#;.
+```
+
+`zero` will have the value `0`, what a surprise.
+
+As thou canst see, all this can be extended to a madness of dry functional expressions, but that's up to you & your willingness to get head-aches.
 
 ## Recursion
 
-In order to call a function from inside itself, call it by `@#` followed by the
-arguments `{...}` as usual. See [Fibonnacci example](../infarter/test/fib.df):
+In order to call a function from inside itself, call it by `#@`. See [Fibonnacci example](../infarter/test/fib.df):
 
 ```
-fib = Z%#{Z%n,}
-    (n == Z%0 | n == Z%1) => ##n. ().
-    ## @#{n - Z%1,} + @#{n - Z%2,} .
-#..
+fib = #n;[n<2=>##n.]###@#n-1;+#@#n-2;...
 ```
 
 The `@` syntax has 2 reasons:
@@ -95,3 +75,4 @@ The `@` syntax has 2 reasons:
 2. One could think of using the name of the function itself (e.g. `fib#`).
 The problem is that every function is first anonymous then assigned to a name,
 so while defining them they cannot be referred by a name.
+

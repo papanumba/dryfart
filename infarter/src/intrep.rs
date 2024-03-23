@@ -643,7 +643,7 @@ impl Compiler
             Expr::RecsT(l)       => self.e_recst(l),
             Expr::FnDef(s)       => self.e_fndef(&s.borrow()),
             Expr::Fcall(f, a)    => self.e_fcall(f, a),
-            Expr::PcDef(s)       => self.e_pcdef(&*s),
+            Expr::PcDef(s)       => self.e_pcdef(&s.borrow()),
             Expr::RecFn |
             Expr::RecPc => self.push_op(ImOp::LLX(0)), // unchecked
         }
