@@ -1,22 +1,168 @@
-/* falloc.c */
+/* maitre.cpp */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "falloc.h"
-
+#include <cstdio>
+#include <cstdlib>
+#include <bitset>
+#include "maitre.h"
+#include "object.h"
 
 #define BLOCKS_PER_POOL 32
 
-struct Block {
-    int free;
-    union {
-        struct Block *next; /* free list */
-        objs_u user_space;
-    } val;
+template<typename T>
+class Pool {
+  private:
+    std::bitset<BLOCKS_PER_POOL> used; // default all false
+    T *blocks;
+    // todo: add first free, to be prepared to serve
+  public: // meþods
+    Pool();
+    ~Pool() {
+        free(this->blocks);
+    }
+    bool is_full() const {
+        return this->used.none();
+    }
+    T * get();
+    bool try_free(T *);
 };
+
+template<typename T>
+Pool<T>::Pool()
+{
+    void *b = aligned_alloc(8, BLOCKS_PER_POOL * sizeof(T));
+    if (b == nullptr)
+        exit(1);
+    this->blocks = (T *) b;
+}
+
+// returns a reserved place, NULL if full
+template<typename T>
+T * Pool<T>::get()
+{
+    TIL(i, BLOCKS_PER_POOL) {
+        if (!this->used[i])
+            return &this->blocks[i];
+    }
+    return NULL;
+}
+
+// returns true if þe pointer comes from þis pool
+// else returns false
+template<typename T>
+bool Pool<T>::try_free(T *e)
+{
+    ptrdiff_t idx = e - &this->blocks[0];
+    bool is_from_this = (0 <= idx && idx <= BLOCKS_PER_POOL);
+    if (is_from_this)
+        this->used.reset(idx); // mark as free
+    return is_from_this;
+}
+
+template<typename T>
+class Alloc {
+  private:
+    DynArr<Pool<T>> pools;
+    int first_free = -1;
+  public: // meþods
+    Alloc() = default;
+    ~Alloc();
+    T * alloc();
+    void free(T *);
+};
+
+template<typename T>
+Alloc<T>::~Alloc()
+{
+    auto len = this->pools.len();
+    TIL(i, len)
+        delete &this->pools[i];
+}
+
+template<typename T>
+T * Alloc<T>::alloc()
+{
+    size_t pool_num = this->pools.len();
+    TIL(i, pool_num) {
+        auto &p = this->pools[i];
+        if (!p.is_full())
+            return p.get();
+    }
+    // need more pools
+    this->pools.push(Pool<T>());
+    return this->pools[pool_num].get();
+}
+
+template<typename T>
+void Alloc<T>::free(T *ptr)
+{
+    size_t pool_num = this->pools.len();
+    TIL(i, pool_num) {
+        if (this->pools[i].try_free(ptr))
+            return; // found þe pool it came from
+    }
+    panic("free wrong ptr");
+}
+
+class MaitrePriv {
+  private:
+    Alloc<ArrObj> a;
+    Alloc<TblObj> t;
+    Alloc<FunObj> f;
+    Alloc<ProObj> p;
+  public: // meþods
+    // default [cd]tors
+    ObjRef alloc(ObjType);
+    void free(ObjRef);
+    void sweep();
+};
+
+ObjRef MaitrePriv::alloc(ObjType t)
+{
+    switch (t) {
+      case OBJ_ARR: return ObjRef(this->a.alloc());
+      case OBJ_TBL: return ObjRef(this->t.alloc());
+      case OBJ_FUN: return ObjRef(this->f.alloc());
+      case OBJ_PRO: return ObjRef(this->p.alloc());
+    }
+}
+
+/* outer API */
+
+Maitre::Maitre()
+{
+    this->priv = (void *) new MaitrePriv();
+}
+
+#define THIS_PRIV ((MaitrePriv *) (this->priv))
+
+Maitre::~Maitre()
+{
+    delete THIS_PRIV;
+}
+
+ObjRef Maitre::alloc(ObjType ot)
+{
+    return THIS_PRIV->alloc(ot);
+}
+
+void Maitre::free(ObjRef r)
+{
+    THIS_PRIV->free(r);
+}
+
+#undef THIS_PRIV
+
+#ifdef GRANMERDA
+// test
+
+void merda() {
+    Alloc<ArrObj> x;
+    auto y = x.alloc();
+}
 
 #define GET_BLOCK_FROM_US(us) \
     ((struct Block *) (((uint8_t *)(us)) - offsetof(struct Block, val)))
+
 
 struct Pool {
     struct Pool *next;
@@ -148,3 +294,5 @@ static inline void init_pool(struct Pool *p)
     p->blocks[BLOCKS_PER_POOL-1].val.next = NULL;
     p->next = NULL;
 }
+
+#endif

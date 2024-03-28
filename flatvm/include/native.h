@@ -3,9 +3,9 @@
 #ifndef FLATVM_NATIVE_H
 #define FLATVM_NATIVE_H
 
-struct DfVal;
-struct DfIdf;
-struct VirMac;
+class DfVal;
+class DfIdf;
+class VirMac;
 
 enum NatTb {
     DF_STD    = 0,
@@ -21,7 +21,7 @@ enum NatPcTag {
 
 struct NatPc {
     enum NatPcTag tag;
-    int (*exec)(struct VirMac *, struct DfVal *, size_t);
+    int (*exec)(VirMac *, DfVal *, size_t);
 };
 
 enum NatFnTag {
@@ -31,15 +31,15 @@ enum NatFnTag {
 struct NatFn {
     enum NatFnTag tag;
     int (*eval)(
-        struct VirMac *,
-        struct DfVal *,
+        VirMac *,
+        DfVal *,
         size_t,
-        struct DfVal *
+        DfVal *
     );
 };
 
 void nat_tb_print(enum NatTb);
-int  nat_tb_get  (enum NatTb, struct DfIdf *, struct DfVal *);
+int  nat_tb_get  (enum NatTb, DfIdf *, DfVal *);
 
 void         nat_pc_print(enum NatPcTag);
 struct NatPc nat_pc_from (enum NatPcTag);

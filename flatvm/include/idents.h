@@ -3,20 +3,21 @@
 #ifndef FLATVM_IDENTS_H
 #define FLATVM_IDENTS_H
 
-#include "common.h"
-#include "dynarr.h"
+#include "common.hpp"
 
-/* once malloc'd, stays const */
-struct DfIdf {
-    char    *str; /* NUL-term'd, so len+1 */
-    uint32_t len; /* counts only non-NUL  */
+class DfIdf {
+  private:
+    // owns str
+    uint8_t *str; // NUL-term'd, so it's len+1
+    uint32_t len; // len of printable chars
     uint32_t hsh;
+  public:
+    DfIdf(DfIdf &&) = default;
+    DfIdf(const uint8_t *, size_t);
+    ~DfIdf();
+    uint32_t get_hash() const;
+    void print() const;
+    DfIdf & operator=(DfIdf &&) = default;
 };
-
-DYNARR_DECLAR(Idents, struct DfIdf, idents)
-
-struct DfIdf dfidf_from_chars(const char *, size_t);
-void dfidf_free (struct DfIdf *);
-void dfidf_print(struct DfIdf *);
 
 #endif /* FLATVM_IDENTS_H */

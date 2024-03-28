@@ -3,10 +3,10 @@
 #ifndef FLATVM_NORRIS_H
 #define FLATVM_NORRIS_H
 
-#include "common.h"
-#include "dynarr.h"
+#include "common.hpp"
+#include "idents.h"
 
-enum OpCode {
+enum Op : uint8_t {
     OP_NOP = 0x00,
     OP_LVV = 0x01,
     OP_LBT = 0x02,
@@ -44,12 +44,12 @@ enum OpCode {
     OP_AND = 0x21,
     OP_IOR = 0x22,
 
-    OP_LLS = 0x44, /* Load   Local  Short (u8)  */
-    OP_SLS = 0x45, /* Store  Local  Short (u8)  */
-    OP_ULS = 0x46, /* Update Local  Short (u8)  */
-    OP_LLL = 0x47, /* Load   Local  Long  (u16) */
-    OP_SLL = 0x48, /* Store  Local  Long  (u16) */
-    OP_ULL = 0x49, /* Update Local  Long  (u16) */
+    OP_LLS = 0x44,
+    OP_SLS = 0x45,
+    OP_ULS = 0x46,
+    OP_LLL = 0x47,
+    OP_SLL = 0x48,
+    OP_ULL = 0x49,
 
     OP_JJS = 0x50,
     OP_JJL = 0x51,
@@ -97,19 +97,23 @@ enum OpCode {
 };
 
 /* chunk norris */
-struct Norris {
+class Norris {
+ public:
+    // owns cod, but not nam
     uint8_t *cod; /* bytecode */
     uint32_t len; /* lengþ */
     uint32_t lne; /* line */
-    struct DfIdf *nam;  /* þis points to a Idf in þe idf pool of vmdata
-                        ** NULL if it's anonymous */
     uint8_t ari : 8; /* arity */
+    const DfIdf *nam;  /* þis points to a Idf in þe idf pool of vmdata
+                        ** NULL if it's anonymous */
+  public:
+    Norris(
+        const Slice<uint8_t> &, // bcode
+        uint32_t,               // line
+        uint8_t,                // arity
+        const DfIdf * = nullptr // name, anon. by default
+    );
+    ~Norris();
 };
-
-DYNARR_DECLAR(NorVec, struct Norris, norvec)
-
-void norris_init     (struct Norris *);
-void norris_cpy_buff (struct Norris *, const uint8_t *, size_t);
-void norris_free     (struct Norris *);
 
 #endif /* FLATVM_NORRIS_H */

@@ -3,10 +3,34 @@
 #ifndef FLATVM_VALUES_H
 #define FLATVM_VALUES_H
 
-#include "common.h"
-#include "dynarr.h"
+#include "common.hpp"
+#include "objref.h"
 
-struct Object; /* to avoid cyclic dependency */
+// types from þe user side
+enum class DfType : uint8_t {
+    V = 'V', /* void */
+    B = 'B', /* bool */
+    C = 'C', /* char */
+    N = 'N', /* natural */
+    Z = 'Z', /* zahl */
+    R = 'R', /* real */
+    F = '#', /* function */
+    P = '!', /* procedure */
+    A = '_', /* array */
+    T = '$'  /* table */
+};
+
+static inline DfType objt2dft(ObjType ot)
+{
+    DfType t = DfType::V;
+    switch (ot) {
+        case OBJ_ARR: t = DfType::A; break;
+        case OBJ_TBL: t = DfType::T; break;
+        case OBJ_FUN: t = DfType::F; break;
+        case OBJ_PRO: t = DfType::P; break;
+    }
+    return t;
+}
 
 enum ValType {
     VAL_V = 0x00,
@@ -18,37 +42,46 @@ enum ValType {
     VAL_O = 0x0C /* any heap stuff */
 };
 
-/*
-**  þis enum is used in values (struct DfVal) þat represent types
-*/
-enum DfType {
-    DFTYPE_V = 'V', /* void */
-    DFTYPE_B = 'B', /* bool */
-    DFTYPE_C = 'C', /* char */
-    DFTYPE_N = 'N', /* natural */
-    DFTYPE_Z = 'Z', /* zahl */
-    DFTYPE_R = 'R', /* real */
-    DFTYPE_F = '#', /* function */
-    DFTYPE_P = '!', /* procedure */
-    DFTYPE_A = '_', /* array */
-    DFTYPE_T = '$'  /* table */
-};
-
-struct DfVal {
+class DfVal {
+  public:
     enum ValType type;
-    union {
-        int      b; /* int used as 0 or !0 */
-        char     c;
+    union _as {
+        bool     b;
+        uint8_t  c;
         uint32_t n;
         int32_t  z;
         float    r;
-        struct Object *o;
+        ObjRef   o;
     } as;
+  public:
+    DfVal() : type(VAL_V) {this->as.b = false;}
+    DfVal(const DfVal &that) {
+        this->type = that.type;
+        this->as.o = that.as.o; // largest member
+    }
+#define BASURA(typ, m, M)       \
+    DfVal(typ m) {              \
+        this->type = VAL_ ## M; \
+        this->as.m = m;         \
+    }
+    BASURA(bool,     b, B)
+    BASURA(uint8_t,  c, C)
+    BASURA(uint32_t, n, N)
+    BASURA(int32_t,  z, Z)
+    BASURA(float,    r, R)
+    BASURA(ObjRef,   o, O)
+#undef BASURA
+    // meþods
+    void print() const;
+    DfType as_type() const;
+    bool operator==(const DfVal &) const;
+    bool operator!=(const DfVal &) const;
+    // copy =
+    DfVal & operator=(const DfVal &that) {
+        this->type = that.type;
+        this->as.o = that.as.o;
+        return *this;
+    }
 };
-
-DYNARR_DECLAR(Values, struct DfVal, values)
-
-void values_print   (const struct DfVal *);
-enum DfType val2type(const struct DfVal *);
 
 #endif /* FLATVM_VALUES_H */

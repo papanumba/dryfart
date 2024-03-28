@@ -5,7 +5,7 @@
 
 #include "loader.h"
 
-void disasm_vmdata(struct VmData *, const char *);
-void disasm_instru(struct VmData *, struct Norris *, const uint8_t *);
+void disasm_vmdata(VmData *, const char *);
+void disasm_instru(VmData *, Norris *, cbyte_p);
 
 #endif /* FLATVM_DISASM_H */

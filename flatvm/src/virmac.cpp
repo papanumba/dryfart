@@ -1,4 +1,4 @@
-/* virmac.c */
+/* virmac.cpp */
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,19 +20,19 @@ static void print_stack(struct VirMac *);
 #endif
 static void reset_stack(struct VirMac *);
 static enum ItpRes run (struct VirMac *);
-static int push_call   (struct VirMac *, struct DfVal *, struct Norris *);
+static int push_call   (struct VirMac *, DfVal *, struct Norris *);
 static int pop_call    (struct VirMac *);
 static void print_calls(const struct VirMac *);
 static void set_norris (struct VirMac *, struct Norris *);
-void err_cant_op  (const char *, struct DfVal *);
+void err_cant_op  (const char *, DfVal *);
 void err_dif_types(const char *, enum DfType, enum DfType);
 
-static int dfval_eq(struct DfVal *, struct DfVal *);
-static int dfval_ne(struct DfVal *, struct DfVal *);
-static int dfval_lt(struct DfVal *, struct DfVal *);
-static int dfval_le(struct DfVal *, struct DfVal *);
-static int dfval_gt(struct DfVal *, struct DfVal *);
-static int dfval_ge(struct DfVal *, struct DfVal *);
+static int dfval_eq(DfVal *, DfVal *);
+static int dfval_ne(DfVal *, DfVal *);
+static int dfval_lt(DfVal *, DfVal *);
+static int dfval_le(DfVal *, DfVal *);
+static int dfval_gt(DfVal *, DfVal *);
+static int dfval_ge(DfVal *, DfVal *);
 static inline void vm_js_if(struct VirMac *, int);
 static inline void vm_jl_if(struct VirMac *, int);
 
@@ -73,40 +73,42 @@ enum ItpRes virmac_run(struct VirMac *vm, struct VmData *prog)
     return res;
 }
 
-void virmac_push(struct VirMac *vm, struct DfVal *v)
+void VirMac::push(DfVal &v)
 {
 #ifdef SAFE
-    if (vm->sp == &vm->stack[STACK_MAX]) {
-        fputs("ERROR: stack overflow\n", stderr);
+    if (this->sp == &this->stack[STACK_MAX]) {
+        eputln("ERROR: stack overflow");
         exit(1);
     }
 #endif /* SAFE */
-    *vm->sp = *v;
+    *vm->sp = v;
     vm->sp++;
 }
 
-struct DfVal virmac_pop(struct VirMac *vm)
+#define CHECK_MT_STACK \
+if (this->sp == this->bp) {       \
+    eputln("ERROR: empty stack"); \
+    exit(1);                      \
+}
+
+DfVal && VirMac::pop()
 {
 #ifdef SAFE
-    if (vm->sp == vm->bp) {
-        fputs("ERROR: empty stack\n", stderr);
-        exit(1);
-    }
-#endif /* SAFE */
+    CHECK_MT_STACK
+#endif
     vm->sp--;
     return *vm->sp;
 }
 
-struct DfVal * virmac_peek(struct VirMac *vm)
+DfVal & VirMac::peek()
 {
 #ifdef SAFE
-    if (vm->sp == vm->bp) {
-        fputs("ERROR: empty stack\n", stderr);
-        exit(1);
-    }
-#endif /* SAFE */
-    return &vm->sp[-1];
+    CHECK_MT_STACK
+#endif
+    return vm->sp[-1];
 }
+
+#undef CHECK_MT_STACK
 
 static enum ItpRes run(struct VirMac *vm)
 {
@@ -214,14 +216,14 @@ static enum ItpRes run(struct VirMac *vm)
           }
 
           case OP_AMN: {
-            struct DfVal val;
+            DfVal val;
             val.type = VAL_O;
             val.as.o = (struct Object *) objarr_new();
             virmac_push(vm, &val);
             break;
           }
           case OP_TMN: {
-            struct DfVal val;
+            DfVal val;
             val.type = VAL_O;
             val.as.o = (struct Object *) objtbl_new();
             virmac_push(vm, &val);
@@ -229,7 +231,7 @@ static enum ItpRes run(struct VirMac *vm)
           }
 
           case OP_PMN: {
-            struct DfVal val;
+            DfVal val;
             uint idx = read_u16(&vm->ip);
             val.type = VAL_O;
             val.as.o = (void *) objpro_new(&vm->dat->pag.arr[idx]);
@@ -238,7 +240,7 @@ static enum ItpRes run(struct VirMac *vm)
           }
 
           case OP_FMN: {
-            struct DfVal val;
+            DfVal val;
             uint idx = read_u16(&vm->ip);
             val.type = VAL_O;
             val.as.o = (void *) objfun_new(&vm->dat->pag.arr[idx]);
@@ -251,7 +253,7 @@ static enum ItpRes run(struct VirMac *vm)
             break;
           }
           case OP_DUP: {
-            struct DfVal *val = virmac_peek(vm);
+            DfVal *val = virmac_peek(vm);
             virmac_push(vm, val);
             break;
           }
@@ -275,7 +277,7 @@ static enum ItpRes run(struct VirMac *vm)
 #ifdef DEBUG
 static void print_stack(struct VirMac *vm)
 {
-    struct DfVal *slot = NULL;
+    DfVal *slot = NULL;
     for (slot = &vm->stack[0];
          slot != vm->sp;
          slot++) {
@@ -287,7 +289,7 @@ static void print_stack(struct VirMac *vm)
 }
 #endif /* DEBUG */
 
-static int push_call(struct VirMac *vm, struct DfVal *c, struct Norris *n)
+static int push_call(struct VirMac *vm, DfVal *c, struct Norris *n)
 {
 #ifdef SAFE
     if (vm->callnum == CALLS_MAX) {
@@ -348,7 +350,7 @@ static void set_norris(struct VirMac *vm, struct Norris *n)
 }
 
 /* error message for same type but invalid operations */
-void err_cant_op(const char *op, struct DfVal *v)
+void err_cant_op(const char *op, DfVal *v)
 {
     char ty = val2type(v);
     fprintf(stderr, "ERROR: Cannot operate %s with %c value(s)\n", op, ty);
@@ -362,7 +364,7 @@ void err_dif_types(const char *op, enum DfType t1, enum DfType t2)
 
 #define ERR_BINOP(msg)  err_dif_types(msg, val2type(&lhs), val2type(&rhs))
 
-static int dfval_eq(struct DfVal *v, struct DfVal *w)
+static int dfval_eq(DfVal *v, DfVal *w)
 {
     if (v->type != w->type)
         return FALSE;
@@ -378,7 +380,7 @@ static int dfval_eq(struct DfVal *v, struct DfVal *w)
     return FALSE; /* gcc complains */
 }
 
-static int dfval_ne(struct DfVal *v, struct DfVal *w)
+static int dfval_ne(DfVal *v, DfVal *w)
 {
     if (v->type != w->type)
         return TRUE;
@@ -399,7 +401,7 @@ static int dfval_ne(struct DfVal *v, struct DfVal *w)
 /* see C99's §6.5.8 Relational Operators ¶6 */
 
 #define DFVAL_CMP_FN(name, cmpop) \
-static int name(struct DfVal *lhs, struct DfVal *rhs) \
+static int name(DfVal *lhs, DfVal *rhs) \
 {                                                   \
     if (lhs->type != rhs->type)                     \
         return CMP_ERR;                             \

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -65,18 +66,7 @@ int main(int argc, const char *argv[])
 VmData * read_file_to_vmdata(const char *path)
 {
     VmData *prog = nullptr;
-    int file = open(path, O_RDONLY);
-    if (file == -1) {
-        fprintf(stderr, "ERROR: opening file %s\n", path);
-        goto exit0;
-    }
-    size_t file_size = lseek(file, 0, SEEK_END);
-    lseek(file, 0, SEEK_SET);
-    uint8_t *buffer = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, file, 0);
-    if (buffer == MAP_FAILED) {
-        eputln("ERROR@read_file: mallocating buffer");
-        goto exit1;
-    }
+    
     /* load */
     try {
         prog = new VmData(Slice<uint8_t>(buffer, file_size));
@@ -98,7 +88,7 @@ static int disasm(const char *path)
     if (vmd == nullptr)
         return 0;
     disasm_vmdata(vmd, path);
-    delete vmd;
+    //delete vmd;
     return 1;
 }
 

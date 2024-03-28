@@ -1,19 +1,18 @@
 /* disasm.c */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "values.h"
+#include <cstdio>
+#include <cstdlib>
 #include "disasm.h"
 #include "alzhmr.h"
 
 /* local state for disassembling */
-static struct VmData *dat = NULL;
-static struct Norris *nor = NULL; /* points to dat->pag.nor */
-static const uint8_t *ip  = NULL; /* points to nor->cod */
+static VmData *dat = nullptr;
+static Norris *nor = nullptr; /* points to dat->pag.nor */
+static cbyte_p ip  = nullptr; /* points to nor->cod */
 
-static void disasm_ins_fast(void);
-static void set_vmdata(struct VmData *);
-static void set_all   (struct VmData *, struct Norris *, const uint8_t *);
+static void disasm_ins_fast();
+static void set_vmdata(VmData *);
+static void set_all   (VmData *, Norris *, cbyte_p );
 static void simple_ins(const char *);
 static void    ctn_ins(uint);
 static void    idf_ins(const char *, uint);
@@ -21,37 +20,40 @@ static void    num_ins(const char *, uint);
 static void    jmp_ins(const char *, uint);
 
 
-void disasm_vmdata(struct VmData *vmd, const char *name)
+void disasm_vmdata(VmData *vmd, const char *name)
 {
     set_vmdata(vmd);
-    printf("size of Norris = %u\n", (uint) sizeof(struct Norris));
+    printf("size of Norris = %u\n", (uint) sizeof(Norris));
     printf("=== %s ===\n", name);
-    size_t pag_len = dat->pag.len;
-    for (size_t p = 0; p < pag_len; (void) (++p && ++nor)) {
-        if (nor->nam != NULL) {
-            printf("-------- %u-ary @ line: %u \"%s\" --------\n",
-                nor->ari, nor->lne, nor->nam->str);
+    size_t pag_len = dat->pag.len();
+    for (size_t p = 0; p < pag_len; ++p) {
+        nor = &dat->pag[p];
+        printf("%lu'th norris", (uintptr_t)nor);
+        if (nor->nam != nullptr) {
+            printf("-------- %u-ary @ line: %u \"",
+                nor->ari, nor->lne);
+            nor->nam->print();
+            puts("\" --------");
         } else {
             printf("-------- %u-ary @ line: %u --------\n",
                 nor->ari, nor->lne);
         }
-        ip = nor->cod;
-        const uint8_t *end = &nor->cod[nor->len];
+/*        ip = nor->cod;
+        cbyte_p end = &nor->cod[nor->len];
         while (ip != end)
-            disasm_ins_fast();
+            disasm_ins_fast();*/
     }
 }
 
-void disasm_instru(
-    struct VmData *vmd,
-    struct Norris *code,
-    const uint8_t *rp)
+void disasm_instru(VmData *vmd, Norris *code, cbyte_p rp)
 {
     set_all(vmd, code, rp);
     disasm_ins_fast();
 }
 
-static void disasm_ins_fast(void)
+/* statics */
+
+static void disasm_ins_fast()
 {
     ptrdiff_t offset = ip - nor->cod;
     printf("%04td ", offset);
@@ -151,17 +153,14 @@ static void disasm_ins_fast(void)
     }
 }
 
-static void set_vmdata(struct VmData *vmd)
+static void set_vmdata(VmData *vmd)
 {
     dat = vmd;
-    nor = dat->pag.arr;
+    nor = &dat->pag[0];
     ip  = nor->cod;
 }
 
-static void set_all(
-    struct VmData *d,
-    struct Norris *n,
-    const uint8_t *p)
+static void set_all(VmData *d, Norris *n, cbyte_p p)
 {
     dat = d;
     nor = n;
@@ -188,11 +187,10 @@ static void ctn_ins(uint argsize)
         break;
       default:
         panic("size in ctn_ins is not 1 or 2");
-        return;
     }
     printf("%-8s %4d (", name, c);
-    values_print(&dat->ctn.arr[c]);
-    printf(")\n");
+    dat->ctn[c].print();
+    puts(")");
 }
 
 static void idf_ins(const char *name, uint argsize)
@@ -201,10 +199,10 @@ static void idf_ins(const char *name, uint argsize)
     switch (argsize) {
       case 1: c = read_u8 (&ip); break;
       case 2: c = read_u16(&ip); break;
-      default: panic("something went rrong in idf_ins"); return;
+      default: panic("something went rrong in idf_ins");
     }
     printf("%-8s %4d (", name, c);
-    dfidf_print(&dat->idf.arr[c]);
+    dat->idf[c].print();
     puts(")");
 }
 
@@ -214,7 +212,7 @@ static void num_ins(const char *name, uint argsize)
     switch (argsize) {
       case 1: c = read_u8 (&ip); break;
       case 2: c = read_u16(&ip); break;
-      default: panic("something went rrong in num_ins"); return;
+      default: panic("something went rrong in num_ins");
     }
     printf("%-8s %4u\n", name, c);
 }
@@ -225,7 +223,7 @@ static void jmp_ins(const char *name, uint argsize)
     switch (argsize) {
       case 1: c = read_i8 (&ip); break;
       case 2: c = read_i16(&ip); break;
-      default: panic("something went rrong in num_ins"); return;
+      default: panic("something went rrong in num_ins");
     }
     printf("%-8s %+4d\n", name, c);
 }

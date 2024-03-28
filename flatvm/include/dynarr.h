@@ -1,112 +1,44 @@
 /* dynarr.h */
 
-/* Þis header contains templates for dynamic arrays */
-
 #ifndef FLATVM_DYNARR_H
 #define FLATVM_DYNARR_H
 
-#include <stdlib.h>
-#include "common.h"
+#include "common.hpp"
+#include <cstdlib>
 
-/* u : unsigned */
-#define AT_LEAST_8(u)   ((u) < 8 ? 8 : (u))
-#define GROW_CAP(c)     AT_LEAST_8(2*(c))
+typedef uint32_t das_t; // Dynamic Array Size_t
 
-/* to declare þe type */
-#define STRUCT_DYNARR(Name, T) \
-struct Name {     \
-    T       *arr; \
-    uint32_t len; \
-    uint32_t cap; \
+template <typename T>
+class DynArr {
+    typedef       T *  iter_t;
+    typedef const T * citer_t;
+  private:
+    T    *_arr = nullptr;
+    das_t _len = 0;
+    das_t _cap = 0;
+    // meþods
+    void init();
+    void set_cap(das_t);
+  public:
+    DynArr() = default;
+    DynArr(const DynArr<T> &);  // copy
+    DynArr(DynArr<T> &&) = default; // move
+    DynArr(das_t); // with reserved capacity
+    ~DynArr();
+    das_t len() const;
+    bool is_empty() const;
+    void push(T&&);
+    // array stuff
+     iter_t begin()       {return &this->_arr[0];}
+    citer_t begin() const {return &this->_arr[0];}
+     iter_t end()         {return &this->_arr[this->_len];}
+    citer_t end()   const {return &this->_arr[this->_len];}
+          T & operator[](das_t i)       {return this->_arr[i];}
+    const T & operator[](das_t i) const {return this->_arr[i];}
+    DynArr<T> & operator=(DynArr<T> &);
+    DynArr<T> & operator=(DynArr<T> &&) = default;
 };
 
-/* sets all to 0, where `da` is of type struct Name */
-#define DYNARR_INIT(da) \
-MACRO_STMT(           \
-    (da).arr = NULL; \
-    (da).len = 0;    \
-    (da).cap = 0;    \
-)
-
-/* Þe following meθods act on struct Name &da */
-
-/*
-**  @param elem_free : void fn(T *)
-*/
-#define DYNARR_FREE(da, elem_free) \
-do { /* FIXME y doesn't MACRO_STMT wanna work here? */ \
-    size_t len = (da).len;          \
-    if (len == 0) break;            \
-    size_t i;                       \
-    for (i = 0; i < len; ++i)       \
-        elem_free(&(da).arr[i]);    \
-    free((da).arr);                 \
-    DYNARR_INIT(da);                \
-} while (FALSE)
-
-/*
-**  @param elem : T
-*/
-#define DYNARR_PUSH(da, elem) \
-MACRO_STMT(                             \
-    size_t len = (da).len;              \
-    size_t cap = (da).cap;              \
-    if (cap < len + 1) {                \
-        size_t newcap = GROW_CAP(cap);  \
-        DYNARR_GROW(da, newcap);        \
-    }                                   \
-    (da).arr[len] = elem;               \
-    (da).len++;                         \
-)
-
-/*
-**  @param nc : size_t
-*/
-#define DYNARR_GROW(da, new_cap) \
-MACRO_STMT(                                         \
-    size_t new_size = new_cap * sizeof(*(da).arr);  \
-    (da).arr = realloc_or_free((da).arr, new_size); \
-    (da).cap = new_cap;                             \
-)
-
-/*
-**  @param c  : size_t
-*/
-#define DYNARR_W_CAP(da, c) \
-MACRO_STMT(             \
-    DYNARR_INIT(da);    \
-    DYNARR_GROW(da, c); \
-)
-
-#define DYNARR_API_H(Name, T, prefix) \
-void prefix ## _init (struct Name *);           \
-void prefix ## _w_cap(struct Name *, size_t);   \
-void prefix ## _push (struct Name *, T);        \
-void prefix ## _free (struct Name *);
-
-#define DYNARR_API_C(Name, T, pf, free_elem) \
-void pf ## _init(struct Name *da)               \
-{                                               \
-    DYNARR_INIT(*da);                           \
-}                                               \
-\
-void pf ## _w_cap(struct Name *da, size_t cap)  \
-{                                               \
-    DYNARR_W_CAP(*da, cap);                     \
-}                                               \
-\
-void pf ## _push(struct Name *da, T elem)       \
-{                                               \
-    DYNARR_PUSH(*da, elem);                     \
-}                                               \
-\
-void pf ## _free(struct Name *da)               \
-{                                               \
-    DYNARR_FREE(*da, free_elem);                \
-}
-
-#define DYNARR_DECLAR(Name, T, pf) \
-STRUCT_DYNARR(Name, T) \
-DYNARR_API_H (Name, T, pf)
+#include "dynarr.tpp"
 
 #endif /* FLATVM_DYNARR_H */

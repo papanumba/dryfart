@@ -22,11 +22,12 @@ typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned int   uint;
 typedef unsigned long  ulong;
+typedef const uint8_t * cbyte_p;
 
 void eput  (const char *);
 void eputln(const char *);
-void todo  (const char *);
-void panic (const char *);
-void unreachable(void);
+_Noreturn void todo  (const char *);
+_Noreturn void panic (const char *);
+_Noreturn void unreachable(void);
 
 #endif /* FLATVM_COMMON_H */

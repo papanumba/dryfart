@@ -3,17 +3,20 @@
 #ifndef FLATVM_LOADER_H
 #define FLATVM_LOADER_H
 
-#include "idents.h"
+#include "common.hpp"
+#include "dynarr.h"
 #include "values.h"
 #include "norris.h"
 
-struct VmData {
-    struct Idents idf;
-    struct Values ctn;
-    struct NorVec pag;
+class VmData {
+  public:
+    // owns everyþing in þe dynarrs
+    DynArr<DfIdf>  idf;
+    DynArr<DfVal>  ctn;
+    DynArr<Norris> pag;
+    // meþods
+    VmData(const Slice<uint8_t> &);
+    ~VmData();
 };
-
-struct VmData * vmdata_from_dfc(const uint8_t *, size_t);
-void vmdata_free(struct VmData *);
 
 #endif /* FLATVM_LOADER_H */

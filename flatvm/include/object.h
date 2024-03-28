@@ -3,103 +3,106 @@
 #ifndef FLATVM_OBJECT_H
 #define FLATVM_OBJECT_H
 
-#include "common.h"
+//#include <unordered_map>
+#include "common.hpp"
 #include "values.h"
-#include "htable.h"
+//#include "htable.h"
 #include "norris.h"
 #include "native.h"
+#include "dynarr.h"
 
-#define OBJ_AS_ARR(o)   ((struct ObjArr *) (o))
-#define OBJ_AS_TBL(o)   ((struct ObjTbl *) (o))
-#define OBJ_AS_PRO(o)   ((struct ObjPro *) (o))
-#define OBJ_AS_FUN(o)   ((struct ObjFun *) (o))
-
-enum ObjType {
-    OBJ_ARR,
-    OBJ_TBL,
-    OBJ_FUN,
-    OBJ_PRO
+class Object {
+  public:
+    bool gc_mark : 1;
+    bool is_nat  : 1;
+    Object() :
+        gc_mark(false),
+        is_nat (false) {}
+    Object(Object &)  = default;
+    Object(Object &&) = default;
+    Object & operator=(Object &)  = default;
+    Object & operator=(Object &&) = default;
 };
 
-struct Object {
-    enum ObjType type;
-    uint gc_mark : 1;
-    uint is_nat  : 1;
+enum class AccRes { // access result
+    OK,
+    OUT_OF_BOUNDS,
+    DIFF_TYPE,
 };
 
-DYNARR_DECLAR(DfCarr, uint8_t,  dfcarr)
-DYNARR_DECLAR(DfNarr, uint32_t, dfnarr)
-DYNARR_DECLAR(DfZarr, int32_t,  dfzarr)
-DYNARR_DECLAR(DfRarr, float,    dfrarr)
-
-struct ObjArr {
-    struct Object obj;
-    enum DfType   typ; /* V here means empty */
-    union {
-        /* TODO: B% bit array */
-#define BASURA(M, m) struct Df ## M ## arr m
-        BASURA(C, c);
-        BASURA(N, n);
-        BASURA(Z, z);
-        BASURA(R, r);
-#undef  BASURA
+class ArrObj : public Object {
+  private:
+    DfType typ : 8; // V here means empty, þe default
+    union _as {
+        bool v; // dummy for ctor
+        // TODO: B% bit array
+        DynArr<uint8_t>  c;
+        DynArr<uint32_t> n;
+        DynArr<int32_t>  z;
+        DynArr<float>    r;
+        // dummy [cd]tors
+        _as() : v{false} {}
+        ~_as() {}
     } as;
+  public:
+    ArrObj() = default;
+    ~ArrObj();
+    ArrObj(DfVal &&); // array from single element, type inferred
+    uint32_t len() const;
+    bool push(DfVal &&);
+    AccRes get(uint32_t, DfVal &) const;
+    AccRes set(uint32_t, DfVal &&);
+    void print() const;
+    ArrObj & operator=(ArrObj &&from) { // move =
+        Object::operator=(from);
+        std::memcpy(&this->as, &from.as, sizeof(ArrObj::_as));
+        return *this;
+    }
 };
 
-struct ObjTbl {
-    struct Object obj;
+// inject DfIdf hash to std namespace
+/*template<>
+struct std::hash<const DfIdf *> {
+    std::size_t operator()(const DfIdf *&idf) const noexcept
+    {
+        return (size_t) idf->get_hash();
+    }
+};*/
+
+class TblObj : public Object {
+    typedef const DfIdf * key_t; // owned by VmData
     union {
-        struct Htable usr;
-        enum NatTb    nat;
+        //std::unordered_map<key_t, DfVal, std::hash<key_t>> usr;
+        NatTb  nat;
     } as;
+  public:
+    TblObj();
+    TblObj(NatTb);
+    bool set(key_t, DfVal &&);
+    bool get(key_t, DfVal &); // returns by last par
+    void print() const;
 };
 
-struct ObjPro {
-    struct Object obj;
+class ProObj : public Object {
     union {
-        struct Norris *usr;/* FUTURE: eke upvalues */
-        struct NatPc   nat;
+        Norris *usr;/* FUTURE: eke upvalues */
+        struct NatPc nat;
     } as;
+  public:
+    ProObj();
+    ProObj(NatPc);
+    void print() const;
 };
 
-struct ObjFun {
-    struct Object obj;
+class FunObj : public Object {
     union {
-        struct Norris *usr; /* FUTURE: eke upvalues */
-        struct NatFn   nat;
+        Norris *usr; /* FUTURE: eke upvalues */
+        struct NatFn nat;
     } as;
+  public:
+    FunObj();
+    FunObj(NatFn);
+    void print() const;
 };
-
-/* aux union for þe allocator */
-typedef union {
-    struct Object o;
-    struct ObjArr a;
-    struct ObjTbl t;
-    struct ObjFun f;
-    struct ObjPro p;
-    /* eke here */
-} objs_u;
-
-void object_print(struct Object *);
-void object_free (struct Object *);
-enum DfType object_get_type(const struct Object *);
-
-struct ObjArr * objarr_new     (void);
-uint32_t        objarr_len     (const struct ObjArr *);
-int             objarr_try_push(struct ObjArr *, struct DfVal *);
-struct DfVal    objarr_get     (const struct ObjArr *, uint32_t);
-int             objarr_set     (struct ObjArr *, uint32_t, struct DfVal);
-struct ObjArr * objarr_concat  (const struct ObjArr *, const struct ObjArr *);
-
-struct ObjTbl * objtbl_new(void);
-struct ObjTbl * objtbl_new_nat(enum NatTb);
-int objtbl_get(struct ObjTbl *, struct DfIdf *, struct DfVal *);
-int objtbl_set(struct ObjTbl *, struct DfIdf *, struct DfVal);
-
-struct ObjPro * objpro_new(struct Norris *);
-struct ObjPro * objpro_new_nat(enum NatPcTag);
-
-struct ObjFun * objfun_new(struct Norris *);
-struct ObjFun * objfun_new_nat(enum NatFnTag);
 
 #endif /* FLATVM_OBJECT_H */

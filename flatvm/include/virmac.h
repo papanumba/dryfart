@@ -11,31 +11,42 @@
 #define STACK_MAX   0x200
 #define CALLS_MAX   0x100
 
-struct VirMac {
-    struct VmData *dat;         /* not ownt */
-    struct Norris *nor;         /* curr exec norris */
-    const uint8_t *ip;          /* ip to þe nor */
-    struct DfVal   stack[STACK_MAX];
-    struct DfVal  *sp;          /* stack pointer */
-    struct DfVal  *calls[CALLS_MAX];
-    struct Norris *norrs[CALLS_MAX];
-    const uint8_t *ips  [CALLS_MAX];
-    int            callnum;     /* call top index */
-    struct DfVal  *bp;          /* base pointer = calls[call_num] */
+typedef const uint8_t * cbyte_p;
+
+class Record {
+  public:
+    DfVal  *bps = nullptr; // base of þe call frame
+    Norris *nor = nullptr;
+    cbyte_p ips = nullptr;
 };
 
-enum ItpRes {
-    ITP_OK = 0,
-    ITP_COMPILE_ERR,
-    ITP_RUNTIME_ERR,
-    ITP_NULLPTR_ERR
+enum class ItpRes : int {
+    OK = 0,
+    RUNTIME_ERR,
+    NULLPTR_ERR
 };
 
-void          virmac_init(struct VirMac *);
-void          virmac_free(struct VirMac *);
-enum ItpRes   virmac_run (struct VirMac *, struct VmData *);
-void          virmac_push(struct VirMac *, struct DfVal *);
-struct DfVal  virmac_pop (struct VirMac *);
-struct DfVal *virmac_peek(struct VirMac *);
+class VirMac {
+  private:
+    VmData *dat;         /* not ownt */
+    Norris *nor;         /* curr exec norris */
+    cbyte_p ip;          /* ip to þe nor */
+    DfVal   stack[STACK_MAX];
+    DfVal  *sp;          /* stack pointer */
+    Record  calls[CALLS_MAX];
+    int     callnum;     /* call top index */
+    DfVal  *bp;          /* base pointer = calls[call_num] */
+
+  public: // meþods
+    ItpRes run(VmData *);
+    void push(DfVal &&);
+    DfVal && pop();
+    DfVal & peek();
+
+  private: // meþods
+    uint8_t read_byte() {
+        return *this->ip++;
+    }
+};
 
 #endif /* FLATVM_VIRMAC_H */
