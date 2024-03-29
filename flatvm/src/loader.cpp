@@ -20,26 +20,28 @@ static void load_val_r  (DynArr<DfVal> &, cbyte_p *);
 static void load_nat_tb (DynArr<DfVal> &, cbyte_p *);
 static void load_array  (DynArr<DfVal> &, cbyte_p *);
 
-VmData::VmData(const Slice<uint8_t> &dfc)
+VmData::VmData(cbyte_p buf, size_t len)
 {
-    if (dfc.is_empty())
+    if (buf == NULL || len == 0)
         throw std::runtime_error("Empty buffer");
-    cbyte_p rp = dfc.buf; /* reading pointer */
+    cbyte_p rp = buf; /* reading pointer */
     if (!check_magic_df(&rp))
         throw std::runtime_error("Magic number not found");
     load_idf( this->idf, &rp);
     load_ctn( this->ctn, &rp);
     load_pag(*this,      &rp);
+    if (rp != buf + len)
+        throw std::runtime_error("file size doesn't match");
 }
 
 VmData::~VmData()
 {
     auto idflen = this->idf.len();
     TIL(i, idflen)
-        delete &this->idf[i];
+        this->idf[i].~DfIdf();
     auto norlen = this->pag.len();
     TIL(i, norlen)
-        delete &this->pag[i];
+        this->pag[i].~Norris();
     // no need to delete DfVal
 }
 

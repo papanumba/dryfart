@@ -36,7 +36,7 @@ enum ReadRes reader_open(const char *path, struct Reader *r)
 
 enum ReadRes reader_free(struct Reader *r)
 {
-    if (r->buf == NULL || r->len == 0)
+    if (r == NULL || r->buf == NULL || r->len == 0)
         return READRES_ENULL;
     if (0 != munmap((void *) r->buf, r->len))
         return READRES_EMMAP;

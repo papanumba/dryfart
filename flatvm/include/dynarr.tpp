@@ -3,6 +3,7 @@
 #ifndef FLATVM_DYNARR_TPP
 #define FLATVM_DYNARR_TPP
 
+#include <cstdlib>
 #include <cstring>
 #include <cstdio>
 #include <utility>
@@ -27,13 +28,14 @@ void DynArr<T>::set_cap(das_t new_cap)
 {
     das_t new_size = new_cap * (das_t) sizeof(T);
     void *new_buff = realloc_or_free(this->_arr, new_size);
+    std::memset(new_buff, 0, new_size);
     this->_arr = static_cast<T *>(new_buff);
     this->_cap = new_cap;
 }
 
 /* public stuff */
 
-template <typename T>
+/*template <typename T>
 DynArr<T>::DynArr(const DynArr<T> &that)
 {
     das_t len = that._len;
@@ -44,6 +46,15 @@ DynArr<T>::DynArr(const DynArr<T> &that)
     this->_len = len;
     this->set_cap(at_least_8(len));
     std::memcpy(this->_arr, that.arr, this->_len * sizeof(T));
+}*/
+
+template <typename T>
+DynArr<T>::DynArr(DynArr<T> &&that) :  // move
+    _len(that._len),
+    _cap(that._cap),
+    _arr(that._arr)
+{
+    that.init();
 }
 
 template <typename T>
@@ -78,17 +89,18 @@ void DynArr<T>::push(T &&elem)
 {
     if (this->_cap < this->_len + 1)
         this->set_cap(at_least_8(2 * this->_cap));
-    // fins el gorro dels move assigns i merdes
-    printf("%lx\n", this->_arr);
-    std::memcpy(&this->_arr[this->_len], &elem, sizeof(T));
+    this->_arr[this->_len] = std::move(elem);
     this->_len += 1;
 }
 
 template <typename T>
-DynArr<T> & DynArr<T>::operator=(DynArr &that)
+DynArr<T> & DynArr<T>::operator=(DynArr &&that)
 {
-    *this = DynArr<T>(that);
-    return that;
+    if (this->_arr != nullptr)
+        free(this->_arr);
+    std::memcpy(this, &that, sizeof(DynArr<T>));
+    that.init();
+    return *this;
 }
 
 #endif /* FLATVM_DYNARR_TPP */

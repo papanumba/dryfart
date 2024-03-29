@@ -24,7 +24,17 @@ Norris::Norris(
     std::memcpy(this->cod, cod.buf, len);
 }
 
+Norris & Norris::operator=(Norris &&that)
+{
+    if (this->cod != nullptr)
+        delete [] this->cod;
+    std::memcpy(this, &that, sizeof(Norris));
+    std::memset(&that, 0, sizeof(Norris));
+    return *this;
+}
+
 Norris::~Norris()
 {
-    delete [] this->cod;
+    if (this->cod != nullptr)
+        delete [] this->cod;
 }

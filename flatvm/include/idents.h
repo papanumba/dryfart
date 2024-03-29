@@ -17,7 +17,7 @@ class DfIdf {
     ~DfIdf();
     uint32_t get_hash() const;
     void print() const;
-    DfIdf & operator=(DfIdf &&) = default;
+    DfIdf & operator=(DfIdf &&);
 };
 
 #endif /* FLATVM_IDENTS_H */

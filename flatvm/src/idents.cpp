@@ -18,7 +18,8 @@ DfIdf::DfIdf(const uint8_t *str, size_t len)
 
 DfIdf::~DfIdf()
 {
-    delete [] this->str;
+    if (this->str != nullptr)
+        delete [] this->str;
 }
 
 uint32_t DfIdf::get_hash() const
@@ -29,6 +30,15 @@ uint32_t DfIdf::get_hash() const
 void DfIdf::print() const
 {
     printf("%s", (char *) this->str);
+}
+
+DfIdf & DfIdf::operator=(DfIdf &&that)
+{
+    this->str = that.str;
+    this->len = that.len;
+    that.str = nullptr;
+    that.len = 0;
+    return *this;
 }
 
 /* FNV-1a (Fowler-Noll-Vo) hash function for 32 bit */

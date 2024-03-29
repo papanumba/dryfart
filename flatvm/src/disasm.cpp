@@ -28,7 +28,6 @@ void disasm_vmdata(VmData *vmd, const char *name)
     size_t pag_len = dat->pag.len();
     for (size_t p = 0; p < pag_len; ++p) {
         nor = &dat->pag[p];
-        printf("%lu'th norris", (uintptr_t)nor);
         if (nor->nam != nullptr) {
             printf("-------- %u-ary @ line: %u \"",
                 nor->ari, nor->lne);
@@ -38,10 +37,10 @@ void disasm_vmdata(VmData *vmd, const char *name)
             printf("-------- %u-ary @ line: %u --------\n",
                 nor->ari, nor->lne);
         }
-/*        ip = nor->cod;
+        ip = nor->cod;
         cbyte_p end = &nor->cod[nor->len];
-        while (ip != end)
-            disasm_ins_fast();*/
+        while (ip < end)
+            disasm_ins_fast();
     }
 }
 

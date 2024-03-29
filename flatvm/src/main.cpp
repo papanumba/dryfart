@@ -2,18 +2,16 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
-#include <exception>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include <exception>
 #include "loader.h"
+#include "reader.h"
 //#include "virmac.h"
 #include "disasm.h"
 
 //static int run_file(struct VirMac *vm, const char *);
 static VmData * read_file_to_vmdata(const char *);
-static int disasm(const char *);
+static bool disasm(const char *);
 static void wellcum();
 
 int main(int argc, const char *argv[])
@@ -65,31 +63,34 @@ int main(int argc, const char *argv[])
 /* returns new alloc'd VmData, NULL if error */
 VmData * read_file_to_vmdata(const char *path)
 {
+    Reader reader;
+    auto res = reader_open(path, &reader);
+    if (res != READRES_OK) {
+        eputln("ERROR reading file:");
+        eputln(readres_what(res));
+        return nullptr;
+    }
     VmData *prog = nullptr;
-    
     /* load */
     try {
-        prog = new VmData(Slice<uint8_t>(buffer, file_size));
+        prog = new VmData(reader.buf, reader.len);
     } catch (std::exception &e) {
         eputln("ERROR loading dfc:");
         eputln(e.what());
     }
     /* exit */
-    munmap(buffer, file_size);
-exit1:
-    close(file);
-exit0:
+    (void) reader_free(&reader);
     return prog;
 }
 
-static int disasm(const char *path)
+static bool disasm(const char *path)
 {
     VmData *vmd = read_file_to_vmdata(path);
     if (vmd == nullptr)
-        return 0;
+        return false;
     disasm_vmdata(vmd, path);
-    //delete vmd;
-    return 1;
+    delete vmd;
+    return true;
 }
 
 static void wellcum(void)
@@ -101,6 +102,6 @@ static void wellcum(void)
         "    to disassemble:  ./flatvm d example.dfc\n"
     ;
 
-    if (-1 == write(STDOUT_FILENO, msg, sizeof(msg)))
+    if (-1 == write(1, msg, sizeof(msg)))
         exit(1);
 }

@@ -4,7 +4,6 @@
 #define FLATVM_DYNARR_H
 
 #include "common.hpp"
-#include <cstdlib>
 
 typedef uint32_t das_t; // Dynamic Array Size_t
 
@@ -21,8 +20,8 @@ class DynArr {
     void set_cap(das_t);
   public:
     DynArr() = default;
-    DynArr(const DynArr<T> &);  // copy
-    DynArr(DynArr<T> &&) = default; // move
+//    DynArr(const DynArr<T> &);  // copy
+    DynArr(DynArr<T> &&);       // move
     DynArr(das_t); // with reserved capacity
     ~DynArr();
     das_t len() const;
@@ -35,8 +34,8 @@ class DynArr {
     citer_t end()   const {return &this->_arr[this->_len];}
           T & operator[](das_t i)       {return this->_arr[i];}
     const T & operator[](das_t i) const {return this->_arr[i];}
-    DynArr<T> & operator=(DynArr<T> &);
-    DynArr<T> & operator=(DynArr<T> &&) = default;
+//    DynArr<T> & operator=(DynArr<T> &);
+    DynArr<T> & operator=(DynArr<T> &&that); // move
 };
 
 #include "dynarr.tpp"

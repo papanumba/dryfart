@@ -15,7 +15,7 @@ class VmData {
     DynArr<DfVal>  ctn;
     DynArr<Norris> pag;
     // meþods
-    VmData(const Slice<uint8_t> &);
+    VmData(const uint8_t *, size_t);
     ~VmData();
 };
 
