@@ -1,6 +1,6 @@
 CC = clang
 CXX = clang++
-CPPFLAGS = -Iinclude -g
+CPPFLAGS = -Iinclude # -DSAFE
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
 CXXNOWARN := -Wno-unused-private-field -Wno-unused-parameter
 # -Wno-mismatched-tags
@@ -8,7 +8,7 @@ CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
 CXXFLAGS = -std=c++11 -pedantic $(CXXWARN) -O3 -fPIE $(CXXNOWARN)
 
-cxxobjs = disasm.o idents.o loader.o norris.o object.o objref.o values.o
+cxxobjs = disasm.o idents.o loader.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
 cobjs = alzhmr.o common.o reader.o
 objs = $(cxxobjs) $(cobjs)
@@ -18,8 +18,12 @@ objs = $(cxxobjs) $(cobjs)
 #$(info $(gch))
 
 all: flatvm
-	# strip $(cxxobjs)
-	wc -c *.o
+
+debug: CPPFLAGS += -DDEBUG -g
+debug: flatvm
+
+release: flatvm
+	strip flatvm
 
 flatvm: $(objs)
 	$(CXX) -o flatvm $(objs)

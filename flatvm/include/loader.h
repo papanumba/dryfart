@@ -3,7 +3,6 @@
 #ifndef FLATVM_LOADER_H
 #define FLATVM_LOADER_H
 
-#include "common.hpp"
 #include "dynarr.h"
 #include "values.h"
 #include "norris.h"

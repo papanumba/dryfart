@@ -72,8 +72,9 @@ class ObjRef {
     BASURA(Pro, PRO)
 #undef BASURA
     // move =
-    ObjRef & operator=(ObjRef &) = default;
+    ObjRef & operator=(ObjRef &)  = default;
     ObjRef & operator=(const ObjRef &) = default;
+    ObjRef & operator=(ObjRef &&) = default;
 };
 
 #endif // FLATVM_OBJREF_H

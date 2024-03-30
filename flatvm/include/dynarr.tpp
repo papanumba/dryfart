@@ -35,19 +35,6 @@ void DynArr<T>::set_cap(das_t new_cap)
 
 /* public stuff */
 
-/*template <typename T>
-DynArr<T>::DynArr(const DynArr<T> &that)
-{
-    das_t len = that._len;
-    if (len == 0) {
-        this->init();
-        return;
-    }
-    this->_len = len;
-    this->set_cap(at_least_8(len));
-    std::memcpy(this->_arr, that.arr, this->_len * sizeof(T));
-}*/
-
 template <typename T>
 DynArr<T>::DynArr(DynArr<T> &&that) :  // move
     _len(that._len),
@@ -61,15 +48,16 @@ template <typename T>
 DynArr<T>::DynArr(das_t c) // with reserved capacity
 {
     this->init();
-    if (c != 0)
+    if (c != 0) {
+        // when c is in [1, 8], set c = 8; else c stays
         this->set_cap(at_least_8(c));
+    }
 }
 
 template <typename T>
 DynArr<T>::~DynArr()
 {
-    if (this->_arr != nullptr)
-        free(this->_arr);
+    free(this->_arr); // even if null
 }
 
 template <typename T>
@@ -96,10 +84,9 @@ void DynArr<T>::push(T &&elem)
 template <typename T>
 DynArr<T> & DynArr<T>::operator=(DynArr &&that)
 {
-    if (this->_arr != nullptr)
-        free(this->_arr);
-    std::memcpy(this, &that, sizeof(DynArr<T>));
-    that.init();
+    std::swap(this->_arr, that._arr);
+    std::swap(this->_len, that._len);
+    std::swap(this->_cap, that._cap);
     return *this;
 }
 

@@ -1,111 +1,94 @@
 /* vm-ops.c */
 
-#define ERR_BINOP(msg)  err_dif_types(msg, val2type(&lhs), val2type(&rhs))
+#define ERR_BINOP(msg)  err_dif_types(msg, lhs.as_type(), rhs.as_type())
 
-static void op_lvv(struct VirMac *vm)
-{
-    struct DfVal v;
-    v.type = VAL_V;
-    virmac_push(vm, &v);
+static void op_lvv(VirMac *vm) {
+    vm->push(DfVal());
 }
 
-static void op_lb(struct VirMac *vm, int b)
-{
-    struct DfVal vb;
-    vb.type = VAL_B;
-    vb.as.b = b;
-    virmac_push(vm, &vb);
+static void op_lb(VirMac *vm, bool b) {
+    vm->push(DfVal(b));
 }
 
-static void op_ln(struct VirMac *vm, uint32_t n)
-{
-    struct DfVal vn;
-    vn.type = VAL_N;
-    vn.as.n = n;
-    virmac_push(vm, &vn);
+static void op_ln(VirMac *vm, uint32_t n) {
+    vm->push(DfVal(n));
 }
 
-static void op_lz(struct VirMac *vm, int32_t z)
-{
-    struct DfVal vz;
-    vz.type = VAL_Z;
-    vz.as.z = z;
-    virmac_push(vm, &vz);
+static void op_lz(VirMac *vm, int32_t z) {
+    vm->push(DfVal(z));
 }
 
-static void op_lr(struct VirMac *vm, float r)
-{
-    struct DfVal vr;
-    vr.type = VAL_R;
-    vr.as.r = r;
-    virmac_push(vm, &vr);
+static void op_lr(VirMac *vm, float r) {
+    vm->push(DfVal(r));
 }
 
-static int op_neg(struct VirMac *vm)
+static bool op_neg(VirMac *vm)
 {
-    struct DfVal val, res;
-    val = virmac_pop(vm);
-    res.type = val.type;
+    DfVal val = vm->pop();
+    DfVal res;
     switch (val.type) {
       case VAL_Z: res.as.z = -val.as.z; break;
       case VAL_R: res.as.r = -val.as.r; break;
       default:
         err_cant_op("unary -", &val);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    res.type = val.type;
+    vm->push(std::move(res));
+    return true;
 }
 
-static inline int
+/*static inline bool
 op_add_o(
-    struct Object *,
-    struct Object *,
-    struct DfVal  *
-);
+    Object *,
+    Object *,
+    DfVal  *
+);*/
 
-static int op_add(struct VirMac *vm)
+static bool op_add(VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
+    DfVal rhs = vm->pop();
+    DfVal lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("+");
-        return FALSE;
+        return false;
     }
+    DfVal res;
     res.type = lhs.type;
     switch (lhs.type) {
       case VAL_N: res.as.n = lhs.as.n + rhs.as.n; break;
       case VAL_Z: res.as.z = lhs.as.z + rhs.as.z; break;
       case VAL_R: res.as.r = lhs.as.r + rhs.as.r; break;
       case VAL_O:
-        if (!op_add_o(lhs.as.o, rhs.as.o, &res))
-            return FALSE;
-        break;
+/*        if (!op_add_o(lhs.as.o, rhs.as.o, &res))
+            return false;
+        break;*/
+        todo("add objects");
       default:
         err_cant_op("+", &lhs);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    vm->push(std::move(res));
+    return true;
 }
 
+#if 0
 /* helper for object case */
 static inline int op_add_o(
     struct Object *lhs,
     struct Object *rhs,
-    struct DfVal  *res)
+    DfVal  *res)
 {
     if (lhs->type != rhs->type) {
         eputln("objects of different type in + expr");
-        return FALSE;
+        return false;
     }
     switch (lhs->type) {
       case OBJ_ARR: {
         struct ObjArr *arr = NULL;
         arr = objarr_concat(OBJ_AS_ARR(lhs), OBJ_AS_ARR(rhs));
         if (arr == NULL)
-            return FALSE;
+            return false;
         res->type = VAL_O;
         res->as.o = (void *) arr;
         break;
@@ -115,22 +98,23 @@ static inline int op_add_o(
         break;
       case OBJ_PRO:
         eputln("cannot add (+) procs");
-        return FALSE;
+        return false;
       case OBJ_FUN:
         eputln("cannot add (+) funcs");
-        return FALSE;
+        return false;
     }
-    return TRUE;
+    return true;
 }
+#endif
 
-static int op_sub(struct VirMac *vm)
+static bool op_sub(VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
+    DfVal lhs, rhs, res;
+    rhs = vm->pop();
+    lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("-");
-        return FALSE;
+        return false;
     }
     res.type = lhs.type;
     switch (lhs.type) {
@@ -138,20 +122,20 @@ static int op_sub(struct VirMac *vm)
       case VAL_R: res.as.r = lhs.as.r - rhs.as.r; break;
       default:
         err_cant_op("-", &lhs);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    vm->push(std::move(res));
+    return true;
 }
 
-static int op_mul(struct VirMac *vm)
+static bool op_mul(VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
+    DfVal lhs, rhs, res;
+    rhs = vm->pop();
+    lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("*");
-        return FALSE;
+        return false;
     }
     res.type = lhs.type;
     switch (lhs.type) {
@@ -160,111 +144,112 @@ static int op_mul(struct VirMac *vm)
       case VAL_R: res.as.r = lhs.as.r * rhs.as.r; break;
       default:
         err_cant_op("*", &lhs);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    vm->push(std::move(res));
+    return true;
 }
 
-static int op_div(struct VirMac *vm)
+static bool op_div(VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
+    DfVal lhs, rhs, res;
+    rhs = vm->pop();
+    lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("/");
-        return FALSE;
+        return false;
     }
     res.type = lhs.type;
     switch (lhs.type) {
       case VAL_R:
-#ifdef SAFE
+#ifdef SAFEE
         if (rhs.as.r == 0.0f) {
             eputln("ERROR: Division by 0.0");
-            return FALSE;
+            return false;
         }
 #endif /* SAFE */
         res.as.r = lhs.as.r / rhs.as.r;
         break;
       default:
         err_cant_op("/", &lhs);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    vm->push(std::move(res));
+    return true;
 }
 
 /* TODO: why is þis slower þan LR1 [expr] DIV ? */
-static int op_inv(struct VirMac *vm)
+static bool op_inv(VirMac *vm)
 {
-    struct DfVal *val = virmac_peek(vm);
-    if (val->type != VAL_R) {
-        err_cant_op("unary /", val);
-        return FALSE;
+    DfVal &val = vm->peek();
+    if (val.type != VAL_R) {
+        err_cant_op("unary /", &val);
+        return false;
     }
-    val->as.r = 1.0f / val->as.r;
-    return TRUE;
+    val.as.r = 1.0f / val.as.r;
+    return true;
 }
 
-static int op_inc(struct VirMac *vm)
+static bool op_inc(VirMac *vm)
 {
-    struct DfVal *val = virmac_peek(vm);
-    switch (val->type) {
-        case VAL_N: val->as.n += 1; break;
-        case VAL_Z: val->as.z += 1; break;
+    DfVal &val = vm->peek();
+    switch (val.type) {
+        case VAL_N: val.as.n += 1; break;
+        case VAL_Z: val.as.z += 1; break;
         default:
-            err_cant_op("1 +", val);
-            return FALSE;
+            err_cant_op("1 +", &val);
+            return false;
     }
-    return TRUE;
+    return true;
 }
 
-static int op_dec(struct VirMac *vm)
+#if 0
+static bool op_dec(VirMac *vm)
 {
-    struct DfVal *val = virmac_peek(vm);
+    DfVal *val = vm->peek();
     switch (val->type) {
         case VAL_Z: val->as.z -= 1; break;
         default:
             err_cant_op("1 +", val);
-            return FALSE;
+            return false;
     }
-    return TRUE;
+    return true;
 }
 
-static void op_ceq(struct VirMac *vm)
+static void op_ceq(VirMac *vm)
 {
-    struct DfVal *lhs, rhs;
-    rhs = virmac_pop(vm);
-    lhs = virmac_peek(vm);
+    DfVal *lhs, rhs;
+    rhs = vm->pop();
+    lhs = vm->peek();
     lhs->as.b = dfval_eq(lhs, &rhs);
     lhs->type = VAL_B;
 }
 
-static void op_cne(struct VirMac *vm)
+static void op_cne(VirMac *vm)
 {
-    struct DfVal *lhs, rhs;
-    rhs = virmac_pop(vm);
-    lhs = virmac_peek(vm);
+    DfVal *lhs, rhs;
+    rhs = vm->pop();
+    lhs = vm->peek();
     lhs->as.b = dfval_ne(lhs, &rhs); /* ! eq */
     lhs->type = VAL_B;
 }
 
 #define OP_CMP(name, cmp_fn, msg) \
-static int name(struct VirMac *vm)      \
+static bool name(VirMac *vm)      \
 {                                       \
     int cmp;                            \
-    struct DfVal lhs, rhs, res;         \
-    rhs = virmac_pop(vm);               \
-    lhs = virmac_pop(vm);               \
+    DfVal lhs, rhs, res;         \
+    rhs = vm->pop();               \
+    lhs = vm->pop();               \
     switch ((cmp = cmp_fn(&lhs, &rhs))) { \
       case CMP_ERR:                     \
         ERR_BINOP(msg);                 \
-        return FALSE;                   \
+        return false;                   \
       default:                          \
         res.type = VAL_B;               \
         res.as.b = cmp;                 \
-        virmac_push(vm, &res);          \
-        return TRUE;                    \
+        vm->push(std::move(res);          \
+        return true;                    \
     }                                   \
 }
 
@@ -275,30 +260,30 @@ OP_CMP(op_cge, dfval_ge, ">=")
 
 #undef OP_CMP
 
-static int op_not(struct VirMac *vm)
+static bool op_not(VirMac *vm)
 {
-    struct DfVal val, res;
-    val = virmac_pop(vm);
+    DfVal val, res;
+    val = vm->pop();
     res.type = val.type;
     switch (val.type) {
       case VAL_B: res.as.b = !val.as.b; break;
       case VAL_N: res.as.n = ~val.as.n; break;
       default:
         err_cant_op("unary ~", &val);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    vm->push(std::move(res);
+    return true;
 }
 
-static int op_and(struct VirMac *vm)
+static bool op_and(VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
+    DfVal lhs, rhs, res;
+    rhs = vm->pop();
+    lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("&");
-        return FALSE;
+        return false;
     }
     res.type = lhs.type;
     switch (lhs.type) {
@@ -306,20 +291,20 @@ static int op_and(struct VirMac *vm)
       case VAL_N: res.as.n = lhs.as.n &  rhs.as.n; break; /* bitwise */
       default:
         err_cant_op("&", &lhs);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    vm->push(std::move(res);
+    return true;
 }
 
-static int op_ior(struct VirMac *vm)
+static bool op_ior(VirMac *vm)
 {
-    struct DfVal lhs, rhs, res;
-    rhs = virmac_pop(vm);
-    lhs = virmac_pop(vm);
+    DfVal lhs, rhs, res;
+    rhs = vm->pop();
+    lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("|");
-        return FALSE;
+        return false;
     }
     res.type = lhs.type;
     switch (lhs.type) {
@@ -327,95 +312,97 @@ static int op_ior(struct VirMac *vm)
       case VAL_N: res.as.n = lhs.as.n |  rhs.as.n; break; /* bitwise */
       default:
         err_cant_op("|", &lhs);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &res);
-    return TRUE;
+    vm->push(std::move(res);
+    return true;
 }
 
-static int op_can(struct VirMac *vm)
+static bool op_can(VirMac *vm)
 {
-    struct DfVal *val = virmac_peek(vm);
+    DfVal *val = vm->peek();
     switch (val->type) {
-      case VAL_N: return TRUE; /* do noþing */
+      case VAL_N: return true; /* do noþing */
       case VAL_Z:
         if (val->as.z < 0) {
             fputs("ERROR: casting negative Z% to N%\n", stderr);
-            return FALSE;
+            return false;
         }
         val->as.n = (uint32_t) val->as.z; break;
       default:
         /*err_cast(from.type, VAL_R);*/
         eputln("err cast N");
-        return FALSE;
+        return false;
     }
     val->type = VAL_N;
-    return TRUE;
+    return true;
 }
 
-static int op_caz(struct VirMac *vm)
+static bool op_caz(VirMac *vm)
 {
-    struct DfVal *val = virmac_peek(vm);
+    DfVal *val = vm->peek();
     switch (val->type) {
       case VAL_N:
 #ifdef SAFE
         if (val->as.n > (uint32_t) INT32_MAX) {
             fputs("ERROR: Overflow casting to Z\n", stderr);
-            return FALSE;
+            return false;
         }
 #endif /* SAFE */
         val->as.z = (int32_t) val->as.n; break;
-      case VAL_Z: return TRUE; /* do noþing */
+      case VAL_Z: return true; /* do noþing */
       default:
         /*err_cast(from.type, VAL_R);*/
         printf("err cast");
-        return FALSE;
+        return false;
     }
     val->type = VAL_Z;
-    return TRUE;
+    return true;
 }
+#endif
 
-static int op_car(struct VirMac *vm)
+static bool op_car(VirMac *vm)
 {
-    struct DfVal *val = virmac_peek(vm);
-    switch (val->type) {
-      case VAL_N: val->as.r = (float) val->as.n; break;
-      case VAL_Z: val->as.r = (float) val->as.z; break;
-      case VAL_R: return TRUE; /* do noþing */
+    DfVal &val = vm->peek();
+    switch (val.type) {
+      case VAL_N: val.as.r = (float) val.as.n; break;
+      case VAL_Z: val.as.r = (float) val.as.z; break;
+      case VAL_R: return true; /* do noþing */
       default:
         /*err_cast(from.type, VAL_R);*/
         printf("err cast R");
-        return FALSE;
+        return false;
     }
-    val->type = VAL_R;
-    return TRUE;
+    val.type = VAL_R;
+    return true;
 }
 
-static int op_ape(struct VirMac *vm)
+#if 0
+static bool op_ape(VirMac *vm)
 {
-    struct DfVal elem = virmac_pop(vm);
-    struct DfVal arr  = virmac_pop(vm);
+    DfVal elem = vm->pop();
+    DfVal arr  = vm->pop();
     if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
         fprintf(stderr, "ERROR: value is not an array\n");
-        return FALSE;
+        return false;
     }
     struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
     if (!objarr_try_push(a, &elem)) {
         fputs("ERROR: some error pushing into array\n", stderr);
-        return FALSE;
+        return false;
     }
-    virmac_push(vm, &arr);
-    return TRUE;
+    vm->push(std::move(arr);
+    return true;
 }
 
-static int op_age(struct VirMac *vm)
+static bool op_age(VirMac *vm)
 {
-    struct DfVal arr, idx;
-    idx = virmac_pop(vm);
-    arr = virmac_pop(vm);
+    DfVal arr, idx;
+    idx = vm->pop();
+    arr = vm->pop();
     if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
         eputln("ERROR: value is not an array");
-        return FALSE;
+        return false;
     }
     uint32_t idx_n = 0;
     switch (idx.type) {
@@ -423,68 +410,68 @@ static int op_age(struct VirMac *vm)
       case VAL_Z:
         if (idx.as.z < 0) {
             eputln("ERROR: Z% index is negative");
-            return FALSE;
+            return false;
         }
         idx_n = (uint32_t) idx.as.z;
         break;
       default:
         eputln("ERROR: index is not N% or Z%");
-        return FALSE;
+        return false;
     }
     struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
-    struct DfVal val = objarr_get(a, idx_n);
+    DfVal val = objarr_get(a, idx_n);
     if (val.type == VAL_V)
-        return FALSE;
-    virmac_push(vm, &val);
-    return TRUE;
+        return false;
+    vm->push(std::move(val);
+    return true;
 }
 
-static int op_ase(struct VirMac *vm)
+static bool op_ase(VirMac *vm)
 {
-    struct DfVal arr, idx, val;
-    val = virmac_pop(vm);
-    idx = virmac_pop(vm);
-    arr = virmac_pop(vm);
+    DfVal arr, idx, val;
+    val = vm->pop();
+    idx = vm->pop();
+    arr = vm->pop();
     if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
         eputln("ERROR: value is not an array");
-        return FALSE;
+        return false;
     }
     if (idx.type != VAL_N) {
         eputln("ERROR: index is not N%");
-        return FALSE;
+        return false;
     }
     struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
     return objarr_set(a, idx.as.n, val); /* OK or ERR result */
 }
 
-static int op_tsf(struct VirMac *vm)
+static bool op_tsf(VirMac *vm)
 {
-    struct DfVal tbl, val;
-    val = virmac_pop(vm);
-    tbl = virmac_pop(vm);
+    DfVal tbl, val;
+    val = vm->pop();
+    tbl = vm->pop();
 #ifdef SAFE
     if (val2type(&tbl) != DFTYPE_T) {
         fprintf(stderr, "ERROR: value (%c%%) is not a table\n",
             val2type(&tbl));
-        return FALSE;
+        return false;
     }
 #endif /* SAFE */
     struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
     if (!objtbl_set(OBJ_AS_TBL(tbl.as.o), idf, val))
-        return FALSE;
-    virmac_push(vm, &tbl);
-    return TRUE;
+        return false;
+    vm->push(std::move(tbl);
+    return true;
 }
 
-static int op_tgf(struct VirMac *vm)
+static bool op_tgf(VirMac *vm)
 {
-    struct DfVal tbl, val;
-    tbl = virmac_pop(vm);
+    DfVal tbl, val;
+    tbl = vm->pop();
 #ifdef SAFE
     if (val2type(&tbl) != DFTYPE_T) {
         fprintf(stderr, "ERROR: value (%c%%) is not a table\n",
             val2type(&tbl));
-        return FALSE;
+        return false;
     }
 #endif /* SAFE */
     struct DfIdf *idf = &vm->dat->idf.arr[read_u16(&vm->ip)];
@@ -492,18 +479,18 @@ static int op_tgf(struct VirMac *vm)
     if (!res)
         fprintf(stderr, "field $%s' not found in table\n", idf->str);
     else
-        virmac_push(vm, &val);
+        vm->push(std::move(val);
     return res;
 }
 
-static int op_pcl(struct VirMac *vm)
+static bool op_pcl(VirMac *vm)
 {
-    uint8_t arity = READ_BYTE();
-    struct DfVal *val = vm->sp - (arity + 1); /* args + callee */
+    uint8_t arity = read_u8(&vm->ip);
+    DfVal *val = vm->sp - (arity + 1); /* args + callee */
 #ifdef SAFE
     if (val->type != VAL_O || val->as.o->type != OBJ_PRO) {
         eputln("cannot !call a not !");
-        return FALSE;
+        return false;
     }
 #endif /* SAFE */
     struct ObjPro *pro = OBJ_AS_PRO(val->as.o);
@@ -517,30 +504,30 @@ static int op_pcl(struct VirMac *vm)
         printf("wrong arity calling ");
         object_print(val->as.o);
         puts("");
-        return FALSE;
+        return false;
     }
 #endif /* SAFE */
     return push_call(vm, val, pro->as.usr);
 }
 
-static int op_fcl(struct VirMac *vm)
+static bool op_fcl(VirMac *vm)
 {
-    uint8_t arity = READ_BYTE();
-    struct DfVal *val = vm->sp - (arity + 1); /* args + callee */
+    uint8_t arity = read_u8(&vm->ip);
+    DfVal *val = vm->sp - (arity + 1); /* args + callee */
 #ifdef SAFE
     if (val2type(val) != DFTYPE_F) {
         eputln("ERROR: cannot #call a not #");
-        return FALSE;
+        return false;
     }
 #endif /* SAFE */
     struct ObjFun *fun = OBJ_AS_FUN(val->as.o);
     if (fun->obj.is_nat) {
-        struct DfVal ret;
+        DfVal ret;
         int res = fun->as.nat.eval(vm, vm->sp - arity, arity, &ret);
         if (!res)
-            return FALSE;
+            return false;
         vm->sp -= arity + 1;
-        virmac_push(vm, &ret);
+        vm->push(std::move(ret);
         return res;
     }
 #ifdef SAFE
@@ -548,64 +535,65 @@ static int op_fcl(struct VirMac *vm)
         printf("wrong arity calling ");
         object_print(val->as.o);
         puts("");
-        return FALSE;
+        return false;
     }
 #endif /* SAFE */
     return push_call(vm, val, fun->as.usr);
 }
 
-static int op_ret(struct VirMac *vm)
+static bool op_ret(VirMac *vm)
 {
-    struct DfVal ret = virmac_pop(vm);
+    DfVal ret = vm->pop();
     if (!pop_call(vm))
-        return FALSE;
-    virmac_push(vm, &ret);
-    return TRUE;
+        return false;
+    vm->push(std::move(ret);
+    return true;
 }
 
+#endif // current
+
 /* Load Local Short (u8) */
-static void op_lls(struct VirMac *vm)
+static void op_lls(VirMac *vm)
 {
-    uint index = READ_BYTE();
-    struct DfVal *loc = &vm->bp[index];
-    virmac_push(vm, loc);
+    uint index = read_u8(&vm->ip);
+    vm->push(vm->bp[index]);
 }
 
 /* Store Local Short (u8) */
-static void op_sls(struct VirMac *vm)
+static void op_sls(VirMac *vm)
 {
-    uint index = READ_BYTE();
-    vm->bp[index] = virmac_pop(vm);
+    uint index = read_u8(&vm->ip);
+    vm->bp[index] = vm->pop();
 }
 
 /* Update Local Short (u8) */
-static void op_uls(struct VirMac *vm)
+static void op_uls(VirMac *vm)
 {
-    uint index = READ_BYTE();
-    vm->bp[index] = *virmac_peek(vm);
+    uint index = read_u8(&vm->ip);
+    vm->bp[index] = vm->peek();
 }
 
-static int op_jbf(struct VirMac *vm)
+static bool op_jbf(VirMac *vm)
 {
-    struct DfVal *b = virmac_peek(vm);
-    if (b->type != VAL_B) {
+    DfVal &b = vm->peek();
+    if (b.type != VAL_B) {
         fputs("condition is not B\n", stderr);
-        return FALSE;
+        return false;
     }
-    vm_js_if(vm, !b->as.b);
-    return TRUE;
+    vm->js_if(!b.as.b);
+    return true;
 }
 
 #define OP_JFX(x) \
-static int op_jf ## x (struct VirMac *vm) \
+static bool op_jf ## x (VirMac *vm)   \
 {                                     \
-    struct DfVal b = virmac_pop(vm);  \
+    DfVal b = vm->pop();              \
     if (b.type != VAL_B) {            \
         eputln("condition is not B"); \
-        return FALSE;                 \
+        return false;                 \
     }                                 \
-    vm_j ## x ## _if(vm, !b.as.b);    \
-    return TRUE;                      \
+    vm->j ## x ## _if(!b.as.b);       \
+    return true;                      \
 }
 
 OP_JFX(s)
@@ -614,20 +602,18 @@ OP_JFX(l)
 #undef OP_JFX
 
 #define OP_J_CMP(name, cmp_fn, msg) \
-static int name(struct VirMac *vm)      \
-{                                       \
-    int cmp;                            \
-    struct DfVal lhs, rhs;              \
-    rhs = virmac_pop(vm);               \
-    lhs = virmac_pop(vm);               \
-    switch ((cmp = cmp_fn(&lhs, &rhs))) { \
-      case CMP_ERR:                     \
-        ERR_BINOP(msg);                 \
-        return FALSE;                   \
-      default:                          \
-        vm_jl_if(vm, cmp);              \
-        return TRUE;                    \
-    }                                   \
+static bool name(VirMac *vm)        \
+{                                   \
+    DfVal rhs = vm->pop();          \
+    DfVal lhs = vm->pop();          \
+    int cmp = cmp_fn(&lhs, &rhs);   \
+    if (CMP_ERR == cmp) {           \
+        ERR_BINOP(msg);             \
+        return false;               \
+    } else {                        \
+        vm->jl_if(cmp);             \
+        return true;                \
+    }                               \
 }
 
 OP_J_CMP(op_jlt, dfval_lt, ">=")

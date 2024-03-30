@@ -6,10 +6,10 @@
 #include <exception>
 #include "loader.h"
 #include "reader.h"
-//#include "virmac.h"
+#include "virmac.h"
 #include "disasm.h"
 
-//static int run_file(struct VirMac *vm, const char *);
+static bool run_file(VirMac *vm, const char *);
 static VmData * read_file_to_vmdata(const char *);
 static bool disasm(const char *);
 static void wellcum();
@@ -17,12 +17,11 @@ static void wellcum();
 int main(int argc, const char *argv[])
 {
     int status = 0;
-//    struct VirMac vm;
-//    virmac_init(&vm);
+    VirMac vm;
     switch (argc) {
       case 1: wellcum(); break;
       case 2:
-//        status = !run_file(&vm, argv[1]);
+        status = !run_file(&vm, argv[1]);
         break;
       case 3: {
         if (strcmp(argv[1], "d") != 0) {
@@ -37,28 +36,40 @@ int main(int argc, const char *argv[])
         fprintf(stderr, "U idiot, provide a signle file to be run\n");
         status = 1;
     }
-//    virmac_free(&vm);
     return status;
 }
 
-/*static int run_file(struct VirMac *vm, const char *path)
+static bool run_file(VirMac *vm, const char *path)
 {
-    struct VmData *prog = read_file_to_vmdata(path);
-    if (prog == NULL)
-        return FALSE;
-    enum ItpRes res = virmac_run(vm, prog);
-    vmdata_free(prog);
+    VmData *prog = read_file_to_vmdata(path);
+    if (prog == nullptr)
+        return false;
+    ItpRes res = vm->run(prog);
+    delete prog;
     switch (res) {
       case ITP_OK: break;
       case ITP_RUNTIME_ERR:
-        fprintf(stderr, "Der'z bin a runtime error\n");
-        return FALSE;
+        eputln("Der'z bin a runtime error");
+        return false;
+      case ITP_NULLPTR_ERR:
+        eputln("nullptr error from virmac");
+        return false;
       default:
-        fprintf(stderr, "some error from virmac_run\n");
-        return FALSE;
+        eputln("some error from virmac_run");
+        return false;
     }
-    return TRUE;
-}*/
+    return true;
+}
+
+static bool disasm(const char *path)
+{
+    VmData *vmd = read_file_to_vmdata(path);
+    if (vmd == nullptr)
+        return false;
+    disasm_vmdata(vmd, path);
+    delete vmd;
+    return true;
+}
 
 /* returns new alloc'd VmData, NULL if error */
 VmData * read_file_to_vmdata(const char *path)
@@ -81,16 +92,6 @@ VmData * read_file_to_vmdata(const char *path)
     /* exit */
     (void) reader_free(&reader);
     return prog;
-}
-
-static bool disasm(const char *path)
-{
-    VmData *vmd = read_file_to_vmdata(path);
-    if (vmd == nullptr)
-        return false;
-    disasm_vmdata(vmd, path);
-    delete vmd;
-    return true;
 }
 
 static void wellcum(void)

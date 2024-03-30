@@ -1,4 +1,4 @@
-/* virmac.cpp */
+/* virmac.c */
 
 #include <cstdio>
 #include <cstdlib>
@@ -12,131 +12,129 @@
 #include "disasm.h"
 #endif
 
+#define READ_BYTE() (read_u8(&this->ip))
 #define CMP_ERR     2
 
 /* static functions */
-#ifdef DEBUG
-static void print_stack(struct VirMac *);
-#endif
-static void reset_stack(struct VirMac *);
-static enum ItpRes run (struct VirMac *);
-static int push_call   (struct VirMac *, DfVal *, struct Norris *);
-static int pop_call    (struct VirMac *);
-static void print_calls(const struct VirMac *);
-static void set_norris (struct VirMac *, struct Norris *);
 void err_cant_op  (const char *, DfVal *);
-void err_dif_types(const char *, enum DfType, enum DfType);
+void err_dif_types(const char *, DfType, DfType);
 
+// TODO move þis to values.h
 static int dfval_eq(DfVal *, DfVal *);
 static int dfval_ne(DfVal *, DfVal *);
 static int dfval_lt(DfVal *, DfVal *);
 static int dfval_le(DfVal *, DfVal *);
 static int dfval_gt(DfVal *, DfVal *);
 static int dfval_ge(DfVal *, DfVal *);
-static inline void vm_js_if(struct VirMac *, int);
-static inline void vm_jl_if(struct VirMac *, int);
 
 #include "vm-ops.c"
 
-static void reset_stack(struct VirMac *vm)
+VirMac::VirMac()
 {
-    vm->sp = &vm->stack[0];
-    vm->callnum = -1;
-    vm->bp = vm->sp;
+    this->reset_stack();
+    this->dat = nullptr;
+    this->nor = nullptr;
+    //falloc_init();
+    //garcol_init();
 }
 
-void virmac_init(struct VirMac *vm)
+VirMac::~VirMac()
 {
-    reset_stack(vm);
-    vm->dat = NULL;
-    vm->nor = NULL;
-    falloc_init();
-    garcol_init();
+    this->reset_stack();
+    //falloc_exit();
+    //garcol_exit();
 }
 
-void virmac_free(struct VirMac *vm)
+void VirMac::reset_stack()
 {
-    reset_stack(vm);
-    falloc_exit();
-    garcol_exit();
+    this->sp = &this->stack[0];
+//    this->callnum = -1;
+    this->bp = this->sp;
 }
 
-enum ItpRes virmac_run(struct VirMac *vm, struct VmData *prog)
+ItpRes VirMac::run(VmData *prog)
 {
-    assert(vm != NULL);
-    vm->dat = prog;
+    if (prog == NULL)
+        return ITP_NULLPTR_ERR;
+    this->dat = prog;
     /* start main */
-    push_call(vm, vm->stack, &prog->pag.arr[0]);
-    enum ItpRes res = run(vm);
+//    this->push_call(this->stack, &prog->pag.arr[0]);
+    // TODO harcode run Norris &prog->pag[0]
+    this->set_norris(&prog->pag[0]);
+    ItpRes res = this->_run();
     if (res != ITP_OK)
-        print_calls(vm);
+        printf("wlethiwlht");
+        //this->print_calls();
     return res;
 }
 
 void VirMac::push(DfVal &v)
 {
 #ifdef SAFE
-    if (this->sp == &this->stack[STACK_MAX]) {
-        eputln("ERROR: stack overflow");
-        exit(1);
-    }
+    if (this->sp == &this->stack[STACK_MAX])
+        panic("ERROR: stack overflow");
 #endif /* SAFE */
-    *vm->sp = v;
-    vm->sp++;
+    *this->sp = v;
+    this->sp++;
 }
 
-#define CHECK_MT_STACK \
-if (this->sp == this->bp) {       \
-    eputln("ERROR: empty stack"); \
-    exit(1);                      \
+void VirMac::push(DfVal &&v)
+{
+#ifdef SAFE
+    if (this->sp == &this->stack[STACK_MAX])
+        panic("ERROR: stack overflow");
+#endif /* SAFE */
+    *this->sp = std::move(v);
+    this->sp++;
 }
 
 DfVal && VirMac::pop()
 {
 #ifdef SAFE
-    CHECK_MT_STACK
-#endif
-    vm->sp--;
-    return *vm->sp;
+    if (this->sp == this->bp)
+        panic("ERROR: empty stack\n");
+#endif /* SAFE */
+    this->sp--;
+    return std::move(*this->sp);
 }
 
 DfVal & VirMac::peek()
 {
 #ifdef SAFE
-    CHECK_MT_STACK
-#endif
-    return vm->sp[-1];
+    if (this->sp == this->bp)
+        panic("ERROR: empty stack");
+#endif /* SAFE */
+    return this->sp[-1];
 }
 
-#undef CHECK_MT_STACK
-
-static enum ItpRes run(struct VirMac *vm)
+ItpRes VirMac::_run()
 {
-    while (TRUE) {
+    while (true) {
         uint8_t ins;
 #ifdef DEBUG
-        print_stack(vm);
-        disasm_instru(vm->dat, vm->nor, vm->ip);
+        this->print_stack();
+        disasm_instru(this->dat, this->nor, this->ip);
 #endif /* DEBUG */
         switch (ins = READ_BYTE()) {
           case OP_NOP: break;
 
+
 /* void ops */
-#define DO_OP(op, fn) case op: fn(vm); break;
+#define DO_OP(op, fn) case op: fn(this); break;
           DO_OP(OP_LVV, op_lvv)
 
           DO_OP(OP_LLS, op_lls)
           DO_OP(OP_SLS, op_sls)
           DO_OP(OP_ULS, op_uls)
 
-          DO_OP(OP_CEQ, op_ceq)
-          DO_OP(OP_CNE, op_cne)
+//          DO_OP(OP_CEQ, op_ceq)
+//          DO_OP(OP_CNE, op_cne)
 #undef DO_OP
 
 /* consts */
-#define DO_L(op, fn, val) case op: fn(vm, val); break;
-          DO_L(OP_LBT, op_lb, TRUE)
-          DO_L(OP_LBF, op_lb, FALSE)
+#define DO_L(op, fn, val) case op: fn(this, val); break;
+          DO_L(OP_LBT, op_lb, true)
+          DO_L(OP_LBF, op_lb, false)
           DO_L(OP_LN0, op_ln, 0)
           DO_L(OP_LN1, op_ln, 1)
           DO_L(OP_LN2, op_ln, 2)
@@ -151,24 +149,26 @@ static enum ItpRes run(struct VirMac *vm)
 
           case OP_LKS: {
             uint idx = READ_BYTE();
-            virmac_push(vm, &vm->dat->ctn.arr[idx]);
+            this->push(DfVal(this->dat->ctn[idx]));
             break;
           }
           case OP_LKL: {
-            uint idx = read_u16(&vm->ip);
-            virmac_push(vm, &vm->dat->ctn.arr[idx]);
+            uint idx = read_u16(&this->ip);
+            this->push(this->dat->ctn[idx]);
             break;
           }
 
 /* fallible ops */
-#define DO_OP(op, fn) case op: if (!fn(vm)) return ITP_RUNTIME_ERR; break;
+#define DO_OP(op, fn) case op: if (!fn(this)) return ITP_RUNTIME_ERR; break;
           DO_OP(OP_NEG, op_neg)
           DO_OP(OP_ADD, op_add)
+
           DO_OP(OP_SUB, op_sub)
           DO_OP(OP_MUL, op_mul)
           DO_OP(OP_DIV, op_div)
           DO_OP(OP_INV, op_inv)
           DO_OP(OP_INC, op_inc)
+#ifdef GRANMERDA
           DO_OP(OP_DEC, op_dec)
 
           DO_OP(OP_CLT, op_clt)
@@ -182,8 +182,9 @@ static enum ItpRes run(struct VirMac *vm)
 
           DO_OP(OP_CAN, op_can)
           DO_OP(OP_CAZ, op_caz)
+#endif
           DO_OP(OP_CAR, op_car)
-
+#if 0
           DO_OP(OP_APE, op_ape)
           DO_OP(OP_AGE, op_age)
           DO_OP(OP_ASE, op_ase)
@@ -194,6 +195,7 @@ static enum ItpRes run(struct VirMac *vm)
           DO_OP(OP_PCL, op_pcl)
           DO_OP(OP_FCL, op_fcl)
           DO_OP(OP_RET, op_ret)
+#endif
 
           DO_OP(OP_JBF, op_jbf)
           DO_OP(OP_JFS, op_jfs)
@@ -205,16 +207,17 @@ static enum ItpRes run(struct VirMac *vm)
 #undef DO_OP
 
           case OP_JJS: {
-            int dist = read_i8(&vm->ip);
-            vm->ip += dist;
+            int dist = read_i8(&this->ip);
+            this->ip += dist;
             break;
           }
           case OP_JJL: {
-            int dist = read_i16(&vm->ip);
-            vm->ip += dist;
+            int dist = read_i16(&this->ip);
+            this->ip += dist;
             break;
           }
 
+#if 0
           case OP_AMN: {
             DfVal val;
             val.type = VAL_O;
@@ -232,18 +235,18 @@ static enum ItpRes run(struct VirMac *vm)
 
           case OP_PMN: {
             DfVal val;
-            uint idx = read_u16(&vm->ip);
+            uint idx = read_u16(&this->ip);
             val.type = VAL_O;
-            val.as.o = (void *) objpro_new(&vm->dat->pag.arr[idx]);
+            val.as.o = (void *) objpro_new(&this->dat->pag.arr[idx]);
             virmac_push(vm, &val);
             break;
           }
 
           case OP_FMN: {
             DfVal val;
-            uint idx = read_u16(&vm->ip);
+            uint idx = read_u16(&this->ip);
             val.type = VAL_O;
-            val.as.o = (void *) objfun_new(&vm->dat->pag.arr[idx]);
+            val.as.o = (void *) objfun_new(&this->dat->pag.arr[idx]);
             virmac_push(vm, &val);
             break;
           }
@@ -252,47 +255,50 @@ static enum ItpRes run(struct VirMac *vm)
             if (!pop_call(vm)) return ITP_RUNTIME_ERR;
             break;
           }
+#endif // GRANMERDA
+
           case OP_DUP: {
-            DfVal *val = virmac_peek(vm);
-            virmac_push(vm, val);
+            this->push(DfVal(this->peek()));
             break;
           }
-          case OP_POP: virmac_pop(vm); break;
+          case OP_POP: (void) this->pop(); break;
           case OP_HLT:
 #ifdef DEBUG
             puts("VM HALTED");
-            print_calls(vm);
-            print_stack(vm);
+            //this->print_calls();
+            this->print_stack();
 #endif
-            reset_stack(vm);
-            garcol_do(vm);
+            this->reset_stack();
+//            garcol_do(vm);
             return ITP_OK;
 
           default:
             fprintf(stderr, "unknown instruction %02x\n", ins);
+            return ITP_RUNTIME_ERR;
         }
     }
 }
 
 #ifdef DEBUG
-static void print_stack(struct VirMac *vm)
+void VirMac::print_stack() const
 {
-    DfVal *slot = NULL;
-    for (slot = &vm->stack[0];
-         slot != vm->sp;
+    const DfVal *slot = nullptr;
+    for (slot = &this->stack[0];
+         slot != this->sp;
          slot++) {
-        printf("[%c%%", val2type(slot));
-        values_print(slot);
+        printf("[%c%%", (char) slot->as_type());
+        slot->print();
         printf("]");
     }
     printf("\n");
 }
 #endif /* DEBUG */
 
-static int push_call(struct VirMac *vm, DfVal *c, struct Norris *n)
+#ifdef GRANMERDA
+static int push_call(VirMac *vm, DfVal *c, Norris *n)
 {
 #ifdef SAFE
-    if (vm->callnum == CALLS_MAX) {
+    if (this->callnum == CALLS_MAX) {
         eputln("ERROR: call stack overflow");
         return FALSE;
     }
@@ -302,101 +308,69 @@ static int push_call(struct VirMac *vm, DfVal *c, struct Norris *n)
         printf("calling "); values_print(c); printf("------------\n");
     }
 #endif /* DEBUG */
-    vm->calls[vm->callnum] = vm->bp;
-    vm->norrs[vm->callnum] = vm->nor;
-    vm->ips  [vm->callnum] = vm->ip;
-    vm->callnum++;
-    vm->bp = c;
+    this->calls[this->callnum] = this->bp;
+    this->norrs[this->callnum] = this->nor;
+    this->ips  [this->callnum] = this->ip;
+    this->callnum++;
+    this->bp = c;
     set_norris(vm, n);
     return TRUE;
 }
 
-static int pop_call(struct VirMac *vm)
+static int pop_call(VirMac *vm)
 {
 #ifdef SAFE
-    if (vm->callnum == -1) {
+    if (this->callnum == -1) {
         eputln("ERROR: empty call stack\n");
         return FALSE;
     }
 #endif /* SAFE */
 #ifdef DEBUG
-    printf("end call "); values_print(vm->bp); printf("------------\n");
+    printf("end call "); values_print(this->bp); printf("------------\n");
 #endif /* DEBUG */
-    vm->callnum--;
-    vm->sp = vm->bp;
-    vm->bp  = vm->calls[vm->callnum];
-    vm->ip  = vm->ips  [vm->callnum];
-    vm->nor = vm->norrs[vm->callnum];
+    this->callnum--;
+    this->sp = this->bp;
+    this->bp  = this->calls[this->callnum];
+    this->ip  = this->ips  [this->callnum];
+    this->nor = this->norrs[this->callnum];
     return TRUE;
 }
 
-static void print_calls(const struct VirMac *vm)
+static void print_calls(const VirMac *vm)
 {
     puts("Call stack (top oldest):\n    !main");
-    int last = vm->callnum;
+    int last = this->callnum;
 #define BASURA(vp) MACRO_STMT(printf("    "); values_print(vp); puts("");)
     for (int i = 1; i < last; ++i)
-        BASURA(vm->calls[i]);
+        BASURA(this->calls[i]);
     if (last > 0)
-        BASURA(vm->bp);
+        BASURA(this->bp);
     puts("");
 #undef BASURA
 }
 
-static void set_norris(struct VirMac *vm, struct Norris *n)
+#endif // GRANMERDA
+
+void VirMac::set_norris(Norris *n)
 {
-    vm->nor = n;
-    vm->ip = n->cod;
+    this->nor = n;
+    this->ip = n->cod;
 }
 
 /* error message for same type but invalid operations */
 void err_cant_op(const char *op, DfVal *v)
 {
-    char ty = val2type(v);
+    char ty = (char) v->as_type();
     fprintf(stderr, "ERROR: Cannot operate %s with %c value(s)\n", op, ty);
 }
 
-void err_dif_types(const char *op, enum DfType t1, enum DfType t2)
+void err_dif_types(const char *op, DfType t1, DfType t2)
 {
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
-        op, t1, t2);
+        op, (char)t1, (char)t2);
 }
 
-#define ERR_BINOP(msg)  err_dif_types(msg, val2type(&lhs), val2type(&rhs))
-
-static int dfval_eq(DfVal *v, DfVal *w)
-{
-    if (v->type != w->type)
-        return FALSE;
-    switch (v->type) {
-      case VAL_V: return TRUE;
-      case VAL_B: return !!v->as.b == !!w->as.b; /* for oþer non-0 values */
-      case VAL_C: return v->as.c == w->as.c;
-      case VAL_N: return v->as.n == w->as.n;
-      case VAL_Z: return v->as.z == w->as.z;
-      case VAL_R: return FALSE; /* must do ε */
-      case VAL_O: return v->as.o == w->as.o;
-    }
-    return FALSE; /* gcc complains */
-}
-
-static int dfval_ne(DfVal *v, DfVal *w)
-{
-    if (v->type != w->type)
-        return TRUE;
-    switch (v->type) {
-      case VAL_V: return FALSE;
-      case VAL_B: return v->as.b != w->as.b;
-      case VAL_C: return v->as.c != w->as.c;
-      case VAL_N: return v->as.n != w->as.n;
-      case VAL_Z: return v->as.z != w->as.z;
-      case VAL_R: return TRUE;
-      case VAL_O: return v->as.o != w->as.o;
-      default:
-        eputln("unknown type in dfval_ne");
-        return TRUE;
-    }
-}
+//#define ERR_BINOP(msg)  err_dif_types(msg, val2type(&lhs), val2type(&rhs))
 
 /* see C99's §6.5.8 Relational Operators ¶6 */
 
@@ -420,24 +394,18 @@ DFVAL_CMP_FN(dfval_ge, >=)
 
 #undef DFVAL_CMP_FN
 
-/* jump short if `cond` */
-static inline void vm_js_if(struct VirMac *vm, int cond)
-{
-    if (cond) {
-        int dist = read_i8(&vm->ip);
-        vm->ip += dist;
-    } else {
-        vm->ip += 1;
-    }
+#define VM_JX_IF(x, read_size, adv_size) \
+void VirMac::j ## x ## _if(bool cond) \
+{                                                   \
+    if (cond) {                                     \
+        int dist = read_i ## read_size (&this->ip); \
+        this->ip += dist;                           \
+    } else {                                        \
+        this->ip += adv_size;                       \
+    }                                               \
 }
 
-/* jump long if `cond` */
-static inline void vm_jl_if(struct VirMac *vm, int cond)
-{
-    if (cond) {
-        int dist = read_i16(&vm->ip);
-        vm->ip += dist;
-    } else {
-        vm->ip += 2;
-    }
-}
+VM_JX_IF(s,  8, 1) // short
+VM_JX_IF(l, 16, 2) // long
+
+#undef VM_JX_IF
