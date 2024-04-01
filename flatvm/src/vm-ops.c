@@ -1,6 +1,8 @@
 /* vm-ops.c */
 
-#define ERR_BINOP(msg)  err_dif_types(msg, lhs.as_type(), rhs.as_type())
+#define ERR_BINOP(msg)\
+    err_dif_types(msg, lhs.as_type(), rhs.as_type()); \
+    panic("owijf")
 
 static void op_lvv(VirMac *vm) {
     vm->push(DfVal());
@@ -22,7 +24,7 @@ static void op_lr(VirMac *vm, float r) {
     vm->push(DfVal(r));
 }
 
-static bool op_neg(VirMac *vm)
+static void op_neg(VirMac *vm)
 {
     DfVal val = vm->pop();
     DfVal res;
@@ -31,11 +33,10 @@ static bool op_neg(VirMac *vm)
       case VAL_R: res.as.r = -val.as.r; break;
       default:
         err_cant_op("unary -", &val);
-        return false;
+        panic("");
     }
     res.type = val.type;
     vm->push(std::move(res));
-    return true;
 }
 
 /*static inline bool
@@ -45,20 +46,17 @@ op_add_o(
     DfVal  *
 );*/
 
-static bool op_add(VirMac *vm)
+static void op_add(VirMac *vm)
 {
     DfVal rhs = vm->pop();
     DfVal lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("+");
-        return false;
     }
-    DfVal res;
-    res.type = lhs.type;
     switch (lhs.type) {
-      case VAL_N: res.as.n = lhs.as.n + rhs.as.n; break;
-      case VAL_Z: res.as.z = lhs.as.z + rhs.as.z; break;
-      case VAL_R: res.as.r = lhs.as.r + rhs.as.r; break;
+      case VAL_N: vm->push(DfVal(lhs.as.n + rhs.as.n)); break;
+      case VAL_Z: vm->push(DfVal(lhs.as.z + rhs.as.z)); break;
+      case VAL_R: vm->push(DfVal(lhs.as.r + rhs.as.r)); break;
       case VAL_O:
 /*        if (!op_add_o(lhs.as.o, rhs.as.o, &res))
             return false;
@@ -66,10 +64,9 @@ static bool op_add(VirMac *vm)
         todo("add objects");
       default:
         err_cant_op("+", &lhs);
-        return false;
+        panic("");
     }
-    vm->push(std::move(res));
-    return true;
+//    vm->push(std::move(res));
 }
 
 #if 0
@@ -107,14 +104,13 @@ static inline int op_add_o(
 }
 #endif
 
-static bool op_sub(VirMac *vm)
+static void op_sub(VirMac *vm)
 {
     DfVal lhs, rhs, res;
     rhs = vm->pop();
     lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("-");
-        return false;
     }
     res.type = lhs.type;
     switch (lhs.type) {
@@ -122,75 +118,60 @@ static bool op_sub(VirMac *vm)
       case VAL_R: res.as.r = lhs.as.r - rhs.as.r; break;
       default:
         err_cant_op("-", &lhs);
-        return false;
+        panic("");
     }
     vm->push(std::move(res));
-    return true;
 }
 
-static bool op_mul(VirMac *vm)
+static void op_mul(VirMac *vm)
 {
-    DfVal lhs, rhs, res;
+    DfVal lhs, rhs;
     rhs = vm->pop();
     lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("*");
-        return false;
     }
-    res.type = lhs.type;
     switch (lhs.type) {
-      case VAL_N: res.as.n = lhs.as.n * rhs.as.n; break;
-      case VAL_Z: res.as.z = lhs.as.z * rhs.as.z; break;
-      case VAL_R: res.as.r = lhs.as.r * rhs.as.r; break;
+      case VAL_N: vm->push(DfVal(lhs.as.n * rhs.as.n)); break;
+      case VAL_Z: vm->push(DfVal(lhs.as.z * rhs.as.z)); break;
+      case VAL_R: vm->push(DfVal(lhs.as.r * rhs.as.r)); break;
       default:
         err_cant_op("*", &lhs);
-        return false;
     }
-    vm->push(std::move(res));
-    return true;
 }
 
-static bool op_div(VirMac *vm)
+static void op_div(VirMac *vm)
 {
     DfVal lhs, rhs, res;
     rhs = vm->pop();
     lhs = vm->pop();
     if (lhs.type != rhs.type) {
         ERR_BINOP("/");
-        return false;
     }
     res.type = lhs.type;
     switch (lhs.type) {
       case VAL_R:
-#ifdef SAFEE
-        if (rhs.as.r == 0.0f) {
-            eputln("ERROR: Division by 0.0");
-            return false;
-        }
-#endif /* SAFE */
         res.as.r = lhs.as.r / rhs.as.r;
         break;
       default:
         err_cant_op("/", &lhs);
-        return false;
+        panic("");
     }
     vm->push(std::move(res));
-    return true;
 }
 
 /* TODO: why is þis slower þan LR1 [expr] DIV ? */
-static bool op_inv(VirMac *vm)
+static void op_inv(VirMac *vm)
 {
     DfVal &val = vm->peek();
     if (val.type != VAL_R) {
         err_cant_op("unary /", &val);
-        return false;
+        panic("");
     }
     val.as.r = 1.0f / val.as.r;
-    return true;
 }
 
-static bool op_inc(VirMac *vm)
+static void op_inc(VirMac *vm)
 {
     DfVal &val = vm->peek();
     switch (val.type) {
@@ -198,13 +179,12 @@ static bool op_inc(VirMac *vm)
         case VAL_Z: val.as.z += 1; break;
         default:
             err_cant_op("1 +", &val);
-            return false;
+            panic("");
     }
-    return true;
 }
 
 #if 0
-static bool op_dec(VirMac *vm)
+static void op_dec(VirMac *vm)
 {
     DfVal *val = vm->peek();
     switch (val->type) {
@@ -235,7 +215,7 @@ static void op_cne(VirMac *vm)
 }
 
 #define OP_CMP(name, cmp_fn, msg) \
-static bool name(VirMac *vm)      \
+static void name(VirMac *vm)      \
 {                                       \
     int cmp;                            \
     DfVal lhs, rhs, res;         \
@@ -260,7 +240,7 @@ OP_CMP(op_cge, dfval_ge, ">=")
 
 #undef OP_CMP
 
-static bool op_not(VirMac *vm)
+static void op_not(VirMac *vm)
 {
     DfVal val, res;
     val = vm->pop();
@@ -276,7 +256,7 @@ static bool op_not(VirMac *vm)
     return true;
 }
 
-static bool op_and(VirMac *vm)
+static void op_and(VirMac *vm)
 {
     DfVal lhs, rhs, res;
     rhs = vm->pop();
@@ -297,7 +277,7 @@ static bool op_and(VirMac *vm)
     return true;
 }
 
-static bool op_ior(VirMac *vm)
+static void op_ior(VirMac *vm)
 {
     DfVal lhs, rhs, res;
     rhs = vm->pop();
@@ -318,7 +298,7 @@ static bool op_ior(VirMac *vm)
     return true;
 }
 
-static bool op_can(VirMac *vm)
+static void op_can(VirMac *vm)
 {
     DfVal *val = vm->peek();
     switch (val->type) {
@@ -338,7 +318,7 @@ static bool op_can(VirMac *vm)
     return true;
 }
 
-static bool op_caz(VirMac *vm)
+static void op_caz(VirMac *vm)
 {
     DfVal *val = vm->peek();
     switch (val->type) {
@@ -361,24 +341,23 @@ static bool op_caz(VirMac *vm)
 }
 #endif
 
-static bool op_car(VirMac *vm)
+static void op_car(VirMac *vm)
 {
     DfVal &val = vm->peek();
     switch (val.type) {
       case VAL_N: val.as.r = (float) val.as.n; break;
       case VAL_Z: val.as.r = (float) val.as.z; break;
-      case VAL_R: return true; /* do noþing */
+      case VAL_R: return; /* do noþing */
       default:
         /*err_cast(from.type, VAL_R);*/
         printf("err cast R");
-        return false;
+        panic("");
     }
     val.type = VAL_R;
-    return true;
 }
 
 #if 0
-static bool op_ape(VirMac *vm)
+static void op_ape(VirMac *vm)
 {
     DfVal elem = vm->pop();
     DfVal arr  = vm->pop();
@@ -395,7 +374,7 @@ static bool op_ape(VirMac *vm)
     return true;
 }
 
-static bool op_age(VirMac *vm)
+static void op_age(VirMac *vm)
 {
     DfVal arr, idx;
     idx = vm->pop();
@@ -426,7 +405,7 @@ static bool op_age(VirMac *vm)
     return true;
 }
 
-static bool op_ase(VirMac *vm)
+static void op_ase(VirMac *vm)
 {
     DfVal arr, idx, val;
     val = vm->pop();
@@ -444,7 +423,7 @@ static bool op_ase(VirMac *vm)
     return objarr_set(a, idx.as.n, val); /* OK or ERR result */
 }
 
-static bool op_tsf(VirMac *vm)
+static void op_tsf(VirMac *vm)
 {
     DfVal tbl, val;
     val = vm->pop();
@@ -463,7 +442,7 @@ static bool op_tsf(VirMac *vm)
     return true;
 }
 
-static bool op_tgf(VirMac *vm)
+static void op_tgf(VirMac *vm)
 {
     DfVal tbl, val;
     tbl = vm->pop();
@@ -483,7 +462,7 @@ static bool op_tgf(VirMac *vm)
     return res;
 }
 
-static bool op_pcl(VirMac *vm)
+static void op_pcl(VirMac *vm)
 {
     uint8_t arity = read_u8(&vm->ip);
     DfVal *val = vm->sp - (arity + 1); /* args + callee */
@@ -510,7 +489,7 @@ static bool op_pcl(VirMac *vm)
     return push_call(vm, val, pro->as.usr);
 }
 
-static bool op_fcl(VirMac *vm)
+static void op_fcl(VirMac *vm)
 {
     uint8_t arity = read_u8(&vm->ip);
     DfVal *val = vm->sp - (arity + 1); /* args + callee */
@@ -541,7 +520,7 @@ static bool op_fcl(VirMac *vm)
     return push_call(vm, val, fun->as.usr);
 }
 
-static bool op_ret(VirMac *vm)
+static void op_ret(VirMac *vm)
 {
     DfVal ret = vm->pop();
     if (!pop_call(vm))
@@ -573,27 +552,25 @@ static void op_uls(VirMac *vm)
     vm->bp[index] = vm->peek();
 }
 
-static bool op_jbf(VirMac *vm)
+static void op_jbf(VirMac *vm)
 {
     DfVal &b = vm->peek();
     if (b.type != VAL_B) {
         fputs("condition is not B\n", stderr);
-        return false;
+        panic("");
     }
     vm->js_if(!b.as.b);
-    return true;
 }
 
 #define OP_JFX(x) \
-static bool op_jf ## x (VirMac *vm)   \
+static void op_jf ## x (VirMac *vm)   \
 {                                     \
     DfVal b = vm->pop();              \
     if (b.type != VAL_B) {            \
         eputln("condition is not B"); \
-        return false;                 \
+        panic("");                    \
     }                                 \
     vm->j ## x ## _if(!b.as.b);       \
-    return true;                      \
 }
 
 OP_JFX(s)
@@ -602,17 +579,15 @@ OP_JFX(l)
 #undef OP_JFX
 
 #define OP_J_CMP(name, cmp_fn, msg) \
-static bool name(VirMac *vm)        \
+static void name(VirMac *vm)        \
 {                                   \
     DfVal rhs = vm->pop();          \
     DfVal lhs = vm->pop();          \
     int cmp = cmp_fn(&lhs, &rhs);   \
     if (CMP_ERR == cmp) {           \
         ERR_BINOP(msg);             \
-        return false;               \
     } else {                        \
         vm->jl_if(cmp);             \
-        return true;                \
     }                               \
 }
 

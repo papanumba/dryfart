@@ -68,7 +68,7 @@ ItpRes VirMac::run(VmData *prog)
     return res;
 }
 
-void VirMac::push(DfVal &v)
+void VirMac::push(const DfVal &v)
 {
 #ifdef SAFE
     if (this->sp == &this->stack[STACK_MAX])
@@ -86,6 +86,11 @@ void VirMac::push(DfVal &&v)
 #endif /* SAFE */
     *this->sp = std::move(v);
     this->sp++;
+}
+
+void VirMac::fpush(DfVal &&v) // fast push
+{
+    *this->sp++ = std::move(v);
 }
 
 DfVal && VirMac::pop()
@@ -159,7 +164,7 @@ ItpRes VirMac::_run()
           }
 
 /* fallible ops */
-#define DO_OP(op, fn) case op: if (!fn(this)) return ITP_RUNTIME_ERR; break;
+#define DO_OP(op, fn) case op: fn(this); break;
           DO_OP(OP_NEG, op_neg)
           DO_OP(OP_ADD, op_add)
 

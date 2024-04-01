@@ -3,6 +3,7 @@
 #ifndef FLATVM_VALUES_H
 #define FLATVM_VALUES_H
 
+#include <cstring>
 #include "common.hpp"
 #include "objref.h"
 
@@ -54,15 +55,17 @@ class DfVal {
         ObjRef   o;
     } as;
   public:
-    DfVal() : type(VAL_V) {this->as.b = false;}
+    DfVal() : type(VAL_V) {
+        this->as.b = false;
+    }
     DfVal(const DfVal &that) {
         this->type = that.type;
         this->as.o = that.as.o; // largest member
     }
-#define BASURA(typ, m, M)       \
-    DfVal(typ m) {              \
-        this->type = VAL_ ## M; \
-        this->as.m = m;         \
+#define BASURA(typ, m, M) \
+    DfVal(typ m) :        \
+        type(VAL_ ## M) { \
+        this->as.m = m;   \
     }
     BASURA(bool,     b, B)
     BASURA(uint8_t,  c, C)

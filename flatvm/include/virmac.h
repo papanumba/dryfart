@@ -47,8 +47,9 @@ class VirMac {
     VirMac();
     ~VirMac();
     ItpRes run(VmData *);
-    void push(DfVal &);
+    void push(const DfVal &);
     void push(DfVal &&);
+    void fpush(DfVal &&);
     DfVal && pop();
     DfVal & peek();
     void js_if(bool);

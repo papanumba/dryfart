@@ -1,12 +1,13 @@
 CC = clang
 CXX = clang++
-CPPFLAGS = -Iinclude # -DSAFE
+CPPFLAGS = -Iinclude -DSAFE
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
+LDFLAGS = 
 CXXNOWARN := -Wno-unused-private-field -Wno-unused-parameter
 # -Wno-mismatched-tags
 CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
-CXXFLAGS = -std=c++11 -pedantic $(CXXWARN) -O3 -fPIE $(CXXNOWARN)
+CXXFLAGS = -std=c++11 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
 cxxobjs = disasm.o idents.o loader.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
@@ -22,11 +23,13 @@ all: flatvm
 debug: CPPFLAGS += -DDEBUG -g
 debug: flatvm
 
+release: LDFLAGS += -O3 -flto
+release: CPPFLAGS += -O3 -flto
 release: flatvm
-	strip flatvm
+#	strip flatvm
 
 flatvm: $(objs)
-	$(CXX) -o flatvm $(objs)
+	$(CXX) -o flatvm $(LDFLAGS) $(objs)
 
 main.o: src/main.cpp
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
