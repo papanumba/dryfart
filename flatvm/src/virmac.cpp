@@ -27,8 +27,6 @@ static int dfval_le(DfVal *, DfVal *);
 static int dfval_gt(DfVal *, DfVal *);
 static int dfval_ge(DfVal *, DfVal *);
 
-#include "vm-ops.c"
-
 VirMac::VirMac()
 {
     this->reset_stack();
@@ -121,58 +119,14 @@ ItpRes VirMac::_run()
         disasm_instru(this->dat, this->nor, this->ip);
 #endif /* DEBUG */
         switch (ins = READ_BYTE()) {
-          case OP_NOP: break;
 
+#include "vm-ops.cpp"
 
-/* void ops */
-#define DO_OP(op, fn) case op: fn(this); break;
-          DO_OP(OP_LVV, op_lvv)
-
-          DO_OP(OP_LLS, op_lls)
-          DO_OP(OP_SLS, op_sls)
-          DO_OP(OP_ULS, op_uls)
-
-//          DO_OP(OP_CEQ, op_ceq)
-//          DO_OP(OP_CNE, op_cne)
-#undef DO_OP
-
-/* consts */
-#define DO_L(op, fn, val) case op: fn(this, val); break;
-          DO_L(OP_LBT, op_lb, true)
-          DO_L(OP_LBF, op_lb, false)
-          DO_L(OP_LN0, op_ln, 0)
-          DO_L(OP_LN1, op_ln, 1)
-          DO_L(OP_LN2, op_ln, 2)
-          DO_L(OP_LN3, op_ln, 3)
-          DO_L(OP_LM1, op_lz, -1)
-          DO_L(OP_LZ0, op_lz, 0)
-          DO_L(OP_LZ1, op_lz, 1)
-          DO_L(OP_LZ2, op_lz, 2)
-          DO_L(OP_LR0, op_lr, 0.0f)
-          DO_L(OP_LR1, op_lr, 1.0f)
-#undef DO_L
-
-          case OP_LKS: {
-            uint idx = READ_BYTE();
-            this->push(DfVal(this->dat->ctn[idx]));
-            break;
-          }
-          case OP_LKL: {
-            uint idx = read_u16(&this->ip);
-            this->push(this->dat->ctn[idx]);
-            break;
-          }
-
+#if 0
 /* fallible ops */
 #define DO_OP(op, fn) case op: fn(this); break;
-          DO_OP(OP_NEG, op_neg)
-          DO_OP(OP_ADD, op_add)
-
           DO_OP(OP_SUB, op_sub)
-          DO_OP(OP_MUL, op_mul)
-          DO_OP(OP_DIV, op_div)
           DO_OP(OP_INV, op_inv)
-          DO_OP(OP_INC, op_inc)
 #ifdef GRANMERDA
           DO_OP(OP_DEC, op_dec)
 
@@ -205,24 +159,8 @@ ItpRes VirMac::_run()
           DO_OP(OP_JBF, op_jbf)
           DO_OP(OP_JFS, op_jfs)
           DO_OP(OP_JFL, op_jfl)
-          DO_OP(OP_JLT, op_jlt)
-          DO_OP(OP_JLE, op_jle)
-          DO_OP(OP_JGT, op_jgt)
-          DO_OP(OP_JGE, op_jge)
 #undef DO_OP
 
-          case OP_JJS: {
-            int dist = read_i8(&this->ip);
-            this->ip += dist;
-            break;
-          }
-          case OP_JJL: {
-            int dist = read_i16(&this->ip);
-            this->ip += dist;
-            break;
-          }
-
-#if 0
           case OP_AMN: {
             DfVal val;
             val.type = VAL_O;
@@ -260,22 +198,8 @@ ItpRes VirMac::_run()
             if (!pop_call(vm)) return ITP_RUNTIME_ERR;
             break;
           }
-#endif // GRANMERDA
 
-          case OP_DUP: {
-            this->push(DfVal(this->peek()));
-            break;
-          }
-          case OP_POP: (void) this->pop(); break;
-          case OP_HLT:
-#ifdef DEBUG
-            puts("VM HALTED");
-            //this->print_calls();
-            this->print_stack();
-#endif
-            this->reset_stack();
-//            garcol_do(vm);
-            return ITP_OK;
+#endif // all ops
 
           default:
             fprintf(stderr, "unknown instruction %02x\n", ins);
