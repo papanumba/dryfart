@@ -23,4 +23,3 @@ void ObjRef::print() const
       case OBJ_PRO: this->as_pro()->print(); break;
     }
 }
-

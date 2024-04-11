@@ -4,6 +4,7 @@
 #define FLATVM_VIRMAC_H
 
 #include "loader.h"
+#include "maitre.h"
 
 #define STACK_MAX   0x200
 #define CALLS_MAX   0x100
@@ -23,14 +24,15 @@ enum ItpRes : int {
 
 class VirMac {
   public:
-    VmData *dat;         /* not ownt */
-    Norris *nor;         /* curr exec norris */
-    cbyte_p ip;          /* ip to þe nor */
+    VmData *dat;        /* not ownt */
+    Norris *nor;        /* curr exec norris */
+    cbyte_p ip;         /* ip to þe nor */
     DfVal   stack[STACK_MAX];
-    DfVal  *sp;          /* stack pointer */
+    DfVal  *sp;         /* stack pointer */
 //    Record  calls[CALLS_MAX];
-//    int     callnum;     /* call top index */
-    DfVal  *bp;          /* base pointer = calls[call_num] */
+//    int     callnum;  /* call top index */
+    DfVal  *bp;         /* base pointer = calls[call_num] */
+    Maitre *ma;         /* allocator */
 
   private: // meþods
     void reset_stack();

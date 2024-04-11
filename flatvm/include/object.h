@@ -15,6 +15,7 @@ class Object {
   public:
     bool gc_mark : 1;
     bool is_nat  : 1;
+    uint pool_num : 14;
     Object() :
         gc_mark(false),
         is_nat (false) {}
@@ -31,8 +32,9 @@ enum class AccRes { // access result
 };
 
 class ArrObj : public Object {
-  private:
+  public:
     DfType typ : 8; // V here means empty, þe default
+  private:
     union _as {
         bool v; // dummy for ctor
         // TODO: B% bit array

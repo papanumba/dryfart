@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstdio>
 #include <utility>
+#include <type_traits>
 #include "alzhmr.h"
 
 static inline das_t at_least_8(das_t c)
@@ -78,6 +79,8 @@ void DynArr<T>::push(T &&elem)
     if (this->_cap < this->_len + 1)
         this->set_cap(at_least_8(2 * this->_cap));
     this->_arr[this->_len] = std::move(elem);
+    /*else // move construct class
+        new(&this->_arr[this->_len]) T(std::move(elem));*/
     this->_len += 1;
 }
 

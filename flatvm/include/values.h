@@ -55,9 +55,7 @@ class DfVal {
         ObjRef   o;
     } as;
   public:
-    DfVal() : type(VAL_V) {
-        this->as.b = false;
-    }
+    DfVal() : type(VAL_V) { }
     DfVal(const DfVal &that) {
         this->type = that.type;
         this->as.o = that.as.o; // largest member

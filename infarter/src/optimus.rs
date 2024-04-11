@@ -90,25 +90,24 @@ fn opt_term(bb: &mut BasicBlock)
     if bb.code.is_empty() {
         return;
     }
-    if let Term::JFX(x) = bb.term {
-        match bb.code.last().unwrap() {
-            ImOp::CLT => {
-                bb.code.pop();
-                bb.term = Term::JGE(x);
-            },
-            ImOp::CLE => {
-                bb.code.pop();
-                bb.term = Term::JGT(x);
-            },
-            ImOp::CGT => {
-                bb.code.pop();
-                bb.term = Term::JLE(x);
-            },
-            ImOp::CGE => {
-                bb.code.pop();
-                bb.term = Term::JLT(x);
-            },
-            _ => {}, // TODO: add oþers
-        }
+    let Term::JFX(x) = bb.term else { return; };
+    match bb.code.last().unwrap() {
+        ImOp::CLT => {
+            bb.code.pop();
+            bb.term = Term::JGE(x);
+        },
+        ImOp::CLE => {
+            bb.code.pop();
+            bb.term = Term::JGT(x);
+        },
+        ImOp::CGT => {
+            bb.code.pop();
+            bb.term = Term::JLE(x);
+        },
+        ImOp::CGE => {
+            bb.code.pop();
+            bb.term = Term::JLT(x);
+        },
+        _ => {}, // TODO: add oþers
     }
 }

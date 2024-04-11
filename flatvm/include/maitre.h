@@ -6,9 +6,11 @@
 #include "common.hpp"
 #include "objref.h"
 
+class MaitreImpl;
+
 class Maitre {
   private:
-    void *priv;
+    MaitreImpl *priv;
   public:
     Maitre();
     ~Maitre();

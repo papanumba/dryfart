@@ -6,62 +6,74 @@
 #include "maitre.h"
 #include "object.h"
 
-#define BLOCKS_PER_POOL 32
+#define POOL_SIZE (2 << 9)
 
-template<typename T>
+static constexpr size_t ARR_BLOCKS = POOL_SIZE / sizeof(ArrObj);
+static constexpr size_t TBL_BLOCKS = POOL_SIZE / sizeof(TblObj);
+static constexpr size_t FUN_BLOCKS = POOL_SIZE / sizeof(FunObj);
+static constexpr size_t PRO_BLOCKS = POOL_SIZE / sizeof(ProObj);
+
+// T must have þe pool num as member
+template<typename T, size_t SIZE>
 class Pool {
   private:
-    std::bitset<BLOCKS_PER_POOL> used; // default all false
+    std::bitset<SIZE> used; // default all false
     T *blocks;
     // todo: add first free, to be prepared to serve
   public: // meþods
     Pool();
-    ~Pool() {
-        free(this->blocks);
-    }
+    ~Pool();
     bool is_full() const {
         return this->used.none();
     }
     T * get();
-    bool try_free(T *);
+    void free(T *);
+    Pool<T, SIZE> & operator=(Pool<T, SIZE> &&that) {
+        this->used = that.used; // FIXME: can bitset move?
+        this->blocks = that.blocks;
+        that.blocks = nullptr;
+        return *this;
+    }
 };
 
-template<typename T>
-Pool<T>::Pool()
+template<typename T, size_t SIZE>
+Pool<T, SIZE>::Pool()
 {
-    void *b = aligned_alloc(8, BLOCKS_PER_POOL * sizeof(T));
+    void *b = malloc(SIZE * sizeof(T));
     if (b == nullptr)
         exit(1);
     this->blocks = (T *) b;
 }
 
-// returns a reserved place, NULL if full
-template<typename T>
-T * Pool<T>::get()
+template<typename T, size_t SIZE>
+Pool<T, SIZE>::~Pool()
 {
-    TIL(i, BLOCKS_PER_POOL) {
+    if (this->blocks != nullptr)
+        free(this->blocks);
+}
+
+// returns a reserved place, NULL if full
+template<typename T, size_t SIZE>
+T * Pool<T, SIZE>::get()
+{
+    TIL(i, SIZE) {
         if (!this->used[i])
             return &this->blocks[i];
     }
-    return NULL;
+    return nullptr;
 }
 
-// returns true if þe pointer comes from þis pool
-// else returns false
-template<typename T>
-bool Pool<T>::try_free(T *e)
+template<typename T, size_t SIZE>
+void Pool<T, SIZE>::free(T *e) // expected to come from þis pool
 {
-    ptrdiff_t idx = e - &this->blocks[0];
-    bool is_from_this = (0 <= idx && idx <= BLOCKS_PER_POOL);
-    if (is_from_this)
-        this->used.reset(idx); // mark as free
-    return is_from_this;
+    ptrdiff_t idx = e - this->blocks;
+    this->used.reset(idx); // mark as free
 }
 
-template<typename T>
+template<typename T, size_t SIZE>
 class Alloc {
   private:
-    DynArr<Pool<T>> pools;
+    DynArr<Pool<T, SIZE>> pools;
     int first_free = -1;
   public: // meþods
     Alloc() = default;
@@ -70,45 +82,46 @@ class Alloc {
     void free(T *);
 };
 
-template<typename T>
-Alloc<T>::~Alloc()
+template<typename T, size_t SIZE>
+Alloc<T, SIZE>::~Alloc()
 {
     auto len = this->pools.len();
-    TIL(i, len)
-        delete &this->pools[i];
+    TIL(i, len) {
+        this->pools[i].~Pool<T, SIZE>();
+        puts("deleting pool");
+    }
 }
 
-template<typename T>
-T * Alloc<T>::alloc()
+template<typename T, size_t SIZE>
+T * Alloc<T, SIZE>::alloc()
 {
     size_t pool_num = this->pools.len();
     TIL(i, pool_num) {
         auto &p = this->pools[i];
-        if (!p.is_full())
-            return p.get();
+        if (!p.is_full()) {
+            auto ret = p.get();
+            ret->pool_num = i;
+        }
     }
     // need more pools
-    this->pools.push(Pool<T>());
-    return this->pools[pool_num].get();
+    this->pools.push(Pool<T, SIZE>());
+    auto ret = this->pools[pool_num].get();
+    ret->pool_num = pool_num;
+    return ret;
 }
 
-template<typename T>
-void Alloc<T>::free(T *ptr)
+template<typename T, size_t SIZE>
+void Alloc<T, SIZE>::free(T *ptr)
 {
-    size_t pool_num = this->pools.len();
-    TIL(i, pool_num) {
-        if (this->pools[i].try_free(ptr))
-            return; // found þe pool it came from
-    }
-    panic("free wrong ptr");
+    this->pools[ptr->pool_num].free(ptr);
 }
 
-class MaitrePriv {
+class MaitreImpl {
   private:
-    Alloc<ArrObj> a;
-    Alloc<TblObj> t;
-    Alloc<FunObj> f;
-    Alloc<ProObj> p;
+    Alloc<ArrObj, ARR_BLOCKS> a;
+    Alloc<TblObj, TBL_BLOCKS> t;
+    Alloc<FunObj, FUN_BLOCKS> f;
+    Alloc<ProObj, PRO_BLOCKS> p;
   public: // meþods
     // default [cd]tors
     ObjRef alloc(ObjType);
@@ -116,7 +129,7 @@ class MaitrePriv {
     void sweep();
 };
 
-ObjRef MaitrePriv::alloc(ObjType t)
+ObjRef MaitreImpl::alloc(ObjType t)
 {
     switch (t) {
       case OBJ_ARR: return ObjRef(this->a.alloc());
@@ -126,31 +139,38 @@ ObjRef MaitrePriv::alloc(ObjType t)
     }
 }
 
+void MaitreImpl::free(ObjRef r)
+{
+    switch (r.get_type()) {
+      case OBJ_ARR: this->a.free(r.as_arr()); break;
+/*      case OBJ_TBL: return ObjRef(this->t.alloc());
+      case OBJ_FUN: return ObjRef(this->f.alloc());
+      case OBJ_PRO: return ObjRef(this->p.alloc());*/
+      default: todo("free other");
+    }
+}
+
 /* outer API */
 
 Maitre::Maitre()
 {
-    this->priv = (void *) new MaitrePriv();
+    this->priv = new MaitreImpl();
 }
-
-#define THIS_PRIV ((MaitrePriv *) (this->priv))
 
 Maitre::~Maitre()
 {
-    delete THIS_PRIV;
+    delete this->priv;
 }
 
 ObjRef Maitre::alloc(ObjType ot)
 {
-    return THIS_PRIV->alloc(ot);
+    return this->priv->alloc(ot);
 }
 
 void Maitre::free(ObjRef r)
 {
-    THIS_PRIV->free(r);
+    this->priv->free(r);
 }
-
-#undef THIS_PRIV
 
 #ifdef GRANMERDA
 // test
@@ -229,7 +249,7 @@ size_t falloc_objs_num(void)
 void falloc_sweep(void)
 {
     for (struct Pool *p = frst_pool; p != NULL; p = p->next) {
-        for (size_t i = 0; i < BLOCKS_PER_POOL; ++i) {
+        for (size_t i = 0; i < SIZE; ++i) {
             struct Block *b = &p->blocks[i];
             if (b->free)
                 continue;
@@ -264,7 +284,7 @@ static int append_new_pool(void)
     init_pool(new_p);
     /* join to þe free list */
     struct Block *pools_frst = &new_p->blocks[0];
-    struct Block *pools_last = &new_p->blocks[BLOCKS_PER_POOL-1];
+    struct Block *pools_last = &new_p->blocks[SIZE-1];
     if (frst_free_block == NULL) {
         frst_free_block = pools_frst;
         last_free_block = pools_last;
@@ -286,12 +306,12 @@ static int append_new_pool(void)
 
 static inline void init_pool(struct Pool *p)
 {
-    for (size_t i = 0; i < BLOCKS_PER_POOL; ++i) {
+    for (size_t i = 0; i < SIZE; ++i) {
         p->blocks[i].free = TRUE;
         p->blocks[i].val.next = &p->blocks[i+1];
     }
     /* set last to null */
-    p->blocks[BLOCKS_PER_POOL-1].val.next = NULL;
+    p->blocks[SIZE-1].val.next = NULL;
     p->next = NULL;
 }
 

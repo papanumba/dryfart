@@ -5,7 +5,6 @@
 #include "virmac.h"
 #include "object.h"
 #include "alzhmr.h"
-//#include "falloc.h"
 //#include "garcol.h"
 
 #ifdef DEBUG
@@ -32,6 +31,7 @@ VirMac::VirMac()
     this->reset_stack();
     this->dat = nullptr;
     this->nor = nullptr;
+    this->ma = new Maitre();
     //falloc_init();
     //garcol_init();
 }
@@ -39,6 +39,7 @@ VirMac::VirMac()
 VirMac::~VirMac()
 {
     this->reset_stack();
+    delete this->ma;
     //falloc_exit();
     //garcol_exit();
 }

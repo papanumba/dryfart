@@ -78,12 +78,21 @@ case OP_ADD: {
       case VAL_N: this->push(DfVal(lhs.as.n + rhs.as.n)); break;
       case VAL_Z: this->push(DfVal(lhs.as.z + rhs.as.z)); break;
       case VAL_R: this->push(DfVal(lhs.as.r + rhs.as.r)); break;
-      case VAL_O:
-/*        if (!op_add_o(lhs.as.o, rhs.as.o, &res))
-            return false;
-        break;*/
-        todo("add objects");
+      case VAL_O: todo("add objects");
       default: ERR_OP_TYPE("+", &lhs);
+    }
+    break;
+}
+
+case OP_SUB: {
+    DfVal rhs = this->pop();
+    DfVal lhs = this->pop();
+    if (lhs.type != rhs.type)
+        ERR_BINOP("-");
+    switch (lhs.type) {
+      case VAL_Z: this->push(DfVal(lhs.as.z - rhs.as.z)); break;
+      case VAL_R: this->push(DfVal(lhs.as.r - rhs.as.r)); break;
+      default: ERR_OP_TYPE("-", &lhs);
     }
     break;
 }
@@ -117,6 +126,15 @@ case OP_DIV: { // fastest: checked with {pop, peek, ->} & {2pop, fpush}
     break;
 }
 
+case OP_INV: {
+/* TODO: why is þis slower þan LR1 [expr] DIV ? */
+    DfVal &val = this->peek();
+    if (val.type != VAL_R)
+        ERR_OP_TYPE("unary /", &val);
+    val.as.r = 1.0f / val.as.r;
+    break;
+}
+
 case OP_INC: {
     DfVal &val = this->peek();
     switch (val.type) {
@@ -124,6 +142,14 @@ case OP_INC: {
         case VAL_Z: val.as.z += 1; break;
         default: ERR_OP_TYPE("1 +", &val);
     }
+    break;
+}
+
+case OP_DEC: {
+    DfVal &val = this->peek();
+    if (val.type != VAL_Z)
+        ERR_OP_TYPE("- 1", &val);
+    val.as.z -= 1;
     break;
 }
 
@@ -208,6 +234,34 @@ OP_J_CMP(GE, ge, "<")
 
 #undef OP_J_CMP
 
+// array ---------------------------
+
+case OP_AMN: {
+    auto a = this->ma->alloc(OBJ_ARR);
+    a.as_arr()->typ = DfType::V;
+    a.as_arr()->is_nat = false;
+    this->push(DfVal(a));
+    break;
+}
+
+case OP_APE: {
+    DfVal elem = this->pop();
+    DfVal arr  = this->pop();
+    if (arr.type != VAL_O || arr.as.o.get_type() != OBJ_ARR)
+        panic("ERROR: value is not an array");
+    auto a = arr.as.o.as_arr();
+    if (!a->push(std::move(elem)))
+        panic("ERROR: some error pushing into array");
+    this->push(std::move(arr));
+    break;
+}
+
+// table ---------------------------
+
+case OP_TMN:
+    this->push(DfVal(this->ma->alloc(OBJ_TBL)));
+    break;
+
 // casts ---------------------------
 
 case OP_CAR: {
@@ -235,7 +289,7 @@ case OP_POP:
     (void) this->pop();
     break;
 
-case OP_HLT: {
+case OP_HLT:
 #ifdef DEBUG
     puts("VM HALTED");
     //this->print_calls();
@@ -244,7 +298,6 @@ case OP_HLT: {
     this->reset_stack();
 //            garcol_do(vm);
     return ITP_OK;
-}
 
 #if 0 // -----------------------------------------------------------
 
@@ -288,48 +341,7 @@ static inline int op_add_o(
     return true;
 }
 
-static void op_sub(VirMac *vm)
-{
-    DfVal lhs, rhs, res;
-    rhs = this->pop();
-    lhs = this->pop();
-    if (lhs.type != rhs.type) {
-        ERR_BINOP("-");
-    }
-    res.type = lhs.type;
-    switch (lhs.type) {
-      case VAL_Z: res.as.z = lhs.as.z - rhs.as.z; break;
-      case VAL_R: res.as.r = lhs.as.r - rhs.as.r; break;
-      default:
-        err_cant_op("-", &lhs);
-        panic("");
-    }
-    this->push(std::move(res));
-}
-
-/* TODO: why is þis slower þan LR1 [expr] DIV ? */
-static void op_inv(VirMac *vm)
-{
-    DfVal &val = this->peek();
-    if (val.type != VAL_R) {
-        err_cant_op("unary /", &val);
-        panic("");
-    }
-    val.as.r = 1.0f / val.as.r;
-}
-
 #if 0
-static void op_dec(VirMac *vm)
-{
-    DfVal *val = this->peek();
-    switch (val->type) {
-        case VAL_Z: val->as.z -= 1; break;
-        default:
-            err_cant_op("1 +", val);
-            return false;
-    }
-    return true;
-}
 
 static void op_ceq(VirMac *vm)
 {
@@ -472,23 +484,6 @@ static void op_caz(VirMac *vm)
         return false;
     }
     val->type = VAL_Z;
-    return true;
-}
-
-static void op_ape(VirMac *vm)
-{
-    DfVal elem = this->pop();
-    DfVal arr  = this->pop();
-    if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
-        fprintf(stderr, "ERROR: value is not an array\n");
-        return false;
-    }
-    struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
-    if (!objarr_try_push(a, &elem)) {
-        fputs("ERROR: some error pushing into array\n", stderr);
-        return false;
-    }
-    this->push(std::move(arr);
     return true;
 }
 

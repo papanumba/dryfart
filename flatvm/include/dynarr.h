@@ -7,7 +7,7 @@
 
 typedef uint32_t das_t; // Dynamic Array Size_t
 
-template <typename T>
+template <typename T> // T must be scalar xor a move construcable class
 class DynArr {
     typedef       T *  iter_t;
     typedef const T * citer_t;
@@ -16,9 +16,9 @@ class DynArr {
     das_t _len = 0;
     das_t _cap = 0;
     // meþods
-    void init();
     void set_cap(das_t);
   public:
+    void init();
     DynArr() = default;
 //    DynArr(const DynArr<T> &);  // copy
     DynArr(DynArr<T> &&);       // move

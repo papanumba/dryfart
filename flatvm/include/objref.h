@@ -28,7 +28,7 @@ class ObjRef {
     uintptr_t p;
     // masks
     static const uintptr_t PTR_MASK = ~7; // ~0b111
-    static const uintptr_t MUT_MASK = 1;  //  0b100
+    static const uintptr_t MUT_MASK = 4;  //  0b100
     static const uintptr_t TYP_MASK = 3;  //  0b011
     // TODO add mut
     // private methods
@@ -43,6 +43,8 @@ class ObjRef {
     }
   public:
     ObjRef() = default;
+    ObjRef(ObjRef &)  = default;
+    ObjRef(ObjRef &&) = default;
     // meþods
     ObjType get_type() const {
         return (ObjType) this->typ();
@@ -62,10 +64,7 @@ class ObjRef {
     // creates new mutable ObjRef with type based on þe pointer's type
     // expected 8-bit aligned
 #define BASURA(Typ, TYP) \
-    ObjRef(Typ ## Obj *r) : \
-        p((uintptr_t) r     \
-            | MUT_MASK      \
-            | OBJ_ ## TYP) {}
+    ObjRef(Typ ## Obj *r) : p((uintptr_t) r | MUT_MASK | OBJ_ ## TYP) {}
     BASURA(Arr, ARR)
     BASURA(Tbl, TBL)
     BASURA(Fun, FUN)

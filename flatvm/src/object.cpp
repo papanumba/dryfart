@@ -26,6 +26,18 @@ static inline ValType arrt2valt(DfType);
 ArrObj::ArrObj(DfVal &&v)
 {
     this->typ = v.as_type();
+    switch (this->typ) {
+      case DfType::V: unreachable();
+      case DfType::B: todo("B% arr, in ArrObj(DfVal &&)");
+#define BASURA(dft, m, t) \
+      case dft: this->as.m.init(); break;
+      BASURA(DfType::C, c, uint8_t)
+      BASURA(DfType::N, n, uint32_t)
+      BASURA(DfType::Z, z, int32_t)
+      BASURA(DfType::R, r, float)
+#undef BASURA
+      default: todo("singleton other array types");
+    }
     (void)this->push(std::move(v));
 }
 
@@ -132,32 +144,32 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
       BASURA(DfType::Z, z)
       BASURA(DfType::R, r)
 #undef BASURA
-      default: todo("other array types");
+      default: todo("set other array types");
     }
     return AccRes::OK;
 }
 
 void ArrObj::print() const
 {
-    puts("some array");
+    printf("some array");
 }
 
 void FunObj::print() const
 {
-    puts("some func");
+    printf("some func");
 }
 
 void ProObj::print() const
 {
-    puts("some proc");
+    printf("some proc");
 }
 
 void TblObj::print() const
 {
-    puts("some table");
+    printf("some table");
 }
 
-#ifdef GRANMERDA
+#if 0
 
 /* returns NULL if error */
 struct ObjArr * ArrObj::concat(const struct ObjArr *a, const struct ObjArr *b)
@@ -367,10 +379,9 @@ static inline bool arrt_valt_eq(DfType a, enum ValType v)
       case DfType::N: return VAL_N == v;
       case DfType::Z: return VAL_Z == v;
       case DfType::R: return VAL_R == v;
-      default: todo("other array types");
+      default:
+        todo("arrt valt eq other array types");
     }
-    panic("end of function");
-    return false;
 }
 
 static inline enum DfType valt2arrt(enum ValType vt)
@@ -381,9 +392,7 @@ static inline enum DfType valt2arrt(enum ValType vt)
       case VAL_N: return DfType::N;
       case VAL_Z: return DfType::Z;
       case VAL_R: return DfType::R;
-      default:
-        panic("unreachable");
-        return DfType::V;
+      default: unreachable();
     }
 }
 
@@ -396,8 +405,7 @@ static inline enum ValType arrt2valt(enum DfType at)
       case DfType::N: return VAL_N;
       case DfType::Z: return VAL_Z;
       case DfType::R: return VAL_R;
-      default: todo("other array types");
+      default: todo("arrt2valt other array types");
     }
     unreachable();
-    return VAL_V;
 }
