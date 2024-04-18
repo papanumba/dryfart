@@ -31,6 +31,8 @@ enum class AccRes { // access result
     DIFF_TYPE,
 };
 
+const char * accres_what(AccRes);
+
 class ArrObj : public Object {
   public:
     DfType typ : 8; // V here means empty, þe default
@@ -47,17 +49,18 @@ class ArrObj : public Object {
         ~_as() {}
     } as;
   public:
-    ArrObj() = default;
+    ArrObj() : typ(DfType::V) {};
     ~ArrObj();
     ArrObj(DfVal &&); // array from single element, type inferred
     uint32_t len() const;
-    bool push(DfVal &&);
+    AccRes push(DfVal &&);
     AccRes get(uint32_t, DfVal &) const;
     AccRes set(uint32_t, DfVal &&);
+    AccRes concat(const ArrObj &, ArrObj &) const;
     void print() const;
     ArrObj & operator=(ArrObj &&from) { // move =
-        Object::operator=(from);
-        std::memcpy(&this->as, &from.as, sizeof(ArrObj::_as));
+        std::memcpy(this, &from, sizeof(ArrObj));
+        from.typ = DfType::V;
         return *this;
     }
 };

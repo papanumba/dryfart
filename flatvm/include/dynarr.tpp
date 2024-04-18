@@ -29,7 +29,6 @@ void DynArr<T>::set_cap(das_t new_cap)
 {
     das_t new_size = new_cap * (das_t) sizeof(T);
     void *new_buff = realloc_or_free(this->_arr, new_size);
-    std::memset(new_buff, 0, new_size);
     this->_arr = static_cast<T *>(new_buff);
     this->_cap = new_cap;
 }
@@ -78,18 +77,27 @@ void DynArr<T>::push(T &&elem)
 {
     if (this->_cap < this->_len + 1)
         this->set_cap(at_least_8(2 * this->_cap));
-    this->_arr[this->_len] = std::move(elem);
-    /*else // move construct class
-        new(&this->_arr[this->_len]) T(std::move(elem));*/
+    // assign elem
+    auto &new_elem = this->_arr[this->_len];
+    if constexpr (std::is_scalar<T>()) {
+        new_elem = elem;
+    } else {
+        static_assert(
+            std::is_move_constructible<T>(),
+            "T in DynArr<T> must be move-constructible"
+        );
+        new (&new_elem) T(std::move(elem));
+    }
     this->_len += 1;
 }
 
 template <typename T>
 DynArr<T> & DynArr<T>::operator=(DynArr &&that)
 {
-    std::swap(this->_arr, that._arr);
-    std::swap(this->_len, that._len);
-    std::swap(this->_cap, that._cap);
+    this->_arr = that._arr;
+    this->_len = that._len;
+    this->_cap = that._cap;
+    that._arr = nullptr;
     return *this;
 }
 

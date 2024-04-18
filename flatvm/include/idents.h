@@ -4,6 +4,7 @@
 #define FLATVM_IDENTS_H
 
 #include "common.hpp"
+#include <new>
 
 class DfIdf {
   private:
@@ -12,7 +13,7 @@ class DfIdf {
     uint32_t len; // len of printable chars
     uint32_t hsh;
   public:
-    DfIdf(DfIdf &&) = default;
+    DfIdf(DfIdf &&);
     DfIdf(const uint8_t *, size_t);
     ~DfIdf();
     uint32_t get_hash() const;

@@ -22,14 +22,15 @@ class Pool {
     // todo: add first free, to be prepared to serve
   public: // meþods
     Pool();
+    Pool(Pool &&);
     ~Pool();
     bool is_full() const {
-        return this->used.none();
+        return this->used.all();
     }
     T * get();
     void free(T *);
     Pool<T, SIZE> & operator=(Pool<T, SIZE> &&that) {
-        this->used = that.used; // FIXME: can bitset move?
+        this->used = std::move(that.used); // FIXME: can bitset move?
         this->blocks = that.blocks;
         that.blocks = nullptr;
         return *this;
@@ -39,17 +40,30 @@ class Pool {
 template<typename T, size_t SIZE>
 Pool<T, SIZE>::Pool()
 {
-    void *b = malloc(SIZE * sizeof(T));
+    void *b = aligned_alloc(8, SIZE * sizeof(T));
     if (b == nullptr)
         exit(1);
     this->blocks = (T *) b;
 }
 
 template<typename T, size_t SIZE>
+Pool<T, SIZE>::Pool(Pool &&that)
+{
+    this->used   = std::move(that.used);
+    this->blocks = that.blocks;
+    that.blocks = nullptr;
+}
+
+template<typename T, size_t SIZE>
 Pool<T, SIZE>::~Pool()
 {
-    if (this->blocks != nullptr)
+    if (this->blocks != nullptr) {
+        TIL(i, SIZE) {
+            if (this->used[i])
+                this->blocks[i].~T();
+        }
         free(this->blocks);
+    }
 }
 
 // returns a reserved place, NULL if full
@@ -57,8 +71,10 @@ template<typename T, size_t SIZE>
 T * Pool<T, SIZE>::get()
 {
     TIL(i, SIZE) {
-        if (!this->used[i])
+        if (!this->used[i]) {
+            this->used[i] = true;
             return &this->blocks[i];
+        }
     }
     return nullptr;
 }
@@ -68,6 +84,7 @@ void Pool<T, SIZE>::free(T *e) // expected to come from þis pool
 {
     ptrdiff_t idx = e - this->blocks;
     this->used.reset(idx); // mark as free
+    e->~T();
 }
 
 template<typename T, size_t SIZE>
@@ -86,10 +103,8 @@ template<typename T, size_t SIZE>
 Alloc<T, SIZE>::~Alloc()
 {
     auto len = this->pools.len();
-    TIL(i, len) {
+    TIL(i, len)
         this->pools[i].~Pool<T, SIZE>();
-        puts("deleting pool");
-    }
 }
 
 template<typename T, size_t SIZE>
@@ -101,6 +116,7 @@ T * Alloc<T, SIZE>::alloc()
         if (!p.is_full()) {
             auto ret = p.get();
             ret->pool_num = i;
+            return ret;
         }
     }
     // need more pools

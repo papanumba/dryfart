@@ -16,6 +16,13 @@ DfIdf::DfIdf(const uint8_t *str, size_t len)
     this->hsh = hash_buff(this->str, len);
 }
 
+DfIdf::DfIdf(DfIdf &&that)
+{
+    this->str = that.str;
+    this->len = that.len;
+    that.str = nullptr;
+}
+
 DfIdf::~DfIdf()
 {
     if (this->str != nullptr)
@@ -34,10 +41,8 @@ void DfIdf::print() const
 
 DfIdf & DfIdf::operator=(DfIdf &&that)
 {
-    this->str = that.str;
-    this->len = that.len;
-    that.str = nullptr;
-    that.len = 0;
+    this->~DfIdf();
+    new (this) DfIdf(std::move(that));
     return *this;
 }
 

@@ -5,9 +5,10 @@
 
 #include "common.hpp"
 
-typedef uint32_t das_t; // Dynamic Array Size_t
+typedef uint32_t das_t; // Dynamic Array Size_T
 
-template <typename T> // T must be scalar xor a move construcable class
+// T must be scalar xor a move construtible
+template <typename T>
 class DynArr {
     typedef       T *  iter_t;
     typedef const T * citer_t;
@@ -17,27 +18,26 @@ class DynArr {
     das_t _cap = 0;
     // meþods
     void set_cap(das_t);
-  public:
     void init();
+  public:
     DynArr() = default;
-//    DynArr(const DynArr<T> &);  // copy
-    DynArr(DynArr<T> &&);       // move
+    DynArr(DynArr<T> &&);
     DynArr(das_t); // with reserved capacity
     ~DynArr();
     das_t len() const;
     bool is_empty() const;
-    void push(T&&);
-    // array stuff
+    void push(T &&);
+    // practical array stuff
      iter_t begin()       {return &this->_arr[0];}
     citer_t begin() const {return &this->_arr[0];}
      iter_t end()         {return &this->_arr[this->_len];}
     citer_t end()   const {return &this->_arr[this->_len];}
           T & operator[](das_t i)       {return this->_arr[i];}
     const T & operator[](das_t i) const {return this->_arr[i];}
-//    DynArr<T> & operator=(DynArr<T> &);
-    DynArr<T> & operator=(DynArr<T> &&that); // move
+    DynArr<T> & operator=(DynArr<T> &&that);
 };
 
+// implementation
 #include "dynarr.tpp"
 
 #endif /* FLATVM_DYNARR_H */

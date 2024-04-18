@@ -42,8 +42,10 @@ OP_LZX(1)
 OP_LZX(2)
 #undef OP_LZX
 
-OP_LXX(R0, 0.0f)
-OP_LXX(R1, 1.0f)
+#define OP_LRX(r) OP_LXX(R ## r, (float)(r))
+OP_LRX(0)
+OP_LRX(1)
+#undef OP_LRX
 
 case OP_LKS: {
     uint idx = read_u8(&this->ip);
@@ -69,6 +71,28 @@ case OP_NEG: {
     break;
 }
 
+// only used in OP_ADD
+#define ADD_O do { \
+    auto lo = lhs.as.o;                     \
+    auto ro = rhs.as.o;                     \
+    if (lo.get_type() != ro.get_type())     \
+        ERR_BINOP("+");                     \
+    switch (lo.get_type()) {                \
+      case OBJ_ARR: {                       \
+        auto a = this->ma->alloc(OBJ_ARR);  \
+        a.as_arr()->typ = DfType::V;        \
+        a.as_arr()->is_nat = false;         \
+        auto r = lo.as_arr()->concat(       \
+            *ro.as_arr(), *a.as_arr());     \
+        if (AccRes::OK != r)                \
+            panic(accres_what(r));          \
+        this->push(DfVal(a));               \
+        break;                              \
+      }                                     \
+      default: todo("add other objects");   \
+    } \
+} while (false)
+
 case OP_ADD: {
     DfVal rhs = this->pop();
     DfVal lhs = this->pop();
@@ -78,11 +102,13 @@ case OP_ADD: {
       case VAL_N: this->push(DfVal(lhs.as.n + rhs.as.n)); break;
       case VAL_Z: this->push(DfVal(lhs.as.z + rhs.as.z)); break;
       case VAL_R: this->push(DfVal(lhs.as.r + rhs.as.r)); break;
-      case VAL_O: todo("add objects");
+      case VAL_O: ADD_O; break;
       default: ERR_OP_TYPE("+", &lhs);
     }
     break;
 }
+
+#undef ADD_O
 
 case OP_SUB: {
     DfVal rhs = this->pop();
@@ -249,10 +275,36 @@ case OP_APE: {
     DfVal arr  = this->pop();
     if (arr.type != VAL_O || arr.as.o.get_type() != OBJ_ARR)
         panic("ERROR: value is not an array");
-    auto a = arr.as.o.as_arr();
-    if (!a->push(std::move(elem)))
+    ArrObj *a = arr.as.o.as_arr();
+    if (AccRes::OK != a->push(std::move(elem)))
         panic("ERROR: some error pushing into array");
     this->push(std::move(arr));
+    break;
+}
+
+case OP_AGE: {
+    DfVal idx = this->pop();
+    DfVal arr = this->pop();
+    if (arr.type != VAL_O || arr.as.o.get_type() != OBJ_ARR)
+        panic("ERROR: value is not an array");
+    uint32_t idx_n = 0;
+    switch (idx.type) {
+      case VAL_N: idx_n = idx.as.n; break;
+      case VAL_Z:
+        if (idx.as.z < 0)
+            panic("ERROR: Z% index is negative");
+        idx_n = (uint32_t) idx.as.z;
+        break;
+      default: panic("ERROR: index is not N% or Z%");
+    }
+    auto a = arr.as.o.as_arr();
+    DfVal val;
+    auto res = a->get(idx_n, val);
+    if (res != AccRes::OK) {
+        printf("len is %u, idx is %u\n", a->len(), idx_n);
+        panic(accres_what(res));
+    }
+    this->push(std::move(val));
     break;
 }
 
@@ -340,8 +392,6 @@ static inline int op_add_o(
     }
     return true;
 }
-
-#if 0
 
 static void op_ceq(VirMac *vm)
 {
@@ -487,37 +537,6 @@ static void op_caz(VirMac *vm)
     return true;
 }
 
-static void op_age(VirMac *vm)
-{
-    DfVal arr, idx;
-    idx = this->pop();
-    arr = this->pop();
-    if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
-        eputln("ERROR: value is not an array");
-        return false;
-    }
-    uint32_t idx_n = 0;
-    switch (idx.type) {
-      case VAL_N: idx_n = idx.as.n; break;
-      case VAL_Z:
-        if (idx.as.z < 0) {
-            eputln("ERROR: Z% index is negative");
-            return false;
-        }
-        idx_n = (uint32_t) idx.as.z;
-        break;
-      default:
-        eputln("ERROR: index is not N% or Z%");
-        return false;
-    }
-    struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
-    DfVal val = objarr_get(a, idx_n);
-    if (val.type == VAL_V)
-        return false;
-    this->push(std::move(val);
-    return true;
-}
-
 static void op_ase(VirMac *vm)
 {
     DfVal arr, idx, val;
@@ -641,10 +660,6 @@ static void op_ret(VirMac *vm)
     this->push(std::move(ret);
     return true;
 }
-
-#endif // current
-
-
 
 #endif // biggest 0
 

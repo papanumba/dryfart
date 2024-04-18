@@ -24,6 +24,12 @@ Norris::Norris(
     std::memcpy(this->cod, cod.buf, len);
 }
 
+Norris::Norris(Norris &&that)
+{
+    std::memcpy(this, &that, sizeof(Norris));
+    that.cod = nullptr;
+}
+
 Norris & Norris::operator=(Norris &&that)
 {
     if (this->cod != nullptr)

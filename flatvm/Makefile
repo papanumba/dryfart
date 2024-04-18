@@ -7,7 +7,7 @@ CXXNOWARN := -Wno-unused-private-field -Wno-unused-parameter
 # -Wno-mismatched-tags
 CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
-CXXFLAGS = -std=c++11 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
+CXXFLAGS = -std=c++17 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
 cxxobjs = disasm.o idents.o loader.o maitre.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
@@ -41,6 +41,9 @@ main.o: src/main.cpp
 #	g++ -Iinclude -Wall $<
 
 %.o: src/%.cpp include/%.h
+	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
+
+virmac.o: src/virmac.cpp src/vm-ops.cpp include/virmac.h
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 %.o: src/%.c

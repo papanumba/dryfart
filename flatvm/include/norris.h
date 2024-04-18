@@ -113,7 +113,7 @@ class Norris {
         uint8_t,                // arity
         const DfIdf * = nullptr // name, anon. by default
     );
-    Norris(Norris &&) = default;
+    Norris(Norris &&);
     ~Norris();
     Norris & operator=(Norris &&);
 };

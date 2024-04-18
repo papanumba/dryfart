@@ -1,7 +1,8 @@
 /* object.c */
 
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
+#include <new>
 #include "alzhmr.h"
 #include "object.h"
 //#include "falloc.h"
@@ -23,14 +24,25 @@ static inline ValType arrt2valt(DfType);
 
 /*************************** A R R A Y S ***************************/
 
+const char * accres_what(AccRes ar)
+{
+    switch (ar) {
+      case AccRes::OK:            return "OK";
+      case AccRes::OUT_OF_BOUNDS: return "out of bounds";
+      case AccRes::DIFF_TYPE:     return "different types";
+    }
+}
+
 ArrObj::ArrObj(DfVal &&v)
 {
-    this->typ = v.as_type();
-    switch (this->typ) {
+    switch (v.as_type()) {
       case DfType::V: unreachable();
       case DfType::B: todo("B% arr, in ArrObj(DfVal &&)");
 #define BASURA(dft, m, t) \
-      case dft: this->as.m.init(); break;
+      case dft:                             \
+        new (&this->as.m) DynArr<t>();      \
+        this->as.m.push(std::move(v.as.m)); \
+        break;
       BASURA(DfType::C, c, uint8_t)
       BASURA(DfType::N, n, uint32_t)
       BASURA(DfType::Z, z, int32_t)
@@ -38,7 +50,7 @@ ArrObj::ArrObj(DfVal &&v)
 #undef BASURA
       default: todo("singleton other array types");
     }
-    (void)this->push(std::move(v));
+    this->typ = v.as_type();
 }
 
 ArrObj::~ArrObj()
@@ -74,21 +86,20 @@ uint32_t ArrObj::len() const
 }
 
 // returns true if OK, returns false if are different types
-bool ArrObj::push(DfVal &&v)
+AccRes ArrObj::push(DfVal &&v)
 {
     DfType at = this->typ;
     if (at == DfType::V) {
-        *this = ArrObj(std::move(v));
-        return true;
+        new(this) ArrObj(std::move(v));
+        return AccRes::OK;
     }
     if (!arrt_valt_eq(at, v.type))
-        return false;
+        return AccRes::DIFF_TYPE;
     switch (at) {
       case DfType::V: unreachable(); break;
       case DfType::B: todo("push B% array"); break;
 #define BASURA(arrt, m, T) \
       case arrt:                            \
-        this->as.m = DynArr<T>();  \
         this->as.m.push(std::move(v.as.m)); \
         break;
       BASURA(DfType::C, c, uint8_t)
@@ -98,10 +109,9 @@ bool ArrObj::push(DfVal &&v)
 #undef BASURA
       default: todo("push other array types");
     }
-    return true;
+    return AccRes::OK;
 }
 
-/* returns V (null) is array is empty or idx is out of bounds */
 AccRes ArrObj::get(uint32_t idx, DfVal &ret) const
 {
     switch (this->typ) {
@@ -151,7 +161,50 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
 
 void ArrObj::print() const
 {
-    printf("some array");
+    putchar('_');
+    switch (this->typ) {
+      case DfType::V: break;
+      case DfType::B: todo("B% array"); break;
+#define BASURA(arrx, x, fmt) \
+      case arrx: {                      \
+        auto &arr = this->as.x;         \
+        printf("%" #fmt, arr[0]);       \
+        auto len = arr.len();           \
+        FOR(i, 1, len)                  \
+            printf(", %" #fmt, arr[i]); \
+        break;                          \
+      }
+      BASURA(DfType::C, c, c)
+      BASURA(DfType::N, n, u)
+      BASURA(DfType::Z, z, d)
+      BASURA(DfType::R, r, f)
+#undef BASURA
+      default: todo("print other array types");
+    }
+    putchar(';');
+}
+
+AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
+{
+    new (&res) ArrObj();
+    // TODO: more efficient, idea: extend from slice
+    // push 1st array (*this)
+    TIL(i, this->len()) {
+        DfVal elem;
+        (void) this->get(i, elem);
+        (void) res.push(std::move(elem));
+    }
+    // push 2nd array (that)
+    TIL(i, that.len()) {
+        DfVal elem;
+        (void) that.get(i, elem);
+        auto r = res.push(std::move(elem));
+        if (r != AccRes::OK) {
+            res.~ArrObj();
+            return r;
+        }
+    }
+    return AccRes::OK;
 }
 
 void FunObj::print() const
@@ -170,30 +223,6 @@ void TblObj::print() const
 }
 
 #if 0
-
-/* returns NULL if error */
-struct ObjArr * ArrObj::concat(const struct ObjArr *a, const struct ObjArr *b)
-{
-    struct ObjArr *ab = ArrObj::new();
-    uint32_t i;
-    uint32_t alen = ArrObj::len(a);
-    /* TODO: more efficient */
-    /* push a */
-    for (i = 0; i < alen; ++i) {
-        struct DfVal elem = ArrObj::get(a, i);
-        ArrObj::try_push(ab, &elem);
-    }
-    /* push b */
-    uint32_t blen = ArrObj::len(b);
-    for (i = 0; i < blen; ++i) {
-        struct DfVal elem = ArrObj::get(b, i);
-        if (!ArrObj::try_push(ab, &elem)) {
-            ArrObj::free(ab);
-            return NULL;
-        }
-    }
-    return ab;
-}
 
 /* create empty table */
 struct ObjTbl * objtbl_new(void)
@@ -380,6 +409,7 @@ static inline bool arrt_valt_eq(DfType a, enum ValType v)
       case DfType::Z: return VAL_Z == v;
       case DfType::R: return VAL_R == v;
       default:
+        fprintf(stderr, "%u and %u ", (uint) a, (uint) v);
         todo("arrt valt eq other array types");
     }
 }
@@ -405,7 +435,8 @@ static inline enum ValType arrt2valt(enum DfType at)
       case DfType::N: return VAL_N;
       case DfType::Z: return VAL_Z;
       case DfType::R: return VAL_R;
-      default: todo("arrt2valt other array types");
+      default:
+        todo("arrt2valt other array types");
     }
     unreachable();
 }

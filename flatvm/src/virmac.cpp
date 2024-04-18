@@ -124,51 +124,6 @@ ItpRes VirMac::_run()
 #include "vm-ops.cpp"
 
 #if 0
-/* fallible ops */
-#define DO_OP(op, fn) case op: fn(this); break;
-          DO_OP(OP_SUB, op_sub)
-          DO_OP(OP_INV, op_inv)
-#ifdef GRANMERDA
-          DO_OP(OP_DEC, op_dec)
-
-          DO_OP(OP_CLT, op_clt)
-          DO_OP(OP_CLE, op_cle)
-          DO_OP(OP_CGT, op_cgt)
-          DO_OP(OP_CGE, op_cge)
-
-          DO_OP(OP_NOT, op_not)
-          DO_OP(OP_AND, op_and)
-          DO_OP(OP_IOR, op_ior)
-
-          DO_OP(OP_CAN, op_can)
-          DO_OP(OP_CAZ, op_caz)
-#endif
-          DO_OP(OP_CAR, op_car)
-#if 0
-          DO_OP(OP_APE, op_ape)
-          DO_OP(OP_AGE, op_age)
-          DO_OP(OP_ASE, op_ase)
-
-          DO_OP(OP_TSF, op_tsf)
-          DO_OP(OP_TGF, op_tgf)
-
-          DO_OP(OP_PCL, op_pcl)
-          DO_OP(OP_FCL, op_fcl)
-          DO_OP(OP_RET, op_ret)
-#endif
-
-          DO_OP(OP_JBF, op_jbf)
-          DO_OP(OP_JFS, op_jfs)
-          DO_OP(OP_JFL, op_jfl)
-#undef DO_OP
-
-          case OP_AMN: {
-            DfVal val;
-            val.type = VAL_O;
-            val.as.o = (struct Object *) objarr_new();
-            virmac_push(vm, &val);
-            break;
-          }
           case OP_TMN: {
             DfVal val;
             val.type = VAL_O;
@@ -304,17 +259,20 @@ void err_dif_types(const char *op, DfType t1, DfType t2)
 
 /* see C99's §6.5.8 Relational Operators ¶6 */
 
+#define BASURA(M, m, c) \
+      case VAL_ ## M: return lhs->as.m c rhs->as.m;
+
 #define DFVAL_CMP_FN(name, cmpop) \
 static int name(DfVal *lhs, DfVal *rhs) \
-{                                                   \
-    if (lhs->type != rhs->type)                     \
-        return CMP_ERR;                             \
-    switch (lhs->type) {                            \
-      case VAL_N: return lhs->as.n cmpop rhs->as.n; \
-      case VAL_Z: return lhs->as.z cmpop rhs->as.z; \
-      case VAL_R: return lhs->as.r cmpop rhs->as.r; \
-      default:    return CMP_ERR;                   \
-    }                                               \
+{                                       \
+    if (lhs->type != rhs->type)         \
+        return CMP_ERR;                 \
+    switch (lhs->type) {                \
+      BASURA(N, n, cmpop)               \
+      BASURA(Z, z, cmpop)               \
+      BASURA(R, r, cmpop)               \
+      default: return CMP_ERR;          \
+    }                                   \
 }
 
 DFVAL_CMP_FN(dfval_lt, <)
