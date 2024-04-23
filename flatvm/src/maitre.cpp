@@ -19,7 +19,6 @@ class Pool {
   private:
     std::bitset<SIZE> used; // default all false
     T *blocks;
-    // todo: add first free, to be prepared to serve
   public: // meþods
     Pool();
     Pool(Pool &&);
@@ -29,18 +28,12 @@ class Pool {
     }
     T * get();
     void free(T *);
-    Pool<T, SIZE> & operator=(Pool<T, SIZE> &&that) {
-        this->used = std::move(that.used); // FIXME: can bitset move?
-        this->blocks = that.blocks;
-        that.blocks = nullptr;
-        return *this;
-    }
 };
 
 template<typename T, size_t SIZE>
 Pool<T, SIZE>::Pool()
 {
-    void *b = aligned_alloc(8, SIZE * sizeof(T));
+    void *b = malloc(SIZE * sizeof(T));
     if (b == nullptr)
         exit(1);
     this->blocks = (T *) b;
@@ -49,7 +42,7 @@ Pool<T, SIZE>::Pool()
 template<typename T, size_t SIZE>
 Pool<T, SIZE>::Pool(Pool &&that)
 {
-    this->used   = std::move(that.used);
+    this->used = std::move(that.used);
     this->blocks = that.blocks;
     that.blocks = nullptr;
 }
@@ -57,13 +50,13 @@ Pool<T, SIZE>::Pool(Pool &&that)
 template<typename T, size_t SIZE>
 Pool<T, SIZE>::~Pool()
 {
-    if (this->blocks != nullptr) {
-        TIL(i, SIZE) {
-            if (this->used[i])
-                this->blocks[i].~T();
-        }
-        free(this->blocks);
+    if (this->blocks == nullptr)
+        return;
+    TIL(i, SIZE) {
+        if (this->used[i])
+            this->blocks[i].~T();
     }
+    free(this->blocks);
 }
 
 // returns a reserved place, NULL if full
@@ -83,15 +76,13 @@ template<typename T, size_t SIZE>
 void Pool<T, SIZE>::free(T *e) // expected to come from þis pool
 {
     ptrdiff_t idx = e - this->blocks;
-    this->used.reset(idx); // mark as free
-    e->~T();
+    this->used[idx] = false;
 }
 
 template<typename T, size_t SIZE>
 class Alloc {
   private:
     DynArr<Pool<T, SIZE>> pools;
-    int first_free = -1;
   public: // meþods
     Alloc() = default;
     ~Alloc();
@@ -104,14 +95,15 @@ Alloc<T, SIZE>::~Alloc()
 {
     auto len = this->pools.len();
     TIL(i, len)
-        this->pools[i].~Pool<T, SIZE>();
+        this->pools[i].~Pool();
 }
 
 template<typename T, size_t SIZE>
 T * Alloc<T, SIZE>::alloc()
 {
-    size_t pool_num = this->pools.len();
-    TIL(i, pool_num) {
+    size_t pools_len = this->pools.len();
+    // find first avail pool
+    TIL(i, pools_len) {
         auto &p = this->pools[i];
         if (!p.is_full()) {
             auto ret = p.get();
@@ -121,8 +113,8 @@ T * Alloc<T, SIZE>::alloc()
     }
     // need more pools
     this->pools.push(Pool<T, SIZE>());
-    auto ret = this->pools[pool_num].get();
-    ret->pool_num = pool_num;
+    auto ret = this->pools[pools_len].get();
+    ret->pool_num = pools_len;
     return ret;
 }
 

@@ -58,7 +58,7 @@ class ArrObj : public Object {
     AccRes set(uint32_t, DfVal &&);
     AccRes concat(const ArrObj &, ArrObj &) const;
     void print() const;
-    ArrObj & operator=(ArrObj &&from) { // move =
+    ArrObj & operator=(ArrObj &&from) {
         std::memcpy(this, &from, sizeof(ArrObj));
         from.typ = DfType::V;
         return *this;
@@ -88,25 +88,49 @@ class TblObj : public Object {
     void print() const;
 };
 
+class UsrPro {
+  public:
+    Norris       *nrs;
+    DynArr<DfVal> upv;
+  public: // meþods
+    UsrPro(Norris *, DfVal *);
+    UsrPro(UsrPro &&that) {
+        this->nrs = that.nrs;
+        this->upv = std::move(that.upv);
+    }
+    ~UsrPro() = default; // only upv
+};
+
 class ProObj : public Object {
-    union {
-        Norris *usr;/* FUTURE: eke upvalues */
-        struct NatPc nat;
+  public:
+    union _as {
+        UsrPro usr;
+        // NatPro nat;
+        ~_as() {} // dummy dtor
     } as;
   public:
-    ProObj();
-    ProObj(NatPc);
+    ~ProObj();
+    void set(UsrPro);
+//  void set(NatPc);
+    const char * name() const;
     void print() const;
 };
 
-class FunObj : public Object {
-    union {
-        Norris *usr; /* FUTURE: eke upvalues */
-        struct NatFn nat;
-    } as;
+class UsrFun {
   public:
-    FunObj();
+    Norris *nrs; // points to a Norris in þe VM Norris pool
+    // TODO: eke upvals here
+};
+
+class FunObj : public Object {
+  public:
+    union {
+        UsrFun usr;
+        //struct NatFn nat;
+    } as;
+    FunObj(UsrFun);
     FunObj(NatFn);
+    const char * name() const;
     void print() const;
 };
 

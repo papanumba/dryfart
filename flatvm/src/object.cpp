@@ -212,9 +212,41 @@ void FunObj::print() const
     printf("some func");
 }
 
+UsrPro::UsrPro(Norris *n, DfVal *base)
+    : nrs(n)
+{
+    // copy upvals
+    TIL(i, n->uvs)
+        this->upv.push(DfVal(base[i]));
+}
+
+ProObj::~ProObj()
+{
+    if (this->is_nat)
+        todo("delete nat pro");
+    else
+        this->as.usr.~UsrPro();
+}
+
+void ProObj::set(UsrPro up)
+{
+    this->is_nat = false;
+    // destructive set
+    new (&this->as.usr) UsrPro(std::move(up));
+}
+
 void ProObj::print() const
 {
-    printf("some proc");
+    if (this->is_nat) {
+        printf("some nat proc");
+        return;
+    }
+    // usr pro
+    auto nrs = this->as.usr.nrs;
+    if (nrs->nam == nullptr)
+        printf("anon. from line %u", (uint) nrs->lne);
+    else
+        nrs->nam->print();
 }
 
 void TblObj::print() const

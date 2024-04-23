@@ -99,6 +99,8 @@ pub enum Op
     FMN = 0x88,
     FCL = 0x89,
 
+    LUV = 0x8F,
+
     CAN = 0xE6,
     CAZ = 0xE8,
     CAR = 0xEA,
@@ -375,6 +377,12 @@ impl LowerBlock
                 self.push_op(Op::FCL);
                 self.push_num(*a);
             },
+            ImOp::LUV(i) => {
+                self.push_op(Op::LUV);
+                self.push_num(u8::try_from(*i)
+                    .expect("too many upvalues")
+                );
+            },
             _ => unreachable!(),
         }
     }
@@ -492,6 +500,7 @@ impl Phil // 'a lifetime of AST
         let lblocks = Self::bb_to_low(&pag.code);
         /************** W R I T E **************/
         self.extend(pag.arity as u8);
+        self.extend(u8::try_from(pag.uvs).expect("too many upvals"));
         self.push_page_meta(&pag.meta);
         let len_idx = self.at();
         self.extend(0 as u32); // dummy for len

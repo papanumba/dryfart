@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cassert>
 #include "virmac.h"
 #include "object.h"
 #include "alzhmr.h"
@@ -47,7 +48,7 @@ VirMac::~VirMac()
 void VirMac::reset_stack()
 {
     this->sp = &this->stack[0];
-//    this->callnum = -1;
+    this->callnum = -1;
     this->bp = this->sp;
 }
 
@@ -57,13 +58,12 @@ ItpRes VirMac::run(VmData *prog)
         return ITP_NULLPTR_ERR;
     this->dat = prog;
     /* start main */
-//    this->push_call(this->stack, &prog->pag.arr[0]);
-    // TODO harcode run Norris &prog->pag[0]
-    this->set_norris(&prog->pag[0]);
+    this->push_call(&this->stack[0], &prog->pag[0]);
     ItpRes res = this->_run();
-    if (res != ITP_OK)
-        printf("wlethiwlht");
-        //this->print_calls();
+    if (res != ITP_OK) {
+        this->print_stack();
+        this->print_calls();
+    }
     return res;
 }
 
@@ -72,7 +72,7 @@ void VirMac::push(const DfVal &v)
 #ifdef SAFE
     if (this->sp == &this->stack[STACK_MAX])
         panic("ERROR: stack overflow");
-#endif /* SAFE */
+#endif
     *this->sp = v;
     this->sp++;
 }
@@ -82,7 +82,7 @@ void VirMac::push(DfVal &&v)
 #ifdef SAFE
     if (this->sp == &this->stack[STACK_MAX])
         panic("ERROR: stack overflow");
-#endif /* SAFE */
+#endif
     *this->sp = std::move(v);
     this->sp++;
 }
@@ -97,7 +97,7 @@ DfVal && VirMac::pop()
 #ifdef SAFE
     if (this->sp == this->bp)
         panic("ERROR: empty stack\n");
-#endif /* SAFE */
+#endif
     this->sp--;
     return std::move(*this->sp);
 }
@@ -107,7 +107,7 @@ DfVal & VirMac::peek()
 #ifdef SAFE
     if (this->sp == this->bp)
         panic("ERROR: empty stack");
-#endif /* SAFE */
+#endif
     return this->sp[-1];
 }
 
@@ -120,43 +120,7 @@ ItpRes VirMac::_run()
         disasm_instru(this->dat, this->nor, this->ip);
 #endif /* DEBUG */
         switch (ins = READ_BYTE()) {
-
 #include "vm-ops.cpp"
-
-#if 0
-          case OP_TMN: {
-            DfVal val;
-            val.type = VAL_O;
-            val.as.o = (struct Object *) objtbl_new();
-            virmac_push(vm, &val);
-            break;
-          }
-
-          case OP_PMN: {
-            DfVal val;
-            uint idx = read_u16(&this->ip);
-            val.type = VAL_O;
-            val.as.o = (void *) objpro_new(&this->dat->pag.arr[idx]);
-            virmac_push(vm, &val);
-            break;
-          }
-
-          case OP_FMN: {
-            DfVal val;
-            uint idx = read_u16(&this->ip);
-            val.type = VAL_O;
-            val.as.o = (void *) objfun_new(&this->dat->pag.arr[idx]);
-            virmac_push(vm, &val);
-            break;
-          }
-
-          case OP_END: {
-            if (!pop_call(vm)) return ITP_RUNTIME_ERR;
-            break;
-          }
-
-#endif // all ops
-
           default:
             fprintf(stderr, "unknown instruction %02x\n", ins);
             return ITP_RUNTIME_ERR;
@@ -164,7 +128,6 @@ ItpRes VirMac::_run()
     }
 }
 
-#ifdef DEBUG
 void VirMac::print_stack() const
 {
     const DfVal *slot = nullptr;
@@ -177,64 +140,48 @@ void VirMac::print_stack() const
     }
     printf("\n");
 }
-#endif /* DEBUG */
 
-#ifdef GRANMERDA
-static int push_call(VirMac *vm, DfVal *c, Norris *n)
+void VirMac::push_call(DfVal *c, Norris *n)
 {
 #ifdef SAFE
-    if (this->callnum == CALLS_MAX) {
-        eputln("ERROR: call stack overflow");
-        return FALSE;
-    }
-#endif /* SAFE */
-#ifdef DEBUG
-    if (c != NULL) {
-        printf("calling "); values_print(c); printf("------------\n");
-    }
-#endif /* DEBUG */
-    this->calls[this->callnum] = this->bp;
-    this->norrs[this->callnum] = this->nor;
-    this->ips  [this->callnum] = this->ip;
+    if (this->callnum == CALLS_MAX)
+        panic("ERROR: call stack overflow");
+#endif
     this->callnum++;
+    new (&this->calls[this->callnum]) Record(this->bp, this->nor, this->ip);
     this->bp = c;
-    set_norris(vm, n);
-    return TRUE;
+    this->set_norris(n);
 }
 
-static int pop_call(VirMac *vm)
+void VirMac::pop_call()
 {
 #ifdef SAFE
-    if (this->callnum == -1) {
-        eputln("ERROR: empty call stack\n");
-        return FALSE;
-    }
+    if (this->callnum == -1)
+        panic("ERROR: empty call stack\n");
 #endif /* SAFE */
-#ifdef DEBUG
-    printf("end call "); values_print(this->bp); printf("------------\n");
-#endif /* DEBUG */
     this->callnum--;
     this->sp = this->bp;
-    this->bp  = this->calls[this->callnum];
-    this->ip  = this->ips  [this->callnum];
-    this->nor = this->norrs[this->callnum];
-    return TRUE;
+    auto &r = this->calls[this->callnum];
+    this->bp  = r.bps;
+    this->ip  = r.ips;
+    this->nor = r.nor;
 }
 
-static void print_calls(const VirMac *vm)
+void VirMac::print_calls() const
 {
     puts("Call stack (top oldest):\n    !main");
     int last = this->callnum;
-#define BASURA(vp) MACRO_STMT(printf("    "); values_print(vp); puts("");)
+#define BASURA(vp) \
+    do {printf("    %c", (char) (vp)->as_type()); \
+        (vp)->print(); puts(""); \
+    } while(0)
     for (int i = 1; i < last; ++i)
-        BASURA(this->calls[i]);
+        BASURA(this->calls[i].bps);
     if (last > 0)
         BASURA(this->bp);
     puts("");
 #undef BASURA
 }
-
-#endif // GRANMERDA
 
 void VirMac::set_norris(Norris *n)
 {

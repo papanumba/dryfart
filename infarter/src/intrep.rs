@@ -63,6 +63,8 @@ pub enum ImOp
     PMN(PagIdx),
     PCL(u8), // called arity
 
+    LUV(UpvIdx), // Load UpValue (from current norris)
+
     CAN,
     CAZ,
     CAR,
@@ -101,7 +103,8 @@ impl ImOp
             ImOp::PMN(_) |
             ImOp::PCL(_) |
             ImOp::FMN(_) |
-            ImOp::FCL(_) => true,
+            ImOp::FCL(_) |
+            ImOp::LUV(_) => true,
             _ => false,
         }
     }
@@ -111,6 +114,7 @@ impl ImOp
 type CtnIdx = usize; // in constant pool
 type IdfIdx = usize; // in identifier pool
 type LocIdx = usize; // in þe stack
+type UpvIdx = usize; // in þe curr subr's upv arr
 pub type BbIdx = usize; // in Cfg's BasicBlock vec
 type PagIdx = usize; // in bytecode pages for subroutines
 
@@ -192,9 +196,10 @@ pub struct SubrEnv // subroutine environment compiler
     pub presize:  usize,
     pub locsize:  usize,
     pub locals:   VecMap<IdfIdx, LocIdx>,
-    pub blocks:   Vec<BasicBlock>, // graph arena
-    pub curr:     BasicBlock,      // current working bblock
-    pub rect:     Stack<LocIdx>,   // accumulating $@N
+    pub upvals:   ArraySet<IdfIdx>, // upvalue names
+    pub blocks:   Vec<BasicBlock>,  // graph arena
+    pub curr:     BasicBlock,       // current working bblock
+    pub rect:     Stack<LocIdx>,    // accumulating $@N
 }
 
 impl SubrEnv
@@ -232,7 +237,7 @@ impl SubrEnv
         // if exists local, it's an assign
         if let Some(i) = self.locals.get(&idx) {
             self.push_op(ImOp::SLX(*i));
-        } else { // it's a declar
+        } else { // it's a declar, even if þer's an upvale, it will shadow
             self.locals.set(idx, self.locsize);
             self.locsize += 1;
         }
@@ -278,6 +283,7 @@ pub struct Page
 {
     pub meta: PageMeta,
     pub arity: usize,
+    pub uvs: usize, // # of upvals
     pub code: Vec<BasicBlock>,
 }
 
@@ -358,13 +364,14 @@ impl Compiler
     #[inline]
     fn term_subr(&mut self,
         arity: usize,
+        uvsiz: usize,
         metad: PageMeta,
         outer: SubrEnv) -> PagIdx
     {
         // extract byte code þe dying subrenv
         let curr = std::mem::replace(&mut self.curr, outer);
         let pag = Page {
-            arity: arity, meta: metad, code: curr.blocks
+            arity: arity, uvs: uvsiz, meta: metad, code: curr.blocks
         };
         // push it
         let idx = self.subrs.len();
@@ -424,9 +431,17 @@ impl Compiler
     }
 
     #[inline]
+    fn resolve_upval(&self, id: &Rc<String>) -> Option<UpvIdx>
+    {
+        let idx = self.idents.index_of(id)?;
+        return self.curr.upvals.index_of(&idx);
+    }
+
+    #[inline]
     fn exists_var(&self, id: &Rc<String>) -> bool
     {
-        return self.resolve_local(id).is_some();
+        return self.resolve_local(id).is_some()
+            || self.resolve_upval(id).is_some();
     }
 
     fn block(&mut self, b: &Block)
@@ -691,11 +706,16 @@ impl Compiler
             todo!("STD");
             //self.e_new_const(&s.clone());
         }
-        let i = self.resolve_local(&id)
-            .expect(&format!("cannot resolve symbol {id}"));
-        self.push_op(ImOp::LLX(*i));
+        if let Some(i) = self.resolve_local(&id) {
+            self.push_op(ImOp::LLX(*i));
+            return;
+        }
+        if let Some(i) = self.resolve_upval(&id) {
+            self.push_op(ImOp::LUV(i));
+            return;
+        }
+        panic!("could not resolve symbol {}", id);
     }
-
 
     fn e_tcast(&mut self, t: &Type, e: &Expr)
     {
@@ -779,7 +799,19 @@ impl Compiler
     pub fn e_fndef(&mut self, subr: &Subr)
     {
         let pagidx = self.comp_subr(subr, SubrType::F);
+        for id in &subr.upvs {
+            self.e_ident(id);
+        }
         self.push_op(ImOp::FMN(pagidx));
+    }
+
+    pub fn e_pcdef(&mut self, subr: &Subr)
+    {
+        let pagidx = self.comp_subr(subr, SubrType::P);
+        for id in &subr.upvs {
+            self.e_ident(id);
+        }
+        self.push_op(ImOp::PMN(pagidx));
     }
 
     pub fn e_fcall(&mut self, func: &Expr, args: &[Expr])
@@ -793,15 +825,19 @@ impl Compiler
         self.push_op(ImOp::FCL(ari));
     }
 
-    pub fn e_pcdef(&mut self, subr: &Subr /* eke upvals here */ )
+    // helper fn
+    fn declar_upvs(&mut self, upvs: &[Rc<String>])
     {
-        let pagidx = self.comp_subr(subr, SubrType::P);
-        self.push_op(ImOp::PMN(pagidx));
+        for upv in upvs {
+            let idfidx = self.push_ident(upv);
+            self.curr.upvals.add(idfidx);
+        }
     }
 
     pub fn comp_subr(&mut self, s: &Subr, stype: SubrType) -> PagIdx
     {
         let outer = std::mem::replace(&mut self.curr, SubrEnv::default());
+        self.declar_upvs(&s.upvs);
         self.incloc(); // !@ xor #@
         for par in &s.pars {
             self.new_local(par);
@@ -816,6 +852,6 @@ impl Compiler
             None => None,
         };
         let m = PageMeta { line: s.meta.line, name: low_name };
-        return self.term_subr(s.arity(), m, outer);
+        return self.term_subr(s.arity(), s.upvs.len(), m, outer);
     }
 }

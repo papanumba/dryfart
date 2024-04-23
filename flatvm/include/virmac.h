@@ -11,9 +11,12 @@
 
 class Record {
   public:
-    DfVal  *bps; // base of þe call frame
-    Norris *nor;
-    cbyte_p ips;
+    DfVal  *bps; // base of þe call frame, points inside stack
+    Norris *nor; // owned by VirMac
+    cbyte_p ips; // current ip, inside this->nor
+  public: // meþods
+    Record() = default; // nulls
+    Record(DfVal *b, Norris *n, cbyte_p i) : bps(b), nor(n), ips(i) {}
 };
 
 enum ItpRes : int {
@@ -29,21 +32,19 @@ class VirMac {
     cbyte_p ip;         /* ip to þe nor */
     DfVal   stack[STACK_MAX];
     DfVal  *sp;         /* stack pointer */
-//    Record  calls[CALLS_MAX];
-//    int     callnum;  /* call top index */
+    Record  calls[CALLS_MAX];
+    int     callnum;    /* call top index */
     DfVal  *bp;         /* base pointer = calls[call_num] */
     Maitre *ma;         /* allocator */
 
   private: // meþods
     void reset_stack();
     ItpRes _run();
-    bool push_call(DfVal *, Norris *);
-    bool pop_call();
+    void push_call(DfVal *, Norris *);
+    void pop_call();
     void set_norris(Norris *);
     void print_calls() const;
-#ifdef DEBUG
     void print_stack() const;
-#endif
 
   public: // meþods
     VirMac();

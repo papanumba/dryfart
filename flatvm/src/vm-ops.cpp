@@ -1,5 +1,6 @@
 /* vm-ops.c */
 
+#include <cassert>
 #include "values.h"
 #include "virmac.h"
 
@@ -179,6 +180,22 @@ case OP_DEC: {
     break;
 }
 
+// compare ----------------------
+
+#define OP_CEX(XX, op) \
+case OP_C ## XX: {                 \
+    DfVal rhs = this->pop();       \
+    DfVal lhs = this->pop();       \
+    this->push(DfVal(lhs op rhs)); \
+    break;                         \
+}
+
+// overloaded operators
+OP_CEX(EQ, ==)
+OP_CEX(NE, !=)
+
+#undef OP_CEX
+
 // locals -----------------------
 
 case OP_LLS: {
@@ -310,9 +327,73 @@ case OP_AGE: {
 
 // table ---------------------------
 
-case OP_TMN:
-    this->push(DfVal(this->ma->alloc(OBJ_TBL)));
+case OP_TMN: {
+    auto t = this->ma->alloc(OBJ_TBL);
+    t.as_tbl()->is_nat = false;
+    this->push(DfVal(t));
     break;
+}
+
+// procs ---------------------------
+
+case OP_PMN: {
+    auto p = this->ma->alloc(OBJ_PRO);
+    uint nor_idx = read_u16(&this->ip);
+    auto nor = &this->nor[nor_idx];
+    auto uvs = nor->uvs;
+    p.as_pro()->set(UsrPro(nor, this->sp - uvs));
+    TIL(i, uvs) this->pop();
+    this->push(DfVal(p));
+    break;
+}
+
+case OP_PCL: {
+    uint8_t arity = read_u8(&this->ip);
+    DfVal *cle = this->sp - (arity + 1); // args + callee
+#ifdef SAFE
+    if (cle->type != VAL_O || cle->as.o.get_type() != OBJ_PRO) {
+        eputln("cannot !call a not !");
+        return ITP_RUNTIME_ERR;
+    }
+#endif // SAFE
+    auto *pro = cle->as.o.as_pro();
+    if (pro->is_nat) {
+        /*int res = pro->as.nat.exec(vm, this->sp - arity, arity);
+        this->sp -= arity + 1;*/
+        todo("call nat pro");
+    }
+#ifdef SAFE
+    // user procs
+    if (pro->as.usr.nrs->ari != arity) {
+        printf("ERROR: wrong arity calling ");
+        pro->print();
+        puts("");
+        return ITP_RUNTIME_ERR;
+    }
+#endif // SAFE
+    this->push_call(cle, pro->as.usr.nrs);
+    break;
+}
+
+case OP_LUV: {
+    assert(this->bp->type == VAL_O);
+    auto bpo = this->bp->as.o;
+    auto upvidx = read_u8(&this->ip);
+    switch (bpo.get_type()) {
+      case OBJ_FUN: {
+        todo("get upv from func");
+      }
+      case OBJ_PRO: {
+        auto bpp = bpo.as_pro();
+        assert(!bpp->is_nat);
+        this->push(DfVal(bpp->as.usr.upv[upvidx]));
+        break;
+      }
+      default:
+        unreachable();
+    }
+    break;
+}
 
 // casts ---------------------------
 
@@ -333,6 +414,10 @@ case OP_CAR: {
 
 // stack stuff -----------------------
 
+case OP_END:
+    this->pop_call();
+    break;
+
 case OP_DUP:
     this->push(DfVal(this->peek()));
     break;
@@ -345,11 +430,11 @@ case OP_HLT:
 #ifdef DEBUG
     puts("VM HALTED");
     //this->print_calls();
-    this->print_stack();
 #endif
+    this->print_stack();
     this->reset_stack();
 //            garcol_do(vm);
-    return ITP_OK;
+    return ITP_RUNTIME_ERR;
 
 #if 0 // -----------------------------------------------------------
 
@@ -391,15 +476,6 @@ static inline int op_add_o(
         return false;
     }
     return true;
-}
-
-static void op_ceq(VirMac *vm)
-{
-    DfVal *lhs, rhs;
-    rhs = this->pop();
-    lhs = this->peek();
-    lhs->as.b = dfval_eq(lhs, &rhs);
-    lhs->type = VAL_B;
 }
 
 static void op_cne(VirMac *vm)
@@ -596,29 +672,6 @@ static void op_tgf(VirMac *vm)
 
 static void op_pcl(VirMac *vm)
 {
-    uint8_t arity = read_u8(&this->ip);
-    DfVal *val = this->sp - (arity + 1); /* args + callee */
-#ifdef SAFE
-    if (val->type != VAL_O || val->as.o->type != OBJ_PRO) {
-        eputln("cannot !call a not !");
-        return false;
-    }
-#endif /* SAFE */
-    struct ObjPro *pro = OBJ_AS_PRO(val->as.o);
-    if (pro->obj.is_nat) {
-        int res = pro->as.nat.exec(vm, this->sp - arity, arity);
-        this->sp -= arity + 1;
-        return res;
-    }
-#ifdef SAFE
-    if (pro->as.usr->ari != arity) {
-        printf("wrong arity calling ");
-        object_print(val->as.o);
-        puts("");
-        return false;
-    }
-#endif /* SAFE */
-    return push_call(vm, val, pro->as.usr);
 }
 
 static void op_fcl(VirMac *vm)

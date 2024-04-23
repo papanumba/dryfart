@@ -7,10 +7,12 @@ Norris::Norris(
     const Slice<uint8_t> &cod,
     uint32_t              lne,
     uint8_t               ari,
+    uint8_t               uvs,
     const DfIdf          *nam)
 {
     this->lne = lne;
     this->ari = ari;
+    this->uvs = uvs;
     this->nam = nam;
     size_t len = cod.len;
     if (len >= UINT32_MAX)
@@ -35,7 +37,7 @@ Norris & Norris::operator=(Norris &&that)
     if (this->cod != nullptr)
         delete [] this->cod;
     std::memcpy(this, &that, sizeof(Norris));
-    std::memset(&that, 0, sizeof(Norris));
+    that.cod = nullptr;
     return *this;
 }
 

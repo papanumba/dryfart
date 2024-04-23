@@ -106,6 +106,7 @@ static void load_one_ctn(DynArr<DfVal> &ctn, cbyte_p *rpp)
 static void load_one_pag(VmData &vmd, cbyte_p *rpp)
 {
     uint8_t  ari = read_u8(rpp);
+    uint8_t  uvs = read_u8(rpp);
     uint32_t lne = read_u32(rpp);
     const DfIdf *nam = nullptr;
     switch (read_u8(rpp)) {
@@ -120,7 +121,7 @@ static void load_one_pag(VmData &vmd, cbyte_p *rpp)
     if ((*rpp)[len] != 0)
         throw std::runtime_error("Incorrect format Norris: end \\0");
     Slice<uint8_t> cod((uint8_t *)*rpp, len);
-    vmd.pag.push(Norris(cod, lne, ari, nam));
+    vmd.pag.push(Norris(cod, lne, ari, uvs, nam));
     *rpp += len + 1;
 }
 

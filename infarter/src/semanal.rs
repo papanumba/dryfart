@@ -179,6 +179,14 @@ impl UpvAnal
     {
         match s {
             Stmt::Assign(a, e) => self.pass_s_assign(a, e),
+            Stmt::IfStmt(c, b, e) => {
+                self.pass_expr(c);
+                self.pass_block(b);
+                if let Some(b) = e {
+                    self.pass_block(b);
+                }
+            },
+            Stmt::LoopIf(l) => self.pass_loop(l),
             Stmt::Return(e) => self.pass_expr(e),
             _ => {},
         }
@@ -199,6 +207,18 @@ impl UpvAnal
         self.curr.ass_var(i);
     }
 
+    fn pass_loop(&mut self, l: &mut Loop)
+    {
+        match l {
+            Loop::Inf(b) => self.pass_block(b),
+            Loop::Cdt(b, c, d) => {
+                self.pass_block(b);
+                self.pass_expr(c);
+                self.pass_block(d);
+            },
+        }
+    }
+
     fn pass_expr(&mut self, e: &mut Expr)
     {
         match e {
@@ -207,12 +227,12 @@ impl UpvAnal
                     self.try_upv_idf(i);
                 }
             },
-            Expr::Tcast(_, e) => self.pass_expr(e),
+            Expr::Tcast(_, e) |
+            Expr::UniOp(e, _) => self.pass_expr(e),
             Expr::BinOp(a, _, b) => {
                 self.pass_expr(a);
                 self.pass_expr(b);
             },
-            Expr::UniOp(e, _) => self.pass_expr(e),
             Expr::CmpOp(e, v) => {
                 self.pass_expr(e);
                 for (_, x) in v {self.pass_expr(x);}

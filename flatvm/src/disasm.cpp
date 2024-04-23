@@ -114,6 +114,7 @@ static void disasm_ins_fast()
       case OP_PCL: num_ins("PCL", 1); break;
       case OP_FMN: num_ins("FMN", 2); break;
       case OP_FCL: num_ins("FCL", 1); break;
+      case OP_LUV: num_ins("LUV", 1); break;
 
       case OP_LLS: num_ins("LLS", 1); break;
       case OP_SLS: num_ins("SLS", 1); break;

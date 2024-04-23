@@ -81,6 +81,7 @@ enum Op : uint8_t {
     OP_PCL = 0x82,
     OP_FMN = 0x88,
     OP_FCL = 0x89,
+    OP_LUV = 0x8F,
 
     OP_CAB = 0xE2,
     OP_CAC = 0xE4,
@@ -104,6 +105,7 @@ class Norris {
     uint32_t len; /* lengþ */
     uint32_t lne; /* line */
     uint8_t ari : 8; /* arity */
+    uint8_t uvs : 8; /* upval size */
     const DfIdf *nam;  /* þis points to a Idf in þe idf pool of vmdata
                         ** NULL if it's anonymous */
   public:
@@ -111,6 +113,7 @@ class Norris {
         const Slice<uint8_t> &, // bcode
         uint32_t,               // line
         uint8_t,                // arity
+        uint8_t,                // uvs
         const DfIdf * = nullptr // name, anon. by default
     );
     Norris(Norris &&);
