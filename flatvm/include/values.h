@@ -73,11 +73,25 @@ class DfVal {
     BASURA(ObjRef,   o, O)
 #undef BASURA
     // meþods
+    void set_mut(bool m = true) {
+        if (this->type == VAL_O)
+            this->as.o.set_mut(m);
+    }
     void print() const;
     DfType as_type() const;
+#define BASURA(X, x) \
+    bool is_ ## x() const { \
+        return this->type == VAL_O && \
+            this->as.o.get_type() == OBJ_ ## X; \
+    }
+    BASURA(ARR, arr)
+    BASURA(TBL, tbl)
+    BASURA(FUN, fun)
+    BASURA(PRO, pro)
+#undef BASURA
+    // operators
     bool operator==(const DfVal &) const;
     bool operator!=(const DfVal &) const;
-    // copy =
     DfVal & operator=(const DfVal &that) {
         this->type = that.type;
         this->as.o = that.as.o;

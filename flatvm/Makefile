@@ -9,7 +9,7 @@ CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
 CXXFLAGS = -std=c++17 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
-cxxobjs = disasm.o idents.o loader.o maitre.o norris.o object.o objref.o values.o virmac.o
+cxxobjs = disasm.o htable.o idents.o loader.o maitre.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
 cobjs = alzhmr.o common.o reader.o
 objs = $(cxxobjs) $(cobjs)
@@ -27,6 +27,12 @@ release: LDFLAGS += -O3 -flto
 release: CPPFLAGS += -O3 -flto
 release: flatvm
 #	strip flatvm
+
+install: LDFLAGS += -O3 -flto
+install: CPPFLAGS += -O3 -flto
+install: flatvm
+	cp flatvm ~/.local/bin/
+	clear
 
 flatvm: $(objs)
 	$(CXX) -o flatvm $(LDFLAGS) $(objs)

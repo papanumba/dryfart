@@ -4,6 +4,11 @@
 #include "values.h"
 #include "virmac.h"
 
+#define SIMPLE_ERR(msg) do { \
+    eputln(msg);            \
+    return ITP_RUNTIME_ERR; \
+} while (false)
+
 #define ERR_BINOP(msg) do { \
     err_dif_types(msg, lhs.as_type(), rhs.as_type()); \
     return ITP_RUNTIME_ERR; \
@@ -11,8 +16,13 @@
 
 #define ERR_OP_TYPE(msg, valref) do { \
     err_cant_op(msg, valref); \
-    return ITP_RUNTIME_ERR; \
+    return ITP_RUNTIME_ERR;   \
 } while (false)
+
+#define READ_U8()   read_u8 (&this->ip)
+#define READ_U16()  read_u16(&this->ip)
+
+/*****************************************************************/
 
 case OP_NOP:
     break;
@@ -49,13 +59,13 @@ OP_LRX(1)
 #undef OP_LRX
 
 case OP_LKS: {
-    uint idx = read_u8(&this->ip);
+    uint idx = READ_U8();
     this->push(DfVal(this->dat->ctn[idx]));
     break;
 }
 
 case OP_LKL: {
-    uint idx = read_u16(&this->ip);
+    uint idx = READ_U16();
     this->push(this->dat->ctn[idx]);
     break;
 }
@@ -86,7 +96,7 @@ case OP_NEG: {
         auto r = lo.as_arr()->concat(       \
             *ro.as_arr(), *a.as_arr());     \
         if (AccRes::OK != r)                \
-            panic(accres_what(r));          \
+            SIMPLE_ERR(accres_what(r));          \
         this->push(DfVal(a));               \
         break;                              \
       }                                     \
@@ -199,19 +209,19 @@ OP_CEX(NE, !=)
 // locals -----------------------
 
 case OP_LLS: {
-    uint index = read_u8(&this->ip);
+    uint index = READ_U8();
     this->push(this->bp[index]);
     break;
 }
 
 case OP_SLS: {
-    uint index = read_u8(&this->ip);
+    uint index = READ_U8();
     this->bp[index] = this->pop();
     break;
 }
 
 case OP_ULS: {
-    uint index = read_u8(&this->ip);
+    uint index = READ_U8();
     this->bp[index] = this->peek(); // fastest, checked with sp[-1]
     break;
 }
@@ -219,10 +229,8 @@ case OP_ULS: {
 // jumps -----------------------------
 
 #define CHECK_IS_B(var) do { \
-    if ((var).type != VAL_B) {          \
-        eputln("condition is not B%");  \
-        return ITP_RUNTIME_ERR;         \
-    }                                   \
+    if ((var).type != VAL_B) \
+        SIMPLE_ERR("condition is not B%"); \
 } while (false)
 
 case OP_JJS: {
@@ -291,10 +299,10 @@ case OP_APE: {
     DfVal elem = this->pop();
     DfVal arr  = this->pop();
     if (arr.type != VAL_O || arr.as.o.get_type() != OBJ_ARR)
-        panic("ERROR: value is not an array");
+        SIMPLE_ERR("ERROR: value is not an array");
     ArrObj *a = arr.as.o.as_arr();
     if (AccRes::OK != a->push(std::move(elem)))
-        panic("ERROR: some error pushing into array");
+        SIMPLE_ERR("ERROR: some error pushing into array");
     this->push(std::move(arr));
     break;
 }
@@ -302,24 +310,24 @@ case OP_APE: {
 case OP_AGE: {
     DfVal idx = this->pop();
     DfVal arr = this->pop();
-    if (arr.type != VAL_O || arr.as.o.get_type() != OBJ_ARR)
-        panic("ERROR: value is not an array");
+    if (!arr.is_arr())
+        SIMPLE_ERR("ERROR: value is not an array");
     uint32_t idx_n = 0;
     switch (idx.type) {
       case VAL_N: idx_n = idx.as.n; break;
       case VAL_Z:
         if (idx.as.z < 0)
-            panic("ERROR: Z% index is negative");
+            SIMPLE_ERR("ERROR: Z% index is negative");
         idx_n = (uint32_t) idx.as.z;
         break;
-      default: panic("ERROR: index is not N% or Z%");
+      default: SIMPLE_ERR("ERROR: index is not N% or Z%");
     }
     auto a = arr.as.o.as_arr();
     DfVal val;
     auto res = a->get(idx_n, val);
     if (res != AccRes::OK) {
         printf("len is %u, idx is %u\n", a->len(), idx_n);
-        panic(accres_what(res));
+        SIMPLE_ERR(accres_what(res));
     }
     this->push(std::move(val));
     break;
@@ -329,29 +337,123 @@ case OP_AGE: {
 
 case OP_TMN: {
     auto t = this->ma->alloc(OBJ_TBL);
-    t.as_tbl()->is_nat = false;
+    t.as_tbl()->set(Htable());
     this->push(DfVal(t));
     break;
 }
 
-// procs ---------------------------
+#define CHECK_IS_T(x) do { \
+    if (!(x).is_tbl()) {            \
+        fprintf(stderr, "ERROR: value of type %c%% is not a table\n", \
+            (char) (x).as_type());  \
+        return ITP_RUNTIME_ERR;     \
+    }                               \
+} while (false)
+
+#define NOT_FOUND(x) do { \
+    eput("field '"); idf->eprint(); eput("' not found in table\n"); \
+    return ITP_RUNTIME_ERR; \
+} while (false)
+
+case OP_TSF: {
+    DfVal val = this->pop();
+    DfVal tbl = this->pop();
+#ifdef SAFE
+    CHECK_IS_T(tbl);
+    if (!tbl.as.o.mut()) // must be mut
+        SIMPLE_ERR("trying to set field of immutable table");
+#endif
+    const DfIdf *idf = &this->dat->idf[READ_U16()];
+    if (!tbl.as.o.as_tbl()->set(idf, std::move(val)))
+        NOT_FOUND(idf);
+    this->push(std::move(tbl));
+    break;
+}
+
+case OP_TGF: {
+    DfVal tbl = this->pop();
+#ifdef SAFE
+    CHECK_IS_T(tbl);
+#endif
+    const DfIdf *idf = &this->dat->idf[READ_U16()];
+    DfVal val;
+    if (!tbl.as.o.as_tbl()->get(idf, val))
+        NOT_FOUND(idf);
+#ifdef SAFE
+    if (!tbl.as.o.mut()) // propagate mutability
+        val.set_mut(false);
+#endif
+    this->push(std::move(val));
+    break;
+}
+
+#undef CHECK_IS_T
+
+// subrts ---------------------------
+
+case OP_FMN: {
+    auto f = this->ma->alloc(OBJ_FUN);
+    uint nor_idx = READ_U16();
+    auto nor = &this->nor[nor_idx];
+    auto uvs = nor->uvs;
+    auto uvp = this->sp - uvs; // base uv pointer
+#ifdef SAFE
+    TIL(i, uvs) {
+        if (uvp[i].type == VAL_O)
+            uvp[i].as.o.set_mut(false);
+    }
+#endif
+    f.as_fun()->set(UsrSrt(nor, uvp));
+    TIL(i, uvs) this->pop();
+    this->push(DfVal(f));
+    break;
+}
+
+case OP_FCL: {
+    uint8_t arity = READ_U8();
+    DfVal *cle = this->sp - (arity + 1); // args + callee
+#ifdef SAFE
+    if (!cle->is_fun())
+        SIMPLE_ERR("cannot !call a not !");
+#endif
+    auto *fun = cle->as.o.as_fun();
+    if (fun->is_nat) {
+        /*int res = fun->as.nat.exec(vm, this->sp - arity, arity);
+        this->sp -= arity + 1;*/
+        todo("call nat fun");
+    }
+#ifdef SAFE
+    // user funs
+    if (fun->as.usr.nrs->ari != arity) {
+        printf("ERROR: wrong arity calling ");
+        fun->print();
+        puts("");
+        return ITP_RUNTIME_ERR;
+    }
+    // set immutable arguments
+    TIL(i, arity)
+        cle[1+arity].set_mut(false);
+#endif // SAFE
+    this->push_call(cle, fun->as.usr.nrs);
+    break;
+}
 
 case OP_PMN: {
     auto p = this->ma->alloc(OBJ_PRO);
-    uint nor_idx = read_u16(&this->ip);
+    uint nor_idx = READ_U16();
     auto nor = &this->nor[nor_idx];
     auto uvs = nor->uvs;
-    p.as_pro()->set(UsrPro(nor, this->sp - uvs));
+    p.as_pro()->set(UsrSrt(nor, this->sp - uvs));
     TIL(i, uvs) this->pop();
     this->push(DfVal(p));
     break;
 }
 
 case OP_PCL: {
-    uint8_t arity = read_u8(&this->ip);
+    uint8_t arity = READ_U8();
     DfVal *cle = this->sp - (arity + 1); // args + callee
 #ifdef SAFE
-    if (cle->type != VAL_O || cle->as.o.get_type() != OBJ_PRO) {
+    if (!cle->is_pro()) {
         eputln("cannot !call a not !");
         return ITP_RUNTIME_ERR;
     }
@@ -378,10 +480,13 @@ case OP_PCL: {
 case OP_LUV: {
     assert(this->bp->type == VAL_O);
     auto bpo = this->bp->as.o;
-    auto upvidx = read_u8(&this->ip);
+    auto upvidx = READ_U8();
     switch (bpo.get_type()) {
       case OBJ_FUN: {
-        todo("get upv from func");
+        auto bpf = bpo.as_fun();
+        assert(!bpf->is_nat);
+        this->push(DfVal(bpf->as.usr.upv[upvidx]));
+        break;
       }
       case OBJ_PRO: {
         auto bpp = bpo.as_pro();
@@ -418,6 +523,13 @@ case OP_END:
     this->pop_call();
     break;
 
+case OP_RET: {
+    DfVal ret = this->pop();
+    this->pop_call();
+    this->push(std::move(ret));
+    break;
+}
+
 case OP_DUP:
     this->push(DfVal(this->peek()));
     break;
@@ -431,10 +543,14 @@ case OP_HLT:
     puts("VM HALTED");
     //this->print_calls();
 #endif
-    this->print_stack();
+    if (this->callnum != 0) { // not halted at main
+        this->print_stack();
+        this->reset_stack();
+        return ITP_RUNTIME_ERR;
+    }
     this->reset_stack();
 //            garcol_do(vm);
-    return ITP_RUNTIME_ERR;
+    return ITP_OK;
 
 #if 0 // -----------------------------------------------------------
 
@@ -466,7 +582,7 @@ static inline int op_add_o(
         break;
       }
       case OBJ_TBL:
-        panic("todo $%% + $%%");
+        SIMPLE_ERR("todo $%% + $%%");
         break;
       case OBJ_PRO:
         eputln("cannot add (+) procs");
@@ -631,52 +747,13 @@ static void op_ase(VirMac *vm)
     return objarr_set(a, idx.as.n, val); /* OK or ERR result */
 }
 
-static void op_tsf(VirMac *vm)
-{
-    DfVal tbl, val;
-    val = this->pop();
-    tbl = this->pop();
-#ifdef SAFE
-    if (val2type(&tbl) != DFTYPE_T) {
-        fprintf(stderr, "ERROR: value (%c%%) is not a table\n",
-            val2type(&tbl));
-        return false;
-    }
-#endif /* SAFE */
-    struct DfIdf *idf = &this->dat->idf.arr[read_u16(&this->ip)];
-    if (!objtbl_set(OBJ_AS_TBL(tbl.as.o), idf, val))
-        return false;
-    this->push(std::move(tbl);
-    return true;
-}
-
-static void op_tgf(VirMac *vm)
-{
-    DfVal tbl, val;
-    tbl = this->pop();
-#ifdef SAFE
-    if (val2type(&tbl) != DFTYPE_T) {
-        fprintf(stderr, "ERROR: value (%c%%) is not a table\n",
-            val2type(&tbl));
-        return false;
-    }
-#endif /* SAFE */
-    struct DfIdf *idf = &this->dat->idf.arr[read_u16(&this->ip)];
-    int res = objtbl_get(OBJ_AS_TBL(tbl.as.o), idf, &val);
-    if (!res)
-        fprintf(stderr, "field $%s' not found in table\n", idf->str);
-    else
-        this->push(std::move(val);
-    return res;
-}
-
 static void op_pcl(VirMac *vm)
 {
 }
 
 static void op_fcl(VirMac *vm)
 {
-    uint8_t arity = read_u8(&this->ip);
+    uint8_t arity = READ_U8();
     DfVal *val = this->sp - (arity + 1); /* args + callee */
 #ifdef SAFE
     if (val2type(val) != DFTYPE_F) {

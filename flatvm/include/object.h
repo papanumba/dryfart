@@ -6,7 +6,7 @@
 //#include <unordered_map>
 #include "common.hpp"
 #include "values.h"
-//#include "htable.h"
+#include "htable.h"
 #include "norris.h"
 #include "native.h"
 #include "dynarr.h"
@@ -65,72 +65,62 @@ class ArrObj : public Object {
     }
 };
 
-// inject DfIdf hash to std namespace
-/*template<>
-struct std::hash<const DfIdf *> {
-    std::size_t operator()(const DfIdf *&idf) const noexcept
-    {
-        return (size_t) idf->get_hash();
-    }
-};*/
-
 class TblObj : public Object {
     typedef const DfIdf * key_t; // owned by VmData
-    union {
-        //std::unordered_map<key_t, DfVal, std::hash<key_t>> usr;
+    union _as {
+        Htable usr;
         NatTb  nat;
+        // dummy
+        ~_as() {}
     } as;
   public:
-    TblObj();
     TblObj(NatTb);
+    ~TblObj();
+    void set(Htable &&);
+    bool get(key_t, DfVal &) const; // returns by last param
     bool set(key_t, DfVal &&);
-    bool get(key_t, DfVal &); // returns by last par
     void print() const;
 };
 
-class UsrPro {
+class UsrSrt {
   public:
     Norris       *nrs;
     DynArr<DfVal> upv;
   public: // meþods
-    UsrPro(Norris *, DfVal *);
-    UsrPro(UsrPro &&that) {
+    UsrSrt(Norris *, DfVal *);
+    UsrSrt(UsrSrt &&that) {
         this->nrs = that.nrs;
         this->upv = std::move(that.upv);
     }
-    ~UsrPro() = default; // only upv
+    ~UsrSrt() = default; // only upv
+    void print() const;
+};
+
+class FunObj : public Object {
+  public:
+    union _as {
+        UsrSrt usr;
+        // NatFun nat;
+        ~_as() {} // dummy dtor
+    } as;
+  public:
+    ~FunObj();
+    void set(UsrSrt);
+    // void set(NatFn);
+    void print() const;
 };
 
 class ProObj : public Object {
   public:
     union _as {
-        UsrPro usr;
+        UsrSrt usr;
         // NatPro nat;
         ~_as() {} // dummy dtor
     } as;
   public:
     ~ProObj();
-    void set(UsrPro);
+    void set(UsrSrt);
 //  void set(NatPc);
-    const char * name() const;
-    void print() const;
-};
-
-class UsrFun {
-  public:
-    Norris *nrs; // points to a Norris in þe VM Norris pool
-    // TODO: eke upvals here
-};
-
-class FunObj : public Object {
-  public:
-    union {
-        UsrFun usr;
-        //struct NatFn nat;
-    } as;
-    FunObj(UsrFun);
-    FunObj(NatFn);
-    const char * name() const;
     void print() const;
 };
 

@@ -30,24 +30,26 @@ class ObjRef {
     static const uintptr_t PTR_MASK = ~7; // ~0b111
     static const uintptr_t MUT_MASK = 4;  //  0b100
     static const uintptr_t TYP_MASK = 3;  //  0b011
-    // TODO add mut
     // private methods
     void * ptr() const {
         return (void *) (this->p & PTR_MASK);
-    }
-    uint typ() const {
-        return this->p & TYP_MASK;
-    }
-    bool mut() const {
-        return this->p & MUT_MASK;
     }
   public:
     ObjRef() = default;
     ObjRef(ObjRef &)  = default;
     ObjRef(ObjRef &&) = default;
     // meþods
+    ObjType typ() const {
+        return (ObjType) (this->p & TYP_MASK);
+    }
+    bool mut() const {
+        return this->p & MUT_MASK;
+    }
     ObjType get_type() const {
-        return (ObjType) this->typ();
+        return this->typ();
+    }
+    void set_mut(bool m) {
+        this->p = (this->p & ~MUT_MASK) | (m ? MUT_MASK : 0);
     }
     void print() const;
 #define BASURA(Typ, fn) \

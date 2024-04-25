@@ -27,7 +27,7 @@ fn std_check_stmt(s: &mut Stmt)
         Stmt::Assign(x, e) => {std_check_expr(x); std_check_expr(e);},
         Stmt::IfStmt(c, b, e) => {
             std_check_expr(c);
-            check(b);
+            std_check_block(b);
             if let Some(m) = e { check(m); }
         },
         Stmt::LoopIf(l) => std_check_loop(l),

@@ -39,6 +39,11 @@ void DfIdf::print() const
     printf("%s", (char *) this->str);
 }
 
+void DfIdf::eprint() const
+{
+    fprintf(stderr, "%s", (char *) this->str);
+}
+
 DfIdf & DfIdf::operator=(DfIdf &&that)
 {
     this->~DfIdf();

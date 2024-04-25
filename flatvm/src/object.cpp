@@ -207,12 +207,45 @@ AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
     return AccRes::OK;
 }
 
-void FunObj::print() const
+TblObj::~TblObj()
 {
-    printf("some func");
+    if (this->is_nat)
+        return;
+    else
+        this->as.usr.~Htable();
 }
 
-UsrPro::UsrPro(Norris *n, DfVal *base)
+void TblObj::set(Htable &&t)
+{
+    this->is_nat = false;
+    new (&this->as.usr) Htable(std::move(t));
+}
+
+bool TblObj::get(const DfIdf *k, DfVal &v) const
+{
+    if (this->is_nat)
+        todo("get nat tb");
+    else
+        return this->as.usr.get(k, v);
+}
+
+bool TblObj::set(const DfIdf *k, DfVal &&v)
+{
+    if (this->is_nat)
+        todo("set nat tb");
+    else
+        return this->as.usr.set(k, std::move(v));
+}
+
+void TblObj::print() const
+{
+    if (this->is_nat)
+        printf("some table");
+    else
+        this->as.usr.print();
+}
+
+UsrSrt::UsrSrt(Norris *n, DfVal *base)
     : nrs(n)
 {
     // copy upvals
@@ -220,19 +253,52 @@ UsrPro::UsrPro(Norris *n, DfVal *base)
         this->upv.push(DfVal(base[i]));
 }
 
+void UsrSrt::print() const
+{
+    if (this->nrs->nam == nullptr)
+        printf("anon. from line %u", (uint) this->nrs->lne);
+    else
+        this->nrs->nam->print();
+}
+
+FunObj::~FunObj()
+{
+    if (this->is_nat)
+        todo("delete nat fun");
+    else
+        this->as.usr.~UsrSrt();
+}
+
+void FunObj::set(UsrSrt up)
+{
+    this->is_nat = false;
+    // destructive set
+    new (&this->as.usr) UsrSrt(std::move(up));
+}
+
+void FunObj::print() const
+{
+    if (this->is_nat) {
+        printf("some nat fun");
+        return;
+    }
+    // usr fun
+    this->as.usr.print();
+}
+
 ProObj::~ProObj()
 {
     if (this->is_nat)
         todo("delete nat pro");
     else
-        this->as.usr.~UsrPro();
+        this->as.usr.~UsrSrt();
 }
 
-void ProObj::set(UsrPro up)
+void ProObj::set(UsrSrt up)
 {
     this->is_nat = false;
     // destructive set
-    new (&this->as.usr) UsrPro(std::move(up));
+    new (&this->as.usr) UsrSrt(std::move(up));
 }
 
 void ProObj::print() const
@@ -242,16 +308,7 @@ void ProObj::print() const
         return;
     }
     // usr pro
-    auto nrs = this->as.usr.nrs;
-    if (nrs->nam == nullptr)
-        printf("anon. from line %u", (uint) nrs->lne);
-    else
-        nrs->nam->print();
-}
-
-void TblObj::print() const
-{
-    printf("some table");
+    this->as.usr.print();
 }
 
 #if 0

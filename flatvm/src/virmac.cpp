@@ -61,7 +61,7 @@ ItpRes VirMac::run(VmData *prog)
     this->push_call(&this->stack[0], &prog->pag[0]);
     ItpRes res = this->_run();
     if (res != ITP_OK) {
-        this->print_stack();
+//        this->print_stack();
         this->print_calls();
     }
     return res;
@@ -113,7 +113,7 @@ DfVal & VirMac::peek()
 
 ItpRes VirMac::_run()
 {
-    while (true) {
+    LOOP {
         uint8_t ins;
 #ifdef DEBUG
         this->print_stack();
@@ -159,12 +159,12 @@ void VirMac::pop_call()
     if (this->callnum == -1)
         panic("ERROR: empty call stack\n");
 #endif /* SAFE */
-    this->callnum--;
     this->sp = this->bp;
     auto &r = this->calls[this->callnum];
     this->bp  = r.bps;
     this->ip  = r.ips;
     this->nor = r.nor;
+    this->callnum--;
 }
 
 void VirMac::print_calls() const

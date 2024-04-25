@@ -8,9 +8,9 @@
 
 // laziness at its peak
 #define FOR(var, start, end) \
-for (uint var = start; var < end; ++var)
-
+for (size_t var = start; var < end; ++var)
 #define TIL(var, end) FOR(var, 0, end)
+#define LOOP while (true)
 
 template<typename T>
 class Slice {
@@ -53,6 +53,10 @@ void panic (const char *);
 [[ noreturn ]]
 void unreachable(void);
 
+}
+
+static inline size_t at_least_8(size_t c) {
+    return (c < 8 ? 8 : c);
 }
 
 #endif /* FLATVM_COMMON_HPP */

@@ -10,11 +10,6 @@
 #include <type_traits>
 #include "alzhmr.h"
 
-static inline das_t at_least_8(das_t c)
-{
-    return (c < 8 ? 8 : c);
-}
-
 template <typename T>
 void DynArr<T>::init()
 {
