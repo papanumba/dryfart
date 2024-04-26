@@ -3,7 +3,7 @@
 #ifndef FLATVM_HTABLE_H
 #define FLATVM_HTABLE_H
 
-#include "common.hpp"
+#include "common.h"
 #include "values.h"
 
 class DfIdf;

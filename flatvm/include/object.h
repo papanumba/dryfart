@@ -4,7 +4,7 @@
 #define FLATVM_OBJECT_H
 
 //#include <unordered_map>
-#include "common.hpp"
+#include "common.h"
 #include "values.h"
 #include "htable.h"
 #include "norris.h"

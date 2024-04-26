@@ -4,7 +4,7 @@
 #define FLATVM_READER_H
 
 #ifdef __cplusplus
-#include "common.hpp"
+#include "common.h"
 #else
 #include "common.h"
 #endif // C++

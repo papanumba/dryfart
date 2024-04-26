@@ -3,7 +3,7 @@
 #ifndef FLATVM_DYNARR_H
 #define FLATVM_DYNARR_H
 
-#include "common.hpp"
+#include "common.h"
 
 typedef uint32_t das_t; // Dynamic Array Size_T
 

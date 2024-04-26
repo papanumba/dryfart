@@ -3,7 +3,7 @@
 #ifndef FLATVM_NORRIS_H
 #define FLATVM_NORRIS_H
 
-#include "common.hpp"
+#include "common.h"
 #include "idents.h"
 
 enum Op : uint8_t {
@@ -110,7 +110,8 @@ class Norris {
                         ** NULL if it's anonymous */
   public:
     Norris(
-        const Slice<uint8_t> &, // bcode
+        cbyte_p,                // bcode
+        size_t,
         uint32_t,               // line
         uint8_t,                // arity
         uint8_t,                // uvs
@@ -118,7 +119,6 @@ class Norris {
     );
     Norris(Norris &&);
     ~Norris();
-    Norris & operator=(Norris &&);
 };
 
 #endif /* FLATVM_NORRIS_H */

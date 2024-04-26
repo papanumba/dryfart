@@ -4,7 +4,7 @@
 #define FLATVM_ALZHMR_H
 
 #ifdef __cplusplus
-#include "common.hpp"
+#include "common.h"
 #else
 #include "common.h"
 #endif // C++

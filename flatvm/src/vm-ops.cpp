@@ -104,15 +104,17 @@ case OP_NEG: {
     } \
 } while (false)
 
+#define DO_BINOP(x, op) this->push(DfVal(lhs.as.x op rhs.as.x)); break
+
 case OP_ADD: {
     DfVal rhs = this->pop();
     DfVal lhs = this->pop();
     if (lhs.type != rhs.type)
         ERR_BINOP("+");
     switch (lhs.type) {
-      case VAL_N: this->push(DfVal(lhs.as.n + rhs.as.n)); break;
-      case VAL_Z: this->push(DfVal(lhs.as.z + rhs.as.z)); break;
-      case VAL_R: this->push(DfVal(lhs.as.r + rhs.as.r)); break;
+      case VAL_N: DO_BINOP(n, +);
+      case VAL_Z: DO_BINOP(z, +);
+      case VAL_R: DO_BINOP(r, +);
       case VAL_O: ADD_O; break;
       default: ERR_OP_TYPE("+", &lhs);
     }
@@ -127,8 +129,8 @@ case OP_SUB: {
     if (lhs.type != rhs.type)
         ERR_BINOP("-");
     switch (lhs.type) {
-      case VAL_Z: this->push(DfVal(lhs.as.z - rhs.as.z)); break;
-      case VAL_R: this->push(DfVal(lhs.as.r - rhs.as.r)); break;
+      case VAL_Z: DO_BINOP(z, -);
+      case VAL_R: DO_BINOP(r, -);
       default: ERR_OP_TYPE("-", &lhs);
     }
     break;
@@ -140,9 +142,9 @@ case OP_MUL: {
     if (lhs.type != rhs.type)
         ERR_BINOP("*");
     switch (lhs.type) {
-      case VAL_N: this->push(DfVal(lhs.as.n * rhs.as.n)); break;
-      case VAL_Z: this->push(DfVal(lhs.as.z * rhs.as.z)); break;
-      case VAL_R: this->push(DfVal(lhs.as.r * rhs.as.r)); break;
+      case VAL_N: DO_BINOP(n, *);
+      case VAL_Z: DO_BINOP(z, *);
+      case VAL_R: DO_BINOP(r, *);
       default: ERR_OP_TYPE("*", &lhs);
     }
     break;
@@ -151,13 +153,12 @@ case OP_MUL: {
 case OP_DIV: { // fastest: checked with {pop, peek, ->} & {2pop, fpush}
     DfVal rhs = this->pop();
     DfVal lhs = this->pop();
-    if (lhs.type != rhs.type) {
+    if (lhs.type != rhs.type)
         ERR_BINOP("/");
-    }
     switch (lhs.type) {
 //      case VAL_N: this->push(DfVal(lhs.as.n * rhs.as.n)); break;
 //      case VAL_Z: this->push(DfVal(lhs.as.z * rhs.as.z)); break;
-      case VAL_R: this->push(DfVal(lhs.as.r / rhs.as.r)); break;
+      case VAL_R: DO_BINOP(r, /);
       default: ERR_OP_TYPE("/", &lhs);
     }
     break;
@@ -192,11 +193,11 @@ case OP_DEC: {
 
 // compare ----------------------
 
-#define OP_CEX(XX, op) \
+#define OP_CEX(XX, cmpop) \
 case OP_C ## XX: {                 \
     DfVal rhs = this->pop();       \
     DfVal lhs = this->pop();       \
-    this->push(DfVal(lhs op rhs)); \
+    this->push(DfVal(lhs cmpop rhs)); \
     break;                         \
 }
 
@@ -205,6 +206,29 @@ OP_CEX(EQ, ==)
 OP_CEX(NE, !=)
 
 #undef OP_CEX
+
+// orderings
+
+#define OP_CXX(XX, xx, msg) \
+case OP_C ## XX: {           \
+    int cmp;                 \
+    DfVal rhs = this->pop(), \
+          lhs = this->pop(); \
+    switch ((cmp = dfval_ ## xx(&lhs, &rhs))) { \
+      case CMP_ERR:          \
+        ERR_BINOP(msg);      \
+      default:               \
+        this->push(DfVal((bool)cmp)); \
+    }                        \
+    break;                   \
+}
+
+OP_CXX(LT, lt, "<")
+OP_CXX(LE, le, "<=")
+OP_CXX(GT, gt, ">")
+OP_CXX(GE, ge, ">=")
+
+#undef OP_CXX
 
 // locals -----------------------
 
@@ -233,17 +257,17 @@ case OP_ULS: {
         SIMPLE_ERR("condition is not B%"); \
 } while (false)
 
-case OP_JJS: {
-    int dist = read_i8(&this->ip);
-    this->ip += dist;
-    break;
+#define OP_JJX(X, size) \
+case OP_JJ ## X: {      \
+    auto dist = read_i ## size(&this->ip); \
+    this->ip += dist;   \
+    break;              \
 }
 
-case OP_JJL: {
-    int dist = read_i16(&this->ip);
-    this->ip += dist;
-    break;
-}
+OP_JJX(S, 8)
+OP_JJX(L, 16)
+
+#undef OP_JJX
 
 case OP_JBF: {
     DfVal &b = this->peek();
@@ -295,11 +319,22 @@ case OP_AMN: {
     break;
 }
 
+#define CHECK_IS_A(x) do { \
+    if (!(x).is_arr()) {            \
+        fprintf(stderr, "ERROR: value of type %c%% is not an array\n", \
+            (char) (x).as_type());  \
+        return ITP_RUNTIME_ERR;     \
+    }                               \
+} while (false)
+
 case OP_APE: {
     DfVal elem = this->pop();
     DfVal arr  = this->pop();
-    if (arr.type != VAL_O || arr.as.o.get_type() != OBJ_ARR)
-        SIMPLE_ERR("ERROR: value is not an array");
+#ifdef SAFE
+    CHECK_IS_A(arr);
+    if (!arr.as.o.mut()) // must be mut
+        SIMPLE_ERR("trying to push into of immutable array");
+#endif
     ArrObj *a = arr.as.o.as_arr();
     if (AccRes::OK != a->push(std::move(elem)))
         SIMPLE_ERR("ERROR: some error pushing into array");
@@ -310,8 +345,9 @@ case OP_APE: {
 case OP_AGE: {
     DfVal idx = this->pop();
     DfVal arr = this->pop();
-    if (!arr.is_arr())
-        SIMPLE_ERR("ERROR: value is not an array");
+#ifdef SAFE
+    CHECK_IS_A(arr);
+#endif
     uint32_t idx_n = 0;
     switch (idx.type) {
       case VAL_N: idx_n = idx.as.n; break;
@@ -329,9 +365,41 @@ case OP_AGE: {
         printf("len is %u, idx is %u\n", a->len(), idx_n);
         SIMPLE_ERR(accres_what(res));
     }
+#ifdef SAFE
+    if (!arr.as.o.mut()) // propagate mutability
+        val.set_mut(false);
+#endif
     this->push(std::move(val));
     break;
 }
+
+case OP_ASE: {
+    DfVal val = this->pop(),
+          idx = this->pop(),
+          arr = this->pop();
+#ifdef SAFE
+    CHECK_IS_A(arr);
+    if (!arr.as.o.mut()) // must be mut
+        SIMPLE_ERR("trying to push into an immutable array");
+#endif
+    uint32_t idx_n = 0;
+    switch (idx.type) {
+      case VAL_N: idx_n = idx.as.n; break;
+      case VAL_Z:
+        if (idx.as.z < 0)
+            SIMPLE_ERR("ERROR: Z% index is negative");
+        idx_n = (uint32_t) idx.as.z;
+        break;
+      default: SIMPLE_ERR("ERROR: index is not N% or Z%");
+    }
+    auto a = arr.as.o.as_arr();
+    auto res = a->set(idx_n, std::move(val));
+    if (res != AccRes::OK)
+        SIMPLE_ERR(accres_what(res));
+    break;
+}
+
+#undef CHECK_IS_A
 
 // table ---------------------------
 
@@ -603,32 +671,6 @@ static void op_cne(VirMac *vm)
     lhs->type = VAL_B;
 }
 
-#define OP_CMP(name, cmp_fn, msg) \
-static void name(VirMac *vm)      \
-{                                       \
-    int cmp;                            \
-    DfVal lhs, rhs, res;         \
-    rhs = this->pop();               \
-    lhs = this->pop();               \
-    switch ((cmp = cmp_fn(&lhs, &rhs))) { \
-      case CMP_ERR:                     \
-        ERR_BINOP(msg);                 \
-        return false;                   \
-      default:                          \
-        res.type = VAL_B;               \
-        res.as.b = cmp;                 \
-        this->push(std::move(res);          \
-        return true;                    \
-    }                                   \
-}
-
-OP_CMP(op_clt, dfval_lt, "<")
-OP_CMP(op_cle, dfval_le, "<=")
-OP_CMP(op_cgt, dfval_gt, ">")
-OP_CMP(op_cge, dfval_ge, ">=")
-
-#undef OP_CMP
-
 static void op_not(VirMac *vm)
 {
     DfVal val, res;
@@ -726,68 +768,6 @@ static void op_caz(VirMac *vm)
         return false;
     }
     val->type = VAL_Z;
-    return true;
-}
-
-static void op_ase(VirMac *vm)
-{
-    DfVal arr, idx, val;
-    val = this->pop();
-    idx = this->pop();
-    arr = this->pop();
-    if (arr.type != VAL_O || arr.as.o->type != OBJ_ARR) {
-        eputln("ERROR: value is not an array");
-        return false;
-    }
-    if (idx.type != VAL_N) {
-        eputln("ERROR: index is not N%");
-        return false;
-    }
-    struct ObjArr *a = OBJ_AS_ARR(arr.as.o);
-    return objarr_set(a, idx.as.n, val); /* OK or ERR result */
-}
-
-static void op_pcl(VirMac *vm)
-{
-}
-
-static void op_fcl(VirMac *vm)
-{
-    uint8_t arity = READ_U8();
-    DfVal *val = this->sp - (arity + 1); /* args + callee */
-#ifdef SAFE
-    if (val2type(val) != DFTYPE_F) {
-        eputln("ERROR: cannot #call a not #");
-        return false;
-    }
-#endif /* SAFE */
-    struct ObjFun *fun = OBJ_AS_FUN(val->as.o);
-    if (fun->obj.is_nat) {
-        DfVal ret;
-        int res = fun->as.nat.eval(vm, this->sp - arity, arity, &ret);
-        if (!res)
-            return false;
-        this->sp -= arity + 1;
-        this->push(std::move(ret);
-        return res;
-    }
-#ifdef SAFE
-    if (fun->as.usr->ari != arity) {
-        printf("wrong arity calling ");
-        object_print(val->as.o);
-        puts("");
-        return false;
-    }
-#endif /* SAFE */
-    return push_call(vm, val, fun->as.usr);
-}
-
-static void op_ret(VirMac *vm)
-{
-    DfVal ret = this->pop();
-    if (!pop_call(vm))
-        return false;
-    this->push(std::move(ret);
     return true;
 }
 

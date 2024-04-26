@@ -120,8 +120,7 @@ static void load_one_pag(VmData &vmd, cbyte_p *rpp)
     size_t len = read_u32(rpp);
     if ((*rpp)[len] != 0)
         throw std::runtime_error("Incorrect format Norris: end \\0");
-    Slice<uint8_t> cod((uint8_t *)*rpp, len);
-    vmd.pag.push(Norris(cod, lne, ari, uvs, nam));
+    vmd.pag.push(Norris(*rpp, len, lne, ari, uvs, nam));
     *rpp += len + 1;
 }
 

@@ -1,0 +1,18 @@
+Duck = $;.
+Duck$new = #;
+  ##Duck.
+..
+Duck$swim = !.
+  patata = /0. ' Z error
+..
+
+Whale = $;.
+Whale$new = #;
+  ##Whale.
+..
+Whale$swim = !.
+  patata = /T. ' B error
+..
+
+animal = Duck$new#;.
+animal$swim!.

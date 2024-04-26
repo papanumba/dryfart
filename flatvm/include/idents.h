@@ -3,7 +3,7 @@
 #ifndef FLATVM_IDENTS_H
 #define FLATVM_IDENTS_H
 
-#include "common.hpp"
+#include "common.h"
 #include <new>
 
 class DfIdf {

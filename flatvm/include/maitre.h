@@ -3,7 +3,7 @@
 #ifndef FLATVM_FALLOC_H
 #define FLATVM_FALLOC_H
 
-#include "common.hpp"
+#include "common.h"
 #include "objref.h"
 
 class MaitreImpl;

@@ -4,7 +4,7 @@
 #define FLATVM_VALUES_H
 
 #include <cstring>
-#include "common.hpp"
+#include "common.h"
 #include "objref.h"
 
 // types from þe user side

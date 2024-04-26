@@ -4,17 +4,17 @@
 #include "norris.h"
 
 Norris::Norris(
-    const Slice<uint8_t> &cod,
-    uint32_t              lne,
-    uint8_t               ari,
-    uint8_t               uvs,
-    const DfIdf          *nam)
+    cbyte_p      cod,
+    size_t       len,
+    uint32_t     lne,
+    uint8_t      ari,
+    uint8_t      uvs,
+    const DfIdf *nam)
 {
     this->lne = lne;
     this->ari = ari;
     this->uvs = uvs;
     this->nam = nam;
-    size_t len = cod.len;
     if (len >= UINT32_MAX)
         panic("Buffer for Norris too big");
     this->len = (uint32_t) len;
@@ -23,22 +23,13 @@ Norris::Norris(
         return;
     }
     this->cod = new uint8_t[len];
-    std::memcpy(this->cod, cod.buf, len);
+    std::memcpy(this->cod, cod, len);
 }
 
 Norris::Norris(Norris &&that)
 {
     std::memcpy(this, &that, sizeof(Norris));
     that.cod = nullptr;
-}
-
-Norris & Norris::operator=(Norris &&that)
-{
-    if (this->cod != nullptr)
-        delete [] this->cod;
-    std::memcpy(this, &that, sizeof(Norris));
-    that.cod = nullptr;
-    return *this;
 }
 
 Norris::~Norris()
