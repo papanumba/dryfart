@@ -406,32 +406,39 @@ impl<'src> Nip<'src>
                     let casted = self.cast_expr()?;
                     Ok(Expr::Tcast(pt.into(), Box::new(casted)))
                 }
-                _ => self.fn_call(),
+                _ => self.fn_acc_ex(),
             },
             _ => eof_err!("type%, ident or literal"),
         }
     }
 
-    fn fn_call(&mut self) -> Result<Expr, String>
-    {
-        let mut e = self.acc_expr()?;
-        while self.matches::<0>(TokenType::Hash) {
-            self.advance(); // #
-            let args = self.comma_ex(TokenType::Semic)?;
-            e = Expr::Fcall(Box::new(e), args);
-        }
-        return Ok(e);
-    }
-
-    fn acc_expr(&mut self) -> Result<Expr, String>
+    fn fn_acc_ex(&mut self) -> Result<Expr, String>
     {
         let mut e = self.nucle()?;
-        while self.matches::<0>(TokenType::Dollar) {
-            self.advance(); // $
-            let i = self.consume_ident()?;
-            e = Expr::TblFd(Box::new(e),
-                Rc::new(String::from(std::str::from_utf8(i).unwrap())),
-            );
+        loop {
+            if self.matches::<0>(TokenType::Dollar) {
+                self.advance(); // $
+                let i = self.consume_ident()?;
+                e = Expr::TblFd(Box::new(e),
+                    Rc::new(String::from(std::str::from_utf8(i).unwrap())),
+                );
+            } else
+            if self.matches::<0>(TokenType::Hash) {
+                self.advance(); // #
+                let args = self.comma_ex(TokenType::Semic)?;
+                e = Expr::Fcall(Box::new(e), args);
+            } else
+            if self.matches::<0>(TokenType::HashDollar){
+                self.advance(); // $
+                let i = self.consume_ident()?;
+                self.exp_adv(TokenType::Hash)?; // #
+                let args = self.comma_ex(TokenType::Semic)?;
+                e = Expr::TbFcl(Box::new(e),
+                    Rc::new(String::from(std::str::from_utf8(i).unwrap())),
+                    args);
+            } else {
+                break;
+            }
         }
         return Ok(e);
     }

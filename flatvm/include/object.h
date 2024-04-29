@@ -58,24 +58,24 @@ class ArrObj : public Object {
     AccRes set(uint32_t, DfVal &&);
     AccRes concat(const ArrObj &, ArrObj &) const;
     void print() const;
-    ArrObj & operator=(ArrObj &&from) {
+/*    ArrObj & operator=(ArrObj &&from) {
         std::memcpy(this, &from, sizeof(ArrObj));
         from.typ = DfType::V;
         return *this;
-    }
+    }*/
 };
 
 class TblObj : public Object {
     typedef const DfIdf * key_t; // owned by VmData
     union _as {
         Htable usr;
-        NatTb  nat;
+        NatTbl nat;
         // dummy
         ~_as() {}
     } as;
   public:
-    TblObj(NatTb);
     ~TblObj();
+    void set(NatTbl &&);
     void set(Htable &&);
     bool get(key_t, DfVal &) const; // returns by last param
     bool set(key_t, DfVal &&);
@@ -100,7 +100,7 @@ class FunObj : public Object {
   public:
     union _as {
         UsrSrt usr;
-        // NatFun nat;
+        NatFun nat;
         ~_as() {} // dummy dtor
     } as;
   public:
@@ -114,7 +114,7 @@ class ProObj : public Object {
   public:
     union _as {
         UsrSrt usr;
-        // NatPro nat;
+        NatPro nat;
         ~_as() {} // dummy dtor
     } as;
   public:

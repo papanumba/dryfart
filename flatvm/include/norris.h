@@ -92,6 +92,7 @@ enum Op : uint8_t {
     OP_RET = 0xF0,
     OP_END = 0xF1,
     OP_DUP = 0xF4,
+    OP_SWP = 0xF5,
     OP_POP = 0xF8,
     OP_HLT = 0xFF
     /* TODO: add opcodes */

@@ -108,6 +108,7 @@ pub enum Op
     RET = 0xF0,
     END = 0xF1,
     DUP = 0xF4,
+    SWP = 0xF5,
     POP = 0xF8,
     HLT = 0xFF
     // TODO: add opcodes
@@ -199,6 +200,7 @@ impl TryFrom<ImOp> for Op
             ImOp::CAR => Ok(Op::CAR),
 
             ImOp::DUP => Ok(Op::DUP),
+            ImOp::SWP => Ok(Op::SWP),
             ImOp::POP => Ok(Op::POP),
 
             _ => Err(()),

@@ -69,6 +69,7 @@ pub enum Token<'src>
     Ge,   // >=
     Le,   // <=
     Then, // =>
+    HashDollar, // #$
     // literals
     ValB(bool),
     ValN(u32),
@@ -240,6 +241,7 @@ pub enum TokenType
     Ge,   // >=
     Le,   // <=
     Then, // =>
+    HashDollar, // #$
     // literals
     ValB,
     ValN,
@@ -307,6 +309,7 @@ impl<'src> From<&Token<'src>> for TokenType
             Token::Ge       => Self::Ge,
             Token::Le       => Self::Le,
             Token::Then     => Self::Then,
+            Token::HashDollar => Self::HashDollar,
             // literals
             Token::ValB(_)  => Self::ValB,
             Token::ValN(_)  => Self::ValN,

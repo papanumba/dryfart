@@ -287,7 +287,7 @@ impl<'src> Luthor<'src>
         return Token::Bang;
     }
 
-    // #, ##, #@
+    // #, ##, #@, #$
     #[inline]
     fn from_hash(&mut self) -> Token<'src>
     {
@@ -298,6 +298,10 @@ impl<'src> Luthor<'src>
         if self.matches::<0>(b'@') {
             self.advance(); // @
             return Token::RecF;
+        }
+        if self.matches::<0>(b'$') {
+            self.advance(); // $
+            return Token::HashDollar;
         }
         return Token::Hash;
     }

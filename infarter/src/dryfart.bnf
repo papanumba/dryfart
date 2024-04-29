@@ -56,12 +56,16 @@ use https://bnfplayground.pauliankline.com/;
 <CastExpr> ::= <PrimType>* <AccExpr>
 <PrimType> ::= r"[BCNZR]%"
 
-/*<FnArgs>  ::= "#" <CommaEx>? ";"*/
+<FnArgs>  ::= "#" <CommaEx>? ";"
 
 /*<AnonFn>  ::= "#" <FnPars>? ";" <Block> "."*/
 /*<FnPars>  ::= <Ident> ("," <Ident>)**/
 
-<AccExpr> ::= <Nucle> ("$" <Ident>)*
+/* $ accesses, #calls; and $# acc calls are on same level, are left assoc */
+<FnAccEx> ::= <Nucle> (
+            | "$" <Ident>
+            | <FnArgs>
+            | "#$" <Ident> <FnArgs> )*
 
 <Nucle>   ::= /*<AnonFn> |*/
             <Parented> | <Literal> | <Ident> /*| "@" /* recurs */

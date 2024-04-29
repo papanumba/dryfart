@@ -602,6 +602,11 @@ case OP_DUP:
     this->push(DfVal(this->peek()));
     break;
 
+case OP_SWP:
+    // unchecked
+    std::swap<DfVal>(this->sp[-1], this->sp[-2]);
+    break;
+
 case OP_POP:
     (void) this->pop();
     break;

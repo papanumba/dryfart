@@ -7,44 +7,58 @@ class DfVal;
 class DfIdf;
 class VirMac;
 
-enum NatTb {
+enum NatTblTag {
     DF_STD    = 0,
     DF_STD_IO = 1,
     DF_STD_A,
 };
 
-enum NatPcTag {
+class NatTbl {
+  typedef const DfIdf * key_t;
+  private:
+    void *priv;
+  public:
+    NatTblTag tag;
+  public:
+    NatTbl(NatTblTag);
+    ~NatTbl();
+    bool get(key_t, DfVal &) const;
+    bool set(key_t, DfVal &&);
+    void print() const;
+    static NatTbl factory_get(NatTblTag);
+};
+
+enum NatProTag {
     DF_STD_IO_PUT = 0,
     DF_STD_GC,
     DF_STD_A_EKE,
 };
 
-struct NatPc {
-    enum NatPcTag tag;
-    int (*exec)(VirMac *, DfVal *, size_t);
+class NatPro {
+  public:
+    NatProTag tag;
+    int (*exec)(VirMac &, DfVal *, size_t);
+  public:
+    NatPro(NatProTag);
+    void print() const;
 };
 
-enum NatFnTag {
+enum NatFunTag {
     DF_STD_A_LEN
 };
 
-struct NatFn {
-    enum NatFnTag tag;
+class NatFun {
+  public:
+    NatFunTag tag;
     int (*eval)(
-        VirMac *,
+        VirMac &,
         DfVal *,
         size_t,
-        DfVal *
+        DfVal & // return
     );
+  public:
+    NatFun(NatFunTag);
+    void print() const;
 };
-
-void nat_tb_print(enum NatTb);
-int  nat_tb_get  (enum NatTb, DfIdf *, DfVal *);
-
-void         nat_pc_print(enum NatPcTag);
-struct NatPc nat_pc_from (enum NatPcTag);
-
-void         nat_fn_print(enum NatFnTag);
-struct NatFn nat_fn_from (enum NatFnTag);
 
 #endif /* FLATVM_NATIVE_H */

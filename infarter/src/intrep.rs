@@ -70,6 +70,7 @@ pub enum ImOp
     CAR,
 
     DUP,
+    SWP,
     POP,
     // TODO: add opcodes
 }
@@ -658,6 +659,7 @@ impl Compiler
             Expr::RecsT(l)       => self.e_recst(l),
             Expr::FnDef(s)       => self.e_fndef(&s.borrow()),
             Expr::Fcall(f, a)    => self.e_fcall(f, a),
+            Expr::TbFcl(t, f, a) => self.e_tbfcl(t, f, a),
             Expr::PcDef(s)       => self.e_pcdef(&s.borrow()),
             Expr::RecFn |
             Expr::RecPc => self.push_op(ImOp::LLX(0)), // unchecked
@@ -821,6 +823,29 @@ impl Compiler
             self.expr(arg);
         }
         let ari = u8::try_from(args.len())
+            .expect("too many args in func call: max 255");
+        self.push_op(ImOp::FCL(ari));
+    }
+
+    pub fn e_tbfcl(&mut self, obj: &Expr, field: &Rc<String>, args: &[Expr])
+    {
+        /*
+        **  [obj]
+        **  DUP
+        **  TGF (field)
+        **  SWP
+        **  [args...]
+        **  FCL [#args + 1] // +1 bcoz obj itself is passed
+        */
+        self.expr(obj);
+        self.push_op(ImOp::DUP);
+        let idx = self.push_ident(field);
+        self.push_op(ImOp::TGF(idx));
+        self.push_op(ImOp::SWP);
+        for a in args {
+            self.expr(a);
+        }
+        let ari = u8::try_from(args.len() + 1)
             .expect("too many args in func call: max 255");
         self.push_op(ImOp::FCL(ari));
     }

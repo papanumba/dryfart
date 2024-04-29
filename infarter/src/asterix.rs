@@ -684,6 +684,7 @@ pub enum Expr
     CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
     FnDef(MutRc<Subr>),
     Fcall(Box<Expr>, Vec<Expr>),
+    TbFcl(Box<Expr>, Rc<String>, Vec<Expr>), // expr#$ident#exprs,;
     RecFn,
     PcDef(MutRc<Subr>),
     RecPc,

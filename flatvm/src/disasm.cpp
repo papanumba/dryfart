@@ -145,6 +145,7 @@ static void disasm_ins_fast()
       case OP_RET: simple_ins("RET"); break;
       case OP_END: simple_ins("END"); break;
       case OP_DUP: simple_ins("DUP"); break;
+      case OP_SWP: simple_ins("SWP"); break;
       case OP_POP: simple_ins("POP"); break;
       case OP_HLT: simple_ins("HLT"); break;
 

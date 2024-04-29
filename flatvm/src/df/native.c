@@ -1,4 +1,4 @@
-/* native.c */
+// native.cpp
 
 #include <stdio.h>
 #include <string.h>
@@ -19,7 +19,7 @@ do { \
             name, a); \
         return FALSE; \
     } \
-} while(FALSE)
+} while(false)
 
 static int df_std_get   (struct DfIdf *, struct DfVal *);
 static int df_std_io_get(struct DfIdf *, struct DfVal *);

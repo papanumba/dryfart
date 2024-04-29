@@ -60,5 +60,6 @@ jumps:
 | 0xF0 | `RET` |              | val          | val (outer) | RETurn func #%         |
 | 0xF1 | `END` |              |              |             | END proc !%            |
 | 0xF4 | `DUP` |              | val          | val, val    | DUPlicate              |
+| 0xF5 | `SWP` |              | a, b         | b, a        | SWaP top 2 vals        |
 | 0xF8 | `POP` |              | val          |             | POP                    |
 | 0xFF | `HLT` |              |              | ºOº         | HaLT                   |
