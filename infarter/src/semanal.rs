@@ -24,19 +24,16 @@ pub fn std_check_block(b: &mut Block)
 fn std_check_stmt(s: &mut Stmt)
 {
     match s {
-        Stmt::Assign(x, e) => {std_check_expr(x); std_check_expr(e);},
-        Stmt::IfStmt(c, b, e) => {
-            std_check_expr(c);
-            std_check_block(b);
+        Stmt::Assign(x, e)    => {std_check_expr(x); std_check_expr(e);},
+        Stmt::OperOn(l, _, e) => {std_check_expr(l); std_check_expr(e);},
+        Stmt::IfStmt(c, b, e) => {std_check_expr(c); std_check_block(b);
             if let Some(m) = e { check(m); }
         },
         Stmt::LoopIf(l) => std_check_loop(l),
         Stmt::Return(e) => std_check_expr(e),
         Stmt::PcCall(p, a) => {
             std_check_expr(p);
-            for e in a {
-                std_check_expr(e);
-            }
+            for e in a { std_check_expr(e); }
         },
         _ => {},
     }
@@ -179,6 +176,7 @@ impl UpvAnal
     {
         match s {
             Stmt::Assign(a, e) => self.pass_s_assign(a, e),
+            //TODO operons
             Stmt::IfStmt(c, b, e) => {
                 self.pass_expr(c);
                 self.pass_block(b);

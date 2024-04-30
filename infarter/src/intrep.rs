@@ -71,6 +71,7 @@ pub enum ImOp
 
     DUP,
     SWP,
+    ROT,
     POP,
     // TODO: add opcodes
 }
@@ -466,6 +467,7 @@ impl Compiler
     {
         match s {
             Stmt::Assign(v, e)    => self.s_assign(v, e),
+            Stmt::OperOn(l, o, e) => self.s_operon(l, o, e),
             Stmt::IfStmt(c, b, e) => self.s_ifstmt(c, b, e),
             Stmt::LoopIf(l)       => self.s_loopif(l),
             Stmt::PcCall(p, a)    => self.s_pccall(p, a),
@@ -485,6 +487,62 @@ impl Compiler
                 return self.s_tblass(t, f, ex),
             _ => panic!("cannot assign to {:?}", v),
         }
+    }
+
+    #[inline]
+    fn s_operon(&mut self, lhs: &Expr, op: &BinOpcode, ex: &Expr)
+    {
+        match lhs {
+            Expr::Ident(s) => { // s = s op ex., only for locals, not upvals
+                self.e_binop(lhs, op, ex);
+                // find local
+                let Some(idx) = self.resolve_local(s) else {
+                    panic!("operon on identifiers only works for locals");
+                };
+                self.push_op(ImOp::SLX(*idx));
+            },
+            Expr::BinOp(a, BinOpcode::Idx, i) =>
+                self.s_operon_arr(a, i, op, ex),
+            Expr::TblFd(t, f) => self.s_operon_tbl(t, f, op, ex),
+            _ => panic!("cannot operon to {:?}", lhs),
+        }
+    }
+
+    #[inline]
+    fn s_operon_arr( // a_i oo e.
+        &mut self,
+        a: &Expr,
+        i: &Expr,
+        o: &BinOpcode,
+        e: &Expr)
+    {
+        self.expr(a);            // a
+        self.push_op(ImOp::DUP); // a, a
+        self.expr(i);            // a, a, i
+        self.push_op(ImOp::DUP); // a, a, i, i
+        self.push_op(ImOp::ROT); // a, i, a, i
+        self.push_op(ImOp::AGE); // a, i, a_i
+        self.expr(e);            // a, i, a_i, e
+        self.push_binop(o);      // a, i, a_i o e
+        self.push_op(ImOp::ASE); // Ø
+    }
+
+    #[inline]
+    fn s_operon_tbl( // t$f oo e.
+        &mut self,
+        t: &Expr,
+        f: &Rc<String>,
+        o: &BinOpcode,
+        e: &Expr)
+    {
+        self.expr(t);             // ... t
+        self.push_op(ImOp::DUP);      // t, t
+        let idx = self.push_ident(f);
+        self.push_op(ImOp::TGF(idx)); // t, t$f
+        self.expr(e);                 // t, t$f, e
+        self.push_binop(o);           // t, t$f o e
+        self.push_op(ImOp::TSF(idx)); // t with f=t$f o e
+        self.push_op(ImOp::POP);      // Ø
     }
 
     #[inline]

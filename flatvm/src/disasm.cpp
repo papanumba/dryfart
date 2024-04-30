@@ -59,6 +59,9 @@ static void disasm_ins_fast()
     uint8_t instru = read_u8(&ip);
 
     switch (instru) {
+
+#define SIMPLE(XXX) case OP_ ## XXX: simple_ins(#XXX); break;
+
       /* 0x0_ */
       case OP_NOP: simple_ins("NOP"); break;
       case OP_LVV: simple_ins("LVV"); break;
@@ -142,12 +145,15 @@ static void disasm_ins_fast()
       JMP(OP_JGE, "JGE", 2)
 #undef JMP
 
-      case OP_RET: simple_ins("RET"); break;
+      SIMPLE(RET)
       case OP_END: simple_ins("END"); break;
       case OP_DUP: simple_ins("DUP"); break;
       case OP_SWP: simple_ins("SWP"); break;
+      case OP_ROT: simple_ins("ROT"); break;
       case OP_POP: simple_ins("POP"); break;
       case OP_HLT: simple_ins("HLT"); break;
+
+#undef SIMPLE
 
       default:
         printf("unknown opcode 0x%02x\n", instru);

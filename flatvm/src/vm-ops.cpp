@@ -607,6 +607,12 @@ case OP_SWP:
     std::swap<DfVal>(this->sp[-1], this->sp[-2]);
     break;
 
+case OP_ROT:
+    // unchecked
+    std::swap<DfVal>(this->sp[-1], this->sp[-2]);
+    std::swap<DfVal>(this->sp[-2], this->sp[-3]);
+    break;
+
 case OP_POP:
     (void) this->pop();
     break;

@@ -5,6 +5,8 @@ jumps:
         - non-POP( 2): JB[TF] // þese are Short
         - popping(12): `J([TFEN][SL]|[LG][TE])` þe unm are Long
 
+Þe stack representation follows þat þe top is at þe right.
+
 | Hex  | OP    | operands     | stack before | stack after | Explnation             |
 |------|-------|--------------|--------------|-------------|------------------------|
 | 0x00 | `NOP` |              |              |             | do noþing              |
@@ -42,9 +44,9 @@ jumps:
 | 0x5F | `JGE` | i16 "        |              |             | Jump Greater or Equal  |
 |      |       |              |              |             |                        |
 | 0x60 | `AMN` |              |              | _;          | Array Make New         |
-| 0x61 | `APE` |              | _%arr, elem  | arr         | Array Push Element     |
-| 0x62 | `AGE` |              | _%arr, N%idx | elem        | Array Get Element      |
-| 0x62 | `ASE` |              | _%arr, N%idx | elem        | Array Set Element      |
+| 0x61 | `APE` |              | arr, elem    | arr         | Array Push Element     |
+| 0x62 | `AGE` |              | arr, idx     | elem        | Array Get Element      |
+| 0x62 | `ASE` |              | arr, idx     |             | Array Set Element      |
 |      |       |              |              |             |                        |
 | 0x70 | `TMN` |              |              | $;          | Table Make New         |
 | 0x71 | `TSF` | u16:idf idx  | $%tab, val   | $%tab       | Table Set Field        |
@@ -61,5 +63,6 @@ jumps:
 | 0xF1 | `END` |              |              |             | END proc !%            |
 | 0xF4 | `DUP` |              | val          | val, val    | DUPlicate              |
 | 0xF5 | `SWP` |              | a, b         | b, a        | SWaP top 2 vals        |
+| 0xF6 | `ROT` |              | a, b, c      | c, a, b     | ROTate: top down 2 places |
 | 0xF8 | `POP` |              | val          |             | POP                    |
 | 0xFF | `HLT` |              |              | ºOº         | HaLT                   |

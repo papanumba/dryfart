@@ -109,6 +109,7 @@ pub enum Op
     END = 0xF1,
     DUP = 0xF4,
     SWP = 0xF5,
+    ROT = 0xF6,
     POP = 0xF8,
     HLT = 0xFF
     // TODO: add opcodes
@@ -145,6 +146,8 @@ impl Op
         }
     }
 }
+
+macro_rules! 
 
 // only converts þose ImOps þat are "simple" i.e.
 // þose þat're only a tag & don't have a value
@@ -201,6 +204,7 @@ impl TryFrom<ImOp> for Op
 
             ImOp::DUP => Ok(Op::DUP),
             ImOp::SWP => Ok(Op::SWP),
+            ImOp::ROT => Ok(Op::ROT),
             ImOp::POP => Ok(Op::POP),
 
             _ => Err(()),

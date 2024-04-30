@@ -7,7 +7,6 @@ use crate::{
     util::MutRc,
 };
 
-
 /* MAIN FUNCTION to execute all þe programm */
 pub fn exec_main(prog: &Block)
 {
@@ -87,7 +86,7 @@ impl Scope
     {
         match s {
             Stmt::Assign(v, e)    => self.do_assign(v, e),
-//            Stmt::OperOn(v, o, e) => todo!(), //do_operon(sc, v, o, e),
+            Stmt::OperOn(l, o, e) => self.do_operon(l, o, e),
             Stmt::IfStmt(c, b, e) => return self.do_ifstmt(c, b, e),
             Stmt::LoopIf(l)       => return self.do_loopif(l),
             Stmt::BreakL(l)       => return Some(BlockAction::Brk(*l)),
@@ -96,7 +95,6 @@ impl Scope
             )),
             Stmt::PcExit          => return Some(BlockAction::End),
             Stmt::PcCall(p, a)    => self.do_pccall(p, a),
-            _ => todo!(),
         }
         return None;
     }
@@ -150,24 +148,12 @@ impl Scope
         }
     }
 
-    /*#[inline]
-    fn do_operon<'a>(
-        sc: &mut Scope::<'a>,
-        id: &str,
-        op: &BinOpcode,
-        ex: &Expr)
+    #[inline]
+    fn do_operon(&mut self, lhs: &Expr, op: &BinOpcode, ex: &Expr)
     {
-        // check for declared var
-        let idval: &Val;
-        match sc.vars.get(id) {
-            Some(v) => idval = v,
-            None => panic!("aaa dunno what is {id} variable"),
-        }
-        // calculate new value
-        let value: Val = eval_expr(sc, ex);
-        let value: Val = eval_binop_val(idval, op, &value);
-        sc.vars.insert(id, value); // id exists
-    }*/
+        let val = self.eval_binop(lhs, op, ex);
+        self.do_assign(lhs, &Expr::Const(val));
+    }
 
     // helper for do_ifstmt & do_loopif
     #[inline]

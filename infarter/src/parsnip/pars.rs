@@ -203,10 +203,11 @@ impl<'src> Nip<'src>
             Some(t) => match t.0 {
                 Token::Equal => self.assign(lhs),
                 Token::Bang => self.pccall(lhs),
-                Token::Plus2 |
-                Token::Minus2 |
+                // TODO BangDollar
+                Token::Plus2     |
+                Token::Minus2    |
                 Token::Asterisk2 |
-                Token::Slash2 => todo!(), //self.operon(id, t.0),
+                Token::Slash2 => self.operon(lhs, t.0),
                 _ => expected_err!(MSG, t),
             },
             None => eof_err!(MSG),
@@ -222,20 +223,15 @@ impl<'src> Nip<'src>
         Ok(Stmt::Assign(lhs, e))
     }
 
-/*    #[inline]
-    fn operon(&mut self, id: &[u8], op: Token<'_>) -> Result<Stmt, String>
+    #[inline]
+    fn operon(&mut self, lhs: Expr, op: Token<'_>) -> Result<Stmt, String>
     {
-        self.advance(); // ident
-        self.advance(); // operon
+        self.advance(); // op
         let binop = BinOpcode::try_from(&op)?;
         let ex = self.expr()?;
         self.exp_adv(TokenType::Period)?;
-        return Ok(Stmt::OperOn(
-            String::from_utf8_lossy(id).into_owned(),
-            binop,
-            ex,
-        ));
-    }*/
+        return Ok(Stmt::OperOn(lhs, binop, ex));
+    }
 
     #[inline]
     fn pccall(&mut self, lhs: Expr) -> Result<Stmt, String>
