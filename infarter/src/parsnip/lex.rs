@@ -272,7 +272,7 @@ impl<'src> Luthor<'src>
         return Token::Rangle;
     }
 
-    // !, !!, !@
+    // !, !!, !@, !$
     #[inline]
     fn from_bang(&mut self) -> Token<'src>
     {
@@ -283,6 +283,10 @@ impl<'src> Luthor<'src>
         if self.matches::<0>(b'@') {
             self.advance();
             return Token::RecP;
+        }
+        if self.matches::<0>(b'$') {
+            self.advance(); // $
+            return Token::BangDollar;
         }
         return Token::Bang;
     }
@@ -343,6 +347,7 @@ impl<'src> Luthor<'src>
         let lex = self.lexeme();
         if lex.len() == 1 { // try boolean keywords
             match lex[0] {
+                b'V' => return Token::ValV,
                 b'T' => return Token::ValB(true),
                 b'F' => return Token::ValB(false),
                 _ => {},

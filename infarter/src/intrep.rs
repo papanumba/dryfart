@@ -471,6 +471,7 @@ impl Compiler
             Stmt::IfStmt(c, b, e) => self.s_ifstmt(c, b, e),
             Stmt::LoopIf(l)       => self.s_loopif(l),
             Stmt::PcCall(p, a)    => self.s_pccall(p, a),
+            Stmt::TbPCal(t, f, a) => self.obj_call(t, f, a, SubrType::P),
             Stmt::PcExit          => {self.term_curr_bb(Term::END);},
             Stmt::Return(e)       => self.s_return(e),
             _ => todo!("oþer stmts {:?}", s),
@@ -717,7 +718,7 @@ impl Compiler
             Expr::RecsT(l)       => self.e_recst(l),
             Expr::FnDef(s)       => self.e_fndef(&s.borrow()),
             Expr::Fcall(f, a)    => self.e_fcall(f, a),
-            Expr::TbFcl(t, f, a) => self.e_tbfcl(t, f, a),
+            Expr::TbFcl(t, f, a) => self.obj_call(t, f, a, SubrType::F),
             Expr::PcDef(s)       => self.e_pcdef(&s.borrow()),
             Expr::RecFn |
             Expr::RecPc => self.push_op(ImOp::LLX(0)), // unchecked
@@ -885,7 +886,12 @@ impl Compiler
         self.push_op(ImOp::FCL(ari));
     }
 
-    pub fn e_tbfcl(&mut self, obj: &Expr, field: &Rc<String>, args: &[Expr])
+    pub fn obj_call(
+        &mut self,
+        obj: &Expr,
+        field: &Rc<String>,
+        args: &[Expr],
+        st: SubrType)
     {
         /*
         **  [obj]
@@ -893,7 +899,7 @@ impl Compiler
         **  TGF (field)
         **  SWP
         **  [args...]
-        **  FCL [#args + 1] // +1 bcoz obj itself is passed
+        **  [FP]CL [#args + 1] // +1 bcoz obj itself is passed
         */
         self.expr(obj);
         self.push_op(ImOp::DUP);
@@ -905,7 +911,10 @@ impl Compiler
         }
         let ari = u8::try_from(args.len() + 1)
             .expect("too many args in func call: max 255");
-        self.push_op(ImOp::FCL(ari));
+        self.push_op(match st {
+            SubrType::F => ImOp::FCL(ari),
+            SubrType::P => ImOp::PCL(ari),
+        });
     }
 
     // helper fn

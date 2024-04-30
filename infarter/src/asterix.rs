@@ -671,6 +671,7 @@ pub enum Stmt
     Return(Expr),
     PcExit,
     PcCall(Expr, Vec<Expr>),
+    TbPCal(Expr, Rc<String>, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]

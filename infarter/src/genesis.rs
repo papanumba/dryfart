@@ -147,8 +147,6 @@ impl Op
     }
 }
 
-macro_rules! 
-
 // only converts þose ImOps þat are "simple" i.e.
 // þose þat're only a tag & don't have a value
 impl TryFrom<ImOp> for Op

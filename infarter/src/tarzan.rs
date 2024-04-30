@@ -95,6 +95,7 @@ impl Scope
             )),
             Stmt::PcExit          => return Some(BlockAction::End),
             Stmt::PcCall(p, a)    => self.do_pccall(p, a),
+            Stmt::TbPCal(..)      => todo!(),
         }
         return None;
     }

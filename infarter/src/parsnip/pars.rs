@@ -194,7 +194,7 @@ impl<'src> Nip<'src>
     // þese are assigns, operons or pccalls
     fn other_stmt(&mut self) -> Option<Result<Stmt, String>>
     {
-        const MSG: &'static str = "=, !, ++, --, ** or //";
+        const MSG: &'static str = "=, !, !$, ++, --, ** or //";
         let lhs = match self.expr() {
             Ok(e) => e,
             _ => return None,
@@ -203,7 +203,7 @@ impl<'src> Nip<'src>
             Some(t) => match t.0 {
                 Token::Equal => self.assign(lhs),
                 Token::Bang => self.pccall(lhs),
-                // TODO BangDollar
+                Token::BangDollar => self.tbpcal(lhs),
                 Token::Plus2     |
                 Token::Minus2    |
                 Token::Asterisk2 |
@@ -239,6 +239,17 @@ impl<'src> Nip<'src>
         self.advance(); // !
         let args = self.comma_ex(TokenType::Period)?;
         return Ok(Stmt::PcCall(lhs, args));
+    }
+
+    #[inline]
+    fn tbpcal(&mut self, lhs: Expr) -> Result<Stmt, String>
+    {
+        self.advance(); // !$
+        let name = self.consume_ident()?;
+        self.exp_adv(TokenType::Bang)?; // !
+        let args = self.comma_ex(TokenType::Period)?;
+        let name = Rc::new(String::from_utf8(name.to_vec()).unwrap());
+        return Ok(Stmt::TbPCal(lhs, name, args));
     }
 
     // called when: peek 0 -> LsqBra
@@ -425,7 +436,7 @@ impl<'src> Nip<'src>
                 e = Expr::Fcall(Box::new(e), args);
             } else
             if self.matches::<0>(TokenType::HashDollar){
-                self.advance(); // $
+                self.advance(); // #$
                 let i = self.consume_ident()?;
                 self.exp_adv(TokenType::Hash)?; // #
                 let args = self.comma_ex(TokenType::Semic)?;
@@ -470,6 +481,7 @@ impl<'src> Nip<'src>
                     .unwrap().to_owned())))
             },
             // literals
+            Token::ValV    => {self.advance(); Ok(Expr::Const(Val::V))},
             Token::ValB(b) => Ok(self.valb(b)),
             Token::ValN(n) => Ok(self.valn(n)),
             Token::ValZ(z) => Ok(self.valz(z)),

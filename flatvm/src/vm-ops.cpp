@@ -432,8 +432,7 @@ case OP_TSF: {
         SIMPLE_ERR("trying to set field of immutable table");
 #endif
     const DfIdf *idf = &this->dat->idf[READ_U16()];
-    if (!tbl.as.o.as_tbl()->set(idf, std::move(val)))
-        NOT_FOUND(idf);
+    (void) tbl.as.o.as_tbl()->set(idf, std::move(val));
     this->push(std::move(tbl));
     break;
 }

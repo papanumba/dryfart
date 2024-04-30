@@ -1,0 +1,44 @@
+' kinda linked list in DryFart
+
+Node = $
+  new = #"Node new" val;
+    ## $
+      val  = val.
+      next = V.
+    ;.
+  ..
+;.
+
+List = $;.
+
+List$new = #"List new" ;
+  ## $
+    head = V.
+    ' methods
+    len = List$len.
+    addFront = List$addFront.
+  ;.
+..
+
+List$len = #"List len" this;
+  node = this$head.
+  [node == V => ##0u.]
+  len = 1u.
+  @ next = node$next.
+  [[next ~= V]]
+    node = next.
+    len ++ 1u.
+  .
+  ##len.
+..
+
+List$addFront = !"List addFront" this, newNode.
+  newNode$next = this$head.
+  this$head = newNode.
+..
+
+' ------------------
+
+myList = List$new#;.
+myList!$addFront!Node$new#2500;.
+len = myList#$len#;.

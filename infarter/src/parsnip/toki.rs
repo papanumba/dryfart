@@ -70,7 +70,9 @@ pub enum Token<'src>
     Le,   // <=
     Then, // =>
     HashDollar, // #$
+    BangDollar, // !$
     // literals
+    ValV,
     ValB(bool),
     ValN(u32),
     ValZ(i32),
@@ -237,12 +239,14 @@ pub enum TokenType
     LsqBra2,
     RsqBra2,
     // 2 different char
-    Ne,   // ~=
-    Ge,   // >=
-    Le,   // <=
-    Then, // =>
+    Ne,         // ~=
+    Ge,         // >=
+    Le,         // <=
+    Then,       // =>
     HashDollar, // #$
+    BangDollar, // !$
     // literals
+    ValV,
     ValB,
     ValN,
     ValZ,
@@ -310,7 +314,9 @@ impl<'src> From<&Token<'src>> for TokenType
             Token::Le       => Self::Le,
             Token::Then     => Self::Then,
             Token::HashDollar => Self::HashDollar,
+            Token::BangDollar => Self::BangDollar,
             // literals
+            Token::ValV     => Self::ValV,
             Token::ValB(_)  => Self::ValB,
             Token::ValN(_)  => Self::ValN,
             Token::ValZ(_)  => Self::ValZ,
