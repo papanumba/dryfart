@@ -41,4 +41,8 @@ List$addFront = !"List addFront" this, newNode.
 
 myList = List$new#;.
 myList!$addFront!Node$new#2500;.
+myList!$addFront!Node$new#2500;.
+myList!$addFront!Node$new#2500;.
+myList!$addFront!Node$new#2500;.
+myList!$addFront!Node$new#2500;.
 len = myList#$len#;.

@@ -461,7 +461,7 @@ case OP_TGF: {
 case OP_FMN: {
     auto f = this->ma->alloc(OBJ_FUN);
     uint nor_idx = READ_U16();
-    auto nor = &this->nor[nor_idx];
+    auto nor = &this->dat->pag[nor_idx];
     auto uvs = nor->uvs;
     auto uvp = this->sp - uvs; // base uv pointer
 #ifdef SAFE
@@ -481,7 +481,7 @@ case OP_FCL: {
     DfVal *cle = this->sp - (arity + 1); // args + callee
 #ifdef SAFE
     if (!cle->is_fun())
-        SIMPLE_ERR("cannot !call a not !");
+        SIMPLE_ERR("cannot #call a not #");
 #endif
     auto *fun = cle->as.o.as_fun();
     if (fun->is_nat) {
@@ -507,8 +507,8 @@ case OP_FCL: {
 
 case OP_PMN: {
     auto p = this->ma->alloc(OBJ_PRO);
-    uint nor_idx = READ_U16();
-    auto nor = &this->nor[nor_idx];
+    auto nor_idx = READ_U16();
+    auto nor = &this->dat->pag[nor_idx];
     auto uvs = nor->uvs;
     p.as_pro()->set(UsrSrt(nor, this->sp - uvs));
     TIL(i, uvs) this->pop();
@@ -520,11 +520,9 @@ case OP_PCL: {
     uint8_t arity = READ_U8();
     DfVal *cle = this->sp - (arity + 1); // args + callee
 #ifdef SAFE
-    if (!cle->is_pro()) {
-        eputln("cannot !call a not !");
-        return ITP_RUNTIME_ERR;
-    }
-#endif // SAFE
+    if (!cle->is_pro())
+        SIMPLE_ERR("cannot !call a not !");
+#endif
     auto *pro = cle->as.o.as_pro();
     if (pro->is_nat) {
         /*int res = pro->as.nat.exec(vm, this->sp - arity, arity);
@@ -569,16 +567,43 @@ case OP_LUV: {
 
 // casts ---------------------------
 
+case OP_CAN: {
+    DfVal &val = this->peek();
+    switch (val.type) {
+      case VAL_N: break; // do noþing
+      case VAL_Z:
+        if (val.as.z < 0) // even in unsafe version
+            SIMPLE_ERR("ERROR: casting negative Z% to N%");
+        val = DfVal((uint32_t) val.as.z);
+        break;
+      default:
+        SIMPLE_ERR("err cast N%");
+    }
+    break;
+}
+
+case OP_CAZ: {
+    DfVal &val = this->peek();
+    switch (val.type) {
+      case VAL_N:
+#ifdef SAFE
+        if (val.as.n > (uint32_t) INT32_MAX)
+            SIMPLE_ERR("ERROR: Overflow casting to Z");
+#endif
+        val = DfVal((int32_t) val.as.n); break;
+      case VAL_Z: break; // do noþing
+      default: SIMPLE_ERR("err cast Z%");
+    }
+    break;
+}
+
 case OP_CAR: {
     DfVal &val = this->peek();
     switch (val.type) {
       case VAL_N: val.as.r = (float) val.as.n; break;
       case VAL_Z: val.as.r = (float) val.as.z; break;
-      case VAL_R: break; /* do noþing */
-      default:
-        /*err_cast(from.type, VAL_R);*/
-        eputln("err cast R%");
-        return ITP_RUNTIME_ERR;
+      case VAL_R: break; // do noþing
+      default: SIMPLE_ERR("err cast R%");
     }
     val.type = VAL_R;
     break;
@@ -736,48 +761,6 @@ static void op_ior(VirMac *vm)
         return false;
     }
     this->push(std::move(res);
-    return true;
-}
-
-static void op_can(VirMac *vm)
-{
-    DfVal *val = this->peek();
-    switch (val->type) {
-      case VAL_N: return true; /* do noþing */
-      case VAL_Z:
-        if (val->as.z < 0) {
-            fputs("ERROR: casting negative Z% to N%\n", stderr);
-            return false;
-        }
-        val->as.n = (uint32_t) val->as.z; break;
-      default:
-        /*err_cast(from.type, VAL_R);*/
-        eputln("err cast N");
-        return false;
-    }
-    val->type = VAL_N;
-    return true;
-}
-
-static void op_caz(VirMac *vm)
-{
-    DfVal *val = this->peek();
-    switch (val->type) {
-      case VAL_N:
-#ifdef SAFE
-        if (val->as.n > (uint32_t) INT32_MAX) {
-            fputs("ERROR: Overflow casting to Z\n", stderr);
-            return false;
-        }
-#endif /* SAFE */
-        val->as.z = (int32_t) val->as.n; break;
-      case VAL_Z: return true; /* do noþing */
-      default:
-        /*err_cast(from.type, VAL_R);*/
-        printf("err cast");
-        return false;
-    }
-    val->type = VAL_Z;
     return true;
 }
 
