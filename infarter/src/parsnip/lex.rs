@@ -2,6 +2,15 @@
 
 use super::toki::{Token, PrimType};
 
+macro_rules! if_next {
+    ($this:ident, $c:expr, $tt:ident) => {
+        if $this.matches::<0>($c) {
+            $this.advance();
+            return Token::$tt;
+        }
+    };
+}
+
 #[derive(Debug)]
 pub struct Luthor<'src>
 {
@@ -170,6 +179,7 @@ impl<'src> Luthor<'src>
             b'=' => self.from_equal(),  // =, ==, =>
             b'<' => self.from_langle(), // <, <=
             b'>' => self.from_rangle(), // >, >=
+            b'\\'=> self.from_bslash(),
             b'0'..=b'9' => self.get_num(), // N, Z or R
             b'a'..=b'z' | b'A'..=b'Z' => self.get_ident(),
             b'"' => self.get_string(),
@@ -181,54 +191,44 @@ impl<'src> Luthor<'src>
     // gets called when some of +-*/&|~
     pub fn maybe_2ble(&mut self, c: u8) -> Token<'src>
     {
-        if self.is_at_2ble(c) {
-            if let Ok(t) = Token::try_2ble_from(c) {
-                self.advance();
-                return t;
-            } else {
-                panic!("not a double {0}{0}", char::from(c));
-            }
-        } else {
+        if !self.is_at_2ble(c) {
             return Token::try_from(&c).unwrap();
         }
+        if let Ok(t) = Token::try_2ble_from(c) {
+            self.advance();
+            return t;
+        }
+        panic!("not a double {0}{0}", char::from(c));
     }
 
-    // called when consumed $
+    // $, $@[0-9]*
     #[inline]
     fn from_dollar(&mut self) -> Token<'src>
     {
-        if let Some(c) = self.peek::<0>() {
-            if *c != b'@' {
-                return Token::Dollar;
-            }
-            if self.has_digit_next() {
-                self.advance(); // @
-                self.adv_while(|c| c.is_ascii_digit());
-                let level = std::str::from_utf8(&self.lexeme()[2..])
-                    .unwrap().parse::<u32>().unwrap();
-                return Token::RecT(level);
-            } else { // default level
-                self.advance(); // @
-                return Token::RecT(0);
-            }
+        let Some(c) = self.peek::<0>() else {
+            return Token::Dollar;
+        };
+        if *c != b'@' {
+            return Token::Dollar;
         }
-        return Token::Dollar;
+        if self.has_digit_next() {
+            self.advance(); // @
+            self.adv_while(|c| c.is_ascii_digit());
+            let level = std::str::from_utf8(&self.lexeme()[2..])
+                .unwrap().parse::<u32>().unwrap();
+            return Token::RecT(level);
+        } else { // default level
+            self.advance(); // @
+            return Token::RecT(0);
+        }
     }
 
     // ~, ~~, ~=
     #[inline]
     fn from_tilde(&mut self) -> Token<'src>
     {
-        if let Some(c) = self.peek::<0>() {
-            if *c == b'~' {
-                self.advance();
-                return Token::Tilde2;
-            }
-            if *c == b'=' {
-                self.advance();
-                return Token::Ne;
-            }
-        }
+        if_next!(self, b'~', Tilde2);
+        if_next!(self, b'=', Ne);
         return Token::Tilde;
     }
 
@@ -236,16 +236,8 @@ impl<'src> Luthor<'src>
     #[inline]
     fn from_equal(&mut self) -> Token<'src>
     {
-        if let Some(c) = self.peek::<0>() {
-            if *c == b'=' {
-                self.advance();
-                return Token::Equal2;
-            }
-            if *c == b'>' {
-                self.advance();
-                return Token::Then;
-            }
-        }
+        if_next!(self, b'=', Equal2);
+        if_next!(self, b'>', Then);
         return Token::Equal;
     }
 
@@ -253,22 +245,15 @@ impl<'src> Luthor<'src>
     #[inline]
     fn from_langle(&mut self) -> Token<'src>
     {
-        if self.matches::<0>(b'=') {
-            self.advance();
-            return Token::Le;
-        }
+        if_next!(self, b'=', Le);
         return Token::Langle;
     }
-
 
     // >, >=
     #[inline]
     fn from_rangle(&mut self) -> Token<'src>
     {
-        if self.matches::<0>(b'=') {
-            self.advance();
-            return Token::Ge;
-        }
+        if_next!(self, b'=', Ge);
         return Token::Rangle;
     }
 
@@ -276,18 +261,9 @@ impl<'src> Luthor<'src>
     #[inline]
     fn from_bang(&mut self) -> Token<'src>
     {
-        if self.matches::<0>(b'!') {
-            self.advance();
-            return Token::Bang2;
-        }
-        if self.matches::<0>(b'@') {
-            self.advance();
-            return Token::RecP;
-        }
-        if self.matches::<0>(b'$') {
-            self.advance(); // $
-            return Token::BangDollar;
-        }
+        if_next!(self, b'!', Bang2);
+        if_next!(self, b'@', RecP);
+        if_next!(self, b'$', BangDollar);
         return Token::Bang;
     }
 
@@ -295,19 +271,17 @@ impl<'src> Luthor<'src>
     #[inline]
     fn from_hash(&mut self) -> Token<'src>
     {
-        if self.matches::<0>(b'#') {
-            self.advance(); // #
-            return Token::Hash2;
-        }
-        if self.matches::<0>(b'@') {
-            self.advance(); // @
-            return Token::RecF;
-        }
-        if self.matches::<0>(b'$') {
-            self.advance(); // $
-            return Token::HashDollar;
-        }
+        if_next!(self, b'#', Hash2);
+        if_next!(self, b'@', RecF);
+        if_next!(self, b'$', HashDollar);
         return Token::Hash;
+    }
+
+    // \, FUTURE: \\, \#, \[
+    #[inline]
+    fn from_bslash(&mut self) -> Token<'src>
+    {
+        return Token::Bslash;
     }
 
     // gets called when current char is a digit
@@ -361,13 +335,15 @@ impl<'src> Luthor<'src>
     // returns Some(PrimType) but does not advance()
     fn try_prim_type(&self) -> Option<PrimType>
     {
-        if self.matches::<0>(b'%') {
-            let c = self.input[self.base_pos];
-            if let Ok(pt) = PrimType::try_from(&c) {
-                return Some(pt);
-            }
+        if !self.matches::<0>(b'%') {
+            return None;
         }
-        return None;
+        let c = self.input[self.base_pos];
+        return if let Ok(pt) = PrimType::try_from(&c) {
+            Some(pt)
+        } else {
+            None
+        };
     }
 
     // called when "
