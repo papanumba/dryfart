@@ -1,4 +1,3 @@
-
 <div align="center">
   <h1 align="center">DryFart</h1>
   <h4>A Programming Language as Dry as a Fart</h4>
@@ -6,8 +5,8 @@
 <div align="center">
   <a href="https://github.com/papanumba/dryfart/blob/main/doc/index.md"><img alt="Documentation" src="https://img.shields.io/badge/docs-meh-blue"></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-green"></a>
-    <a href="https://github.com/papanumba/dryfart"><img alt="yea" src="https://img.shields.io/badge/fart-dry-orange"></a>
-    <a href="https://github.com/papanumba/dryfart"><img alt="Lines of Code" src="https://img.shields.io/badge/SLOC-~8k-0"></a>
+  <a href="https://github.com/papanumba/dryfart"><img alt="yea" src="https://img.shields.io/badge/fart-dry-orange"></a>
+  <a href="https://github.com/papanumba/dryfart"><img alt="Lines of Code" src="https://img.shields.io/badge/SLOC-~8.5k-0"></a>
 </div>
 
 :warning: wARNING: this project is still under construction. :construction:
@@ -18,8 +17,8 @@ DryFart is a toy language that I've been developing while learning about compile
 
 The project contains:
 - `InFarter`: tree-walk interpreter and bytecode compiler, written in Rust.
-- `FlatVM`: stack-based bytecode VM, written in C99. I started it by following the one from [Crafting Interpreters](https://craftinginterpreters.com/a-bytecode-virtual-machine.html), but then reworked it and diverged a bit.
-- `DFartEd`: a very small editor with syntax highlighting, written in Python.
+- `FlatVM`: stack-based bytecode VM, written in C++ and a bit of C. I started it by following the one from [Crafting Interpreters](https://craftinginterpreters.com/a-bytecode-virtual-machine.html), but then I had to change things and rewrote most of it in C++.
+- `DFartEd`: a very small editor with syntax highlighting, written in Python. Still has a lot of bugs
 
 The documentation about the language will be in the `doc` folder: [Start here](/doc/index.md).
 
@@ -40,16 +39,16 @@ Then, the binary will be located at `./target/release/`.
 
 ### FlatVM
 
-In its folder, there's a sh script for building, which can work both with `gcc` & `clang`, just change the `$CC` variable. Running it with no argument is the default and "release" build.
+Currently uses GNU Make, so follow:
 
 ``` bash
 cd flatvm
-./build.sh
+make release
 ```
 
 ### DFartEd
 
-You'll need python3 and PyQt5.
+You'll need python3 and PyQt5. It is important that InFarter and FlatVM are built, on release mode, so that DFartEd can find their path.
 
 ## Usage
 

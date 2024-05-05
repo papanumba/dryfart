@@ -15,20 +15,20 @@ references are stored to variables.
 
 ### Element access
 
-If `a` is an array and `i` is a `N%` value, then `a_i` would be the
-(0-indexed) i-th element of a. The `_` works as any other binary operator,
-has stronger precedence than the `*` multiplication and weaker than the
-`$` field access.
+If `a` is an array and `i` is a `N%` or positive `Z%` value, then `a_i` would
+be the (0-indexed) i-th element of a. The `_` works as any other binary
+operator, has stronger precedence than the `*` multiplication and weaker than
+the `$` field access.
 
-Examples:
+Examples of access:
 * Explicit arrays: `_1, 2;_0`
 * Identifiers: `a_0` also `a_(0)`
-* Table's field: `t$a_0`
+* Table's field: `t$a_0` also `(t$a)_0`
 
 So as to know the length of the array, there's the (TODO) built-in function 
 `len#`. It will return a `N%`.
 
-For example, to put a value in an array:
+For example, to set a value in an array:
 
 ```
 a_0 = 1 + 2 + 3.
@@ -38,11 +38,11 @@ a_0 = 1 + 2 + 3.
 
 Strings are implemented as `C%` character arrays. Their explicit array are
 the usual strings surrounded by double quotes `"`.
-Escape sequences are followed by a dollar `$`:
-* `"N$"` newline
-* `"T$"` tab
-* `""$"` double quote char
-* `"$$"` dollar itself
+Escape sequences start by a backtick:
+* ``"`N"`` newline
+* ``"`T"`` tab
+* ``"`""`` double quote
+* ``"`'"`` single quote
 
 ### Operations
 
@@ -53,6 +53,6 @@ a = _1, 2;.
 b = _3, 4;.
 ```
 
-Then `a + b` will be `_1,2,3,4;`.
+Then `a + b` will be `_1, 2, 3, 4;`.
 
 [Next ch.](tables.md)

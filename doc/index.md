@@ -6,10 +6,11 @@ Wellcome to the docs of the DryFart language.
 
 Features:
 * No keywords, only symbols, that's why it's _Dry_
-* Basic control flow: if-else, loops, TODO switch
+* Basic control flow: if(else), loops, TODO switch
 * Imperative: both procedural and functional
 * Functional: all subroutines are 1st-class 
-* (TODO) closures
+* Closures (by value, not by environment)
+* Mutability (still constructing) for functions
 * Very strong typing: no implicit coercion
 * Dynamic typing
 * Dynamic homogeneous arrays

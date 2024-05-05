@@ -32,7 +32,7 @@ An important thing to notice is that this `#` is an operator and is not tied to 
 
 Since function definitions are values, this is also the same as `#a,b;##a+b..#1,2;` or `(#a,b;##a+b..)#1,2;`.
 
-## HOFs
+## Higher Order Functions
 
 Let's start with an example:
 
