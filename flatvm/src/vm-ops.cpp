@@ -191,6 +191,47 @@ case OP_DEC: {
     break;
 }
 
+case OP_MOD: {
+    DfVal rhs = this->pop();
+    DfVal lhs = this->pop();
+    if (rhs.type != VAL_N)
+        ERR_BINOP("\\");
+    switch (lhs.type) {
+      case VAL_N: DO_BINOP(n, %);
+      case VAL_Z: {
+        auto rn = rhs.as.n;
+        auto res = ((lhs.as.z % rn) + rn) % rn;
+        this->push(DfVal((uint32_t) res));
+        break;
+      }
+      default: ERR_BINOP("\\");
+    }
+    break;
+}
+
+// boolean ----------------------
+
+case OP_NOT: {
+    DfVal &val = this->peek();
+    if (val.type != VAL_B)
+        ERR_OP_TYPE("unary ~", &val);
+    val.as.b = !val.as.b;
+    break;
+}
+
+case OP_IOR: {
+    DfVal rhs = this->pop();
+    DfVal lhs = this->pop();
+    if (lhs.type != rhs.type)
+        ERR_BINOP("|");
+    switch (lhs.type) {
+      case VAL_B: DO_BINOP(b, ||);
+      case VAL_N: DO_BINOP(n, |);
+      default: ERR_OP_TYPE("|", &lhs);
+    }
+    break;
+}
+
 // compare ----------------------
 
 #define OP_CEX(XX, cmpop) \

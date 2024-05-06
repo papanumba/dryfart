@@ -1,0 +1,14 @@
+' FizzBuzz in DryFart
+
+'put = STD$io$put.
+n = 0u. @[[n < 1000000u]]
+  is3 = n \ 3u == 0u.
+  is5 = n \ 5u == 0u.
+  [is3 => ]'put!"fizz`N".]
+  [is5 => ]'put!"buzz`N".]
+  [~(is3 | is5) =>
+'    put!n.
+'    put!"`N".
+  ]
+  n = n + 1u.
+.

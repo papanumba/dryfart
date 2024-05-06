@@ -572,7 +572,7 @@ impl From<dflib::funcs::NatFn> for Val
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BinOpcode {
-    Add, Sub, Mul, Div,
+    Add, Sub, Mul, Div, Mod,
     Eq, Ne, Lt, Gt, Le, Ge,
     And, Or, Xor, Cand, Cor,
     Idx
@@ -587,6 +587,7 @@ impl BinOpcode
             "-" => Self::Sub,
             "*" => Self::Mul,
             "/" => Self::Div,
+            "\\" => Self::Mod,
             "==" => Self::Eq,
             "~=" => Self::Ne,
             "<"  => Self::Lt,
@@ -607,7 +608,8 @@ impl BinOpcode
             Self::Add |
             Self::Sub |
             Self::Mul |
-            Self::Div => true,
+            Self::Div |
+            Self::Mod => true,
             _ => false,
         }
     }

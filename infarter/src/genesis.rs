@@ -44,7 +44,7 @@ pub enum Op
     LKS = 0x0E,
     LKL = 0x0F,
 
-    NEG = 0x10, /* unary int negate */
+    NEG = 0x10,
     ADD = 0x11,
     SUB = 0x12,
     MUL = 0x13,
@@ -52,13 +52,14 @@ pub enum Op
     INV = 0x15,
     INC = 0x16,
     DEC = 0x17,
+    MOD = 0x18,
 
-    CEQ = 0x18,
-    CNE = 0x19,
-    CLT = 0x1A,
-    CLE = 0x1B,
-    CGT = 0x1C,
-    CGE = 0x1D,
+    CEQ = 0x98,
+    CNE = 0x99,
+    CLT = 0x9A,
+    CLE = 0x9B,
+    CGT = 0x9C,
+    CGE = 0x9D,
 
     NOT = 0x20,
     AND = 0x21,
@@ -176,6 +177,7 @@ impl TryFrom<ImOp> for Op
             ImOp::INV => Ok(Op::INV),
             ImOp::INC => Ok(Op::INC),
             ImOp::DEC => Ok(Op::DEC),
+            ImOp::MOD => Ok(Op::MOD),
 
             ImOp::CEQ => Ok(Op::CEQ),
             ImOp::CNE => Ok(Op::CNE),
@@ -322,7 +324,8 @@ impl LowerBlock
         if imop.is_subr() {
             return self.push_subr_op(imop);
         }
-        let opnd = imop.get_operand().unwrap();
+        let opnd = imop.get_operand()
+            .expect(&format!("imop {:?}", imop));
         if let Ok(u) = u8::try_from(opnd) { // Short
             self.push_op(match imop {
                 ImOp::LKX(_) => Op::LKS,

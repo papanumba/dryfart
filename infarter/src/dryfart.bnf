@@ -49,7 +49,7 @@ use https://bnfplayground.pauliankline.com/;
 <CmpOp>   ::= r"([=~<>]=|<|>)"
 <AddExpr> ::= <AddTerm> (("+" | "-") <AddTerm>)*
 <NegExpr> ::= "-"* <MulExpr>
-<MulExpr> ::= <MulTerm> (("*" | "/") <MulTerm>)*
+<MulExpr> ::= <MulTerm> (("*" | "/" | "\\") <MulTerm>)*
 <InvExpr> ::= "/"* <NotExpr>
 <NotExpr> ::= "~"* <IdxExpr>
 <IdxExpr> ::= <CastExpr> ("_" <CastExpr>)*
@@ -71,7 +71,7 @@ use https://bnfplayground.pauliankline.com/;
             <Parented> | <Literal> | <Ident> /*| "@" /* recurs */
 
 <Parented> ::= "(" <Expr> ")"
-<Ident>   ::= "[A-Za-z][A-Za-z0-9]*"
+<Ident>   ::= r"[A-Za-z][A-Za-z0-9]*"
 
 <Literal> ::= <B> | <C> | <N> | <Z> | <R> | <String> | <ArrLit> | <TblLit>
 <String>  ::= "check implementation"

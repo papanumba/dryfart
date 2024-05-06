@@ -570,6 +570,15 @@ fn eval_uniop(t: &Val, o: &UniOpcode) -> Val
 
 fn eval_binop_val(l: &Val, o: &BinOpcode, r: &Val) -> Val
 {
+    if *o == BinOpcode::Mod { match (l, r) {
+        (Val::N(vl), Val::N(vr)) => return Val::N(vl % vr),
+        (Val::Z(vl), Val::N(vr)) => {
+            let vrz = *vr as i32;
+            return Val::N(((vl % vrz + vrz) % vrz).try_into().unwrap());
+        },
+        _ => panic!("invalid types in mod op"),
+    }}
+
     let lt: Type = l.into();
     let rt: Type = r.into();
     if lt != rt {

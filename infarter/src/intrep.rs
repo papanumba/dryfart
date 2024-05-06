@@ -29,6 +29,7 @@ pub enum ImOp
     INV,
     INC,
     DEC,
+    MOD,
 
     CEQ,
     CNE,
@@ -405,6 +406,7 @@ impl Compiler
             BinOpcode::Sub => ImOp::SUB,
             BinOpcode::Mul => ImOp::MUL,
             BinOpcode::Div => ImOp::DIV,
+            BinOpcode::Mod => ImOp::MOD,
             BinOpcode::And => ImOp::AND,
             BinOpcode::Or  => ImOp::IOR,
             BinOpcode::Xor => ImOp::XOR,

@@ -365,15 +365,12 @@ impl<'src> Nip<'src>
            || self.matches::<0>(TokenType::Minus) {
             let op = self.read_token().unwrap().0.clone(); // +, -
             let rhs = self.neg_expr()?;
-            ae = Expr::BinOp(
-                Box::new(ae),
-                match op {
-                    Token::Plus  => BinOpcode::Add,
-                    Token::Minus => BinOpcode::Sub,
-                    _ => unreachable!(),
-                },
-                Box::new(rhs),
-            );
+            let op = match op {
+                Token::Plus  => BinOpcode::Add,
+                Token::Minus => BinOpcode::Sub,
+                _ => unreachable!(),
+            };
+            ae = Expr::BinOp(Box::new(ae), op, Box::new(rhs));
         }
         return Ok(ae);
     }
@@ -384,18 +381,17 @@ impl<'src> Nip<'src>
     {
         let mut me = self.inv_expr()?;
         while self.matches::<0>(TokenType::Asterisk)
-           || self.matches::<0>(TokenType::Slash) {
-            let op = self.read_token().unwrap().0.clone(); // +, -
+           || self.matches::<0>(TokenType::Slash)
+           || self.matches::<0>(TokenType::Bslash) {
+            let op = self.read_token().unwrap().0.clone(); // *, /, \
             let rhs = self.inv_expr()?;
-            me = Expr::BinOp(
-                Box::new(me),
-                match op {
-                    Token::Asterisk => BinOpcode::Mul,
-                    Token::Slash    => BinOpcode::Div,
-                    _ => unreachable!(),
-                },
-                Box::new(rhs),
-            );
+            let op = match op {
+                Token::Asterisk => BinOpcode::Mul,
+                Token::Slash    => BinOpcode::Div,
+                Token::Bslash   => BinOpcode::Mod,
+                _ => unreachable!(),
+            };
+            me = Expr::BinOp(Box::new(me), op, Box::new(rhs));
         }
         return Ok(me);
     }

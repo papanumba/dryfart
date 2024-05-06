@@ -63,7 +63,7 @@ static void disasm_ins_fast()
 #define SIMPLE(XXX) case OP_ ## XXX: simple_ins(#XXX); break;
 
       /* 0x0_ */
-      case OP_NOP: simple_ins("NOP"); break;
+      SIMPLE(NOP)
       case OP_LVV: simple_ins("LVV"); break;
       case OP_LBT: simple_ins("LBT"); break;
       case OP_LBF: simple_ins("LBF"); break;
@@ -88,6 +88,7 @@ static void disasm_ins_fast()
       case OP_INV: simple_ins("INV"); break;
       case OP_INC: simple_ins("INC"); break;
       case OP_DEC: simple_ins("DEC"); break;
+      SIMPLE(MOD)
 
       case OP_CEQ: simple_ins("CEQ"); break;
       case OP_CNE: simple_ins("CNE"); break;
