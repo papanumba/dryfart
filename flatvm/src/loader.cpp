@@ -4,7 +4,8 @@
 #include "loader.h"
 #include "alzhmr.h"
 #include "native.h"
-//#include "object.h"
+#include "maitre.h"
+#include "object.h"
 
 static bool check_magic_df(cbyte_p *);
 static void load_idf    (DynArr<DfIdf> &, cbyte_p *);
@@ -146,17 +147,13 @@ static void load_val_r(DynArr<DfVal> &ctn, cbyte_p *rpp)
 
 static void load_nat_tb(DynArr<DfVal> &ctn, cbyte_p *rpp)
 {
-    todo("load nat tb");
     uint32_t num = read_u32(rpp);
     switch (num) {
       /* mega fall-þru */
       case DF_STD:
       case DF_STD_IO:
       {
-/*        struct DfVal v;
-        v.type = VAL_O;
-        v.as.o = (void *) objtbl_new_nat((enum NatTb) num);
-        values_push(ctn, v);*/
+        ctn.push(NatFactory::get((NatTblTag) num));
         break;
       }
       default:
@@ -166,32 +163,28 @@ static void load_nat_tb(DynArr<DfVal> &ctn, cbyte_p *rpp)
 
 static void load_array(DynArr<DfVal> &ctn, cbyte_p *rpp)
 {
-    todo("load array");
-/*    uint val_type = read_u8(rpp);
-    struct DfVal aux;
+    uint val_type = read_u8(rpp);
     switch (val_type) {
-      case 0x02: aux.type = VAL_C; break;
-      case 0x03: aux.type = VAL_N; break;
-      case 0x04: aux.type = VAL_Z; break;
-      case 0x05: aux.type = VAL_R; break;
+      case 0x02: case 0x03: case 0x04: case 0x05:
+        break; // OK
       default:
-        fprintf(stderr, "unknown array type %u", val_type);
-        return FALSE;
+        throw std::runtime_error("Constant array of unknown type\n");
     }
     size_t len = read_u16(rpp);
-    struct ObjArr *arr = objarr_new();
-    for (size_t i = 0; i < len; ++i) {
+    auto arr_ref = maitre::alloc(OBJ_ARR);
+    auto *arr = arr_ref.as_arr();
+    arr->is_nat = false;
+    arr->typ = DfType::V; // init mt
+    TIL(i, len) {
+        DfVal aux;
         switch (val_type) {
-          case 0x02: aux.as.c = read_u8 (rpp); break;
-          case 0x03: aux.as.n = read_u32(rpp); break;
-          case 0x04: aux.as.z = read_i32(rpp); break;
-          case 0x05: aux.as.r = read_f32(rpp); break;
-          default: unreachable(); return FALSE;
+          case 0x02: aux = DfVal(read_u8 (rpp)); break;
+          case 0x03: aux = DfVal(read_u32(rpp)); break;
+          case 0x04: aux = DfVal(read_i32(rpp)); break;
+          case 0x05: aux = DfVal(read_f32(rpp)); break;
+          default: unreachable();
         }
-        objarr_try_push(arr, &aux);
+        arr->push(std::move(aux));
     }
-    aux.type = VAL_O;
-    aux.as.o = (void *) arr;
-    values_push(ctn, aux);
-    return TRUE;*/
+    ctn.push(DfVal(arr_ref));
 }

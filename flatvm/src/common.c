@@ -4,6 +4,15 @@
 #include <stdio.h>
 #include "common.h"
 
+int bytearr_cmp(cbyte_p s, cbyte_p t, size_t len)
+{
+    TIL(i, len) {
+        if (s[i] != t[i])
+            return FALSE;
+    }
+    return TRUE;
+}
+
 void eput(const char *msg)
 {
     fputs(msg, stderr);

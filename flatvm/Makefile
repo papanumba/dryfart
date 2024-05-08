@@ -9,7 +9,7 @@ CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
 CXXFLAGS = -std=c++17 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
-cxxobjs = disasm.o htable.o idents.o loader.o maitre.o norris.o object.o objref.o values.o virmac.o
+cxxobjs = disasm.o htable.o idents.o loader.o maitre.o native.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
 cobjs = alzhmr.o common.o reader.o
 objs = $(cxxobjs) $(cobjs)
@@ -50,6 +50,9 @@ main.o: src/main.cpp
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 virmac.o: src/virmac.cpp src/vm-ops.cpp include/virmac.h
+	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
+
+native.o: src/native.cpp src/df-std/df_std.cpp include/native.h
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 %.o: src/%.c

@@ -35,7 +35,6 @@ class VirMac {
     Record  calls[CALLS_MAX];
     int     callnum;    /* call top index */
     DfVal  *bp;         /* base pointer = calls[call_num] */
-    Maitre *ma;         /* allocator */
 
   private: // meþods
     void reset_stack();

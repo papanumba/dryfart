@@ -17,8 +17,10 @@ class DfIdf {
     DfIdf(const uint8_t *, size_t);
     ~DfIdf();
     uint32_t get_hash() const;
+    size_t get_len() const;
     void print() const;
     void eprint() const;
+    bool eq(const char *) const;
     DfIdf & operator=(DfIdf &&);
 };
 

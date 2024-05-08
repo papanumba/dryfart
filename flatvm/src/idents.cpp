@@ -34,6 +34,11 @@ uint32_t DfIdf::get_hash() const
     return this->hsh;
 }
 
+size_t DfIdf::get_len() const
+{
+    return this->len;
+}
+
 void DfIdf::print() const
 {
     printf("%s", (char *) this->str);
@@ -42,6 +47,11 @@ void DfIdf::print() const
 void DfIdf::eprint() const
 {
     fprintf(stderr, "%s", (char *) this->str);
+}
+
+bool DfIdf::eq(const char *str) const
+{
+    return bytearr_cmp(this->str, (cbyte_p) str, this->len);
 }
 
 DfIdf & DfIdf::operator=(DfIdf &&that)

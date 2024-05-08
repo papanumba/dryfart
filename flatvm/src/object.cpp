@@ -7,18 +7,7 @@
 #include "object.h"
 //#include "falloc.h"
 
-/*static void objtbl_print(struct ObjTbl *);
-static void objtbl_free (struct ObjTbl *);
-
-static void objpro_print(struct ObjPro *);
-static void objpro_free (struct ObjPro *);
-
-static void objfun_print(struct ObjFun *);
-static void objfun_free (struct ObjFun *);
-
-static struct Object * alloc_object(enum ObjType);*/
-static inline bool     arrt_valt_eq(DfType, enum ValType);
-
+static inline bool    arrt_valt_eq(DfType, enum ValType);
 static inline DfType  valt2arrt(ValType);
 static inline ValType arrt2valt(DfType);
 
@@ -184,6 +173,15 @@ void ArrObj::print() const
     putchar(';');
 }
 
+void ArrObj::print_string() const
+{
+    if (DfType::C != this->typ)
+        unreachable();
+    auto len = this->as.c.len();
+    TIL(i, len)
+        printf("%c", this->as.c[i]);
+}
+
 AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
 {
     new (&res) ArrObj();
@@ -210,7 +208,7 @@ AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
 TblObj::~TblObj()
 {
     if (this->is_nat)
-        return;
+        this->as.nat.~NatTbl();
     else
         this->as.usr.~Htable();
 }
@@ -221,10 +219,16 @@ void TblObj::set(Htable &&t)
     new (&this->as.usr) Htable(std::move(t));
 }
 
+void TblObj::set(NatTbl &&t)
+{
+    this->is_nat = true;
+    new (&this->as.nat) NatTbl(std::move(t));
+}
+
 bool TblObj::get(const DfIdf *k, DfVal &v) const
 {
     if (this->is_nat)
-        todo("get nat tb");
+        return this->as.nat.get(k, v);
     else
         return this->as.usr.get(k, v);
 }
@@ -240,7 +244,7 @@ bool TblObj::set(const DfIdf *k, DfVal &&v)
 void TblObj::print() const
 {
     if (this->is_nat)
-        printf("some table");
+        this->as.nat.print();
     else
         this->as.usr.print();
 }
@@ -288,9 +292,7 @@ void FunObj::print() const
 
 ProObj::~ProObj()
 {
-    if (this->is_nat)
-        todo("delete nat pro");
-    else
+    if (!this->is_nat)
         this->as.usr.~UsrSrt();
 }
 
@@ -299,6 +301,12 @@ void ProObj::set(UsrSrt up)
     this->is_nat = false;
     // destructive set
     new (&this->as.usr) UsrSrt(std::move(up));
+}
+
+void ProObj::set(NatPro &&p)
+{
+    this->is_nat = true;
+    new (&this->as.nat) NatPro(std::move(p));
 }
 
 void ProObj::print() const

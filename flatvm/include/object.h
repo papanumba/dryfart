@@ -58,11 +58,7 @@ class ArrObj : public Object {
     AccRes set(uint32_t, DfVal &&);
     AccRes concat(const ArrObj &, ArrObj &) const;
     void print() const;
-/*    ArrObj & operator=(ArrObj &&from) {
-        std::memcpy(this, &from, sizeof(ArrObj));
-        from.typ = DfType::V;
-        return *this;
-    }*/
+    void print_string() const;
 };
 
 class TblObj : public Object {
@@ -106,7 +102,7 @@ class FunObj : public Object {
   public:
     ~FunObj();
     void set(UsrSrt);
-    // void set(NatFn);
+    void set(NatFun);
     void print() const;
 };
 
@@ -120,7 +116,7 @@ class ProObj : public Object {
   public:
     ~ProObj();
     void set(UsrSrt);
-//  void set(NatPc);
+    void set(NatPro &&);
     void print() const;
 };
 

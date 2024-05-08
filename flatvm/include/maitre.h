@@ -1,22 +1,16 @@
-/* falloc.h */
+/* maitre.h */
 
-#ifndef FLATVM_FALLOC_H
-#define FLATVM_FALLOC_H
+#ifndef FLATVM_MAITRE_H
+#define FLATVM_MAITRE_H
 
-#include "common.h"
+//#include "common.h"
 #include "objref.h"
 
-class MaitreImpl;
-
-class Maitre {
-  private:
-    MaitreImpl *priv;
-  public:
-    Maitre();
-    ~Maitre();
+namespace maitre
+{
     ObjRef alloc(ObjType);
     void free(ObjRef);
     void sweep();
 };
 
-#endif /* FLATVM_FALLOC_H */
+#endif /* FLATVM_MAITRE_H */

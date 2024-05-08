@@ -32,7 +32,6 @@ VirMac::VirMac()
     this->reset_stack();
     this->dat = nullptr;
     this->nor = nullptr;
-    this->ma = new Maitre();
     //falloc_init();
     //garcol_init();
 }
@@ -40,7 +39,6 @@ VirMac::VirMac()
 VirMac::~VirMac()
 {
     this->reset_stack();
-    delete this->ma;
     //falloc_exit();
     //garcol_exit();
 }

@@ -21,11 +21,11 @@ class NatTbl {
     NatTblTag tag;
   public:
     NatTbl(NatTblTag);
+    NatTbl(NatTbl &&);
     ~NatTbl();
     bool get(key_t, DfVal &) const;
     bool set(key_t, DfVal &&);
     void print() const;
-    static NatTbl factory_get(NatTblTag);
 };
 
 enum NatProTag {
@@ -59,6 +59,11 @@ class NatFun {
   public:
     NatFun(NatFunTag);
     void print() const;
+};
+
+namespace NatFactory {
+    ObjRef get(NatTblTag);
+    ObjRef get(NatProTag);
 };
 
 #endif /* FLATVM_NATIVE_H */

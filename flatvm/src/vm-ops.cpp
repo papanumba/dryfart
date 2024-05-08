@@ -90,7 +90,7 @@ case OP_NEG: {
         ERR_BINOP("+");                     \
     switch (lo.get_type()) {                \
       case OBJ_ARR: {                       \
-        auto a = this->ma->alloc(OBJ_ARR);  \
+        auto a = maitre::alloc(OBJ_ARR);  \
         a.as_arr()->typ = DfType::V;        \
         a.as_arr()->is_nat = false;         \
         auto r = lo.as_arr()->concat(       \
@@ -353,7 +353,7 @@ OP_J_CMP(GE, ge, "<")
 // array ---------------------------
 
 case OP_AMN: {
-    auto a = this->ma->alloc(OBJ_ARR);
+    auto a = maitre::alloc(OBJ_ARR);
     a.as_arr()->typ = DfType::V;
     a.as_arr()->is_nat = false;
     this->push(DfVal(a));
@@ -445,7 +445,7 @@ case OP_ASE: {
 // table ---------------------------
 
 case OP_TMN: {
-    auto t = this->ma->alloc(OBJ_TBL);
+    auto t = maitre::alloc(OBJ_TBL);
     t.as_tbl()->set(Htable());
     this->push(DfVal(t));
     break;
@@ -500,7 +500,7 @@ case OP_TGF: {
 // subrts ---------------------------
 
 case OP_FMN: {
-    auto f = this->ma->alloc(OBJ_FUN);
+    auto f = maitre::alloc(OBJ_FUN);
     uint nor_idx = READ_U16();
     auto nor = &this->dat->pag[nor_idx];
     auto uvs = nor->uvs;
@@ -547,7 +547,7 @@ case OP_FCL: {
 }
 
 case OP_PMN: {
-    auto p = this->ma->alloc(OBJ_PRO);
+    auto p = maitre::alloc(OBJ_PRO);
     auto nor_idx = READ_U16();
     auto nor = &this->dat->pag[nor_idx];
     auto uvs = nor->uvs;
@@ -566,9 +566,11 @@ case OP_PCL: {
 #endif
     auto *pro = cle->as.o.as_pro();
     if (pro->is_nat) {
-        /*int res = pro->as.nat.exec(vm, this->sp - arity, arity);
-        this->sp -= arity + 1;*/
-        todo("call nat pro");
+        int res = pro->as.nat.exec(*this, this->sp - arity, arity);
+        if (res == 0)
+            SIMPLE_ERR("some nat proc err");
+        this->sp -= arity + 1;
+        break;
     }
 #ifdef SAFE
     // user procs

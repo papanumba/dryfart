@@ -3,15 +3,16 @@
 #ifndef FLATVM_COMMON_H
 #define FLATVM_COMMON_H
 
+// laziness at its peak
+#define FOR(var, start, end) \
+for (size_t var = start; var < end; ++var)
+#define TIL(var, end) FOR(var, 0, end)
+
 #ifdef __cplusplus
 
 #include <cstddef>
 #include <cstdint>
 
-// laziness at its peak
-#define FOR(var, start, end) \
-for (size_t var = start; var < end; ++var)
-#define TIL(var, end) FOR(var, 0, end)
 #define LOOP while (true)
 
 #else // C
@@ -47,6 +48,7 @@ extern "C" {
 #define NORET _Noreturn
 #endif
 
+int bytearr_cmp(cbyte_p, cbyte_p, size_t);
 void eput  (const char *);
 void eputln(const char *);
 NORET void todo  (const char *);
