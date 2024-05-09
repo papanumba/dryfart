@@ -6,7 +6,7 @@
 #include "maitre.h"
 #include "object.h"
 
-#define POOL_SIZE (2 << 9)
+#define POOL_SIZE (2 << 8)
 
 static constexpr size_t ARR_BLOCKS = POOL_SIZE / sizeof(ArrObj);
 static constexpr size_t TBL_BLOCKS = POOL_SIZE / sizeof(TblObj);
@@ -33,10 +33,7 @@ class Pool {
 template<typename T, size_t SIZE>
 Pool<T, SIZE>::Pool()
 {
-    void *b = malloc(SIZE * sizeof(T));
-    if (b == nullptr)
-        exit(1);
-    this->blocks = (T *) b;
+    this->blocks = (T *) realloc_or_free(NULL, SIZE * sizeof(T));
 }
 
 template<typename T, size_t SIZE>
@@ -56,7 +53,7 @@ Pool<T, SIZE>::~Pool()
         if (this->used[i])
             this->blocks[i].~T();
     }
-    free(this->blocks);
+    realloc_or_free(this->blocks, 0);
 }
 
 // returns a reserved place, NULL if full
