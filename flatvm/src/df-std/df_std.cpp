@@ -31,15 +31,11 @@ static bool get(const DfIdf *i, DfVal &v)
 {
     switch (i->get_len()) {
       case 1:
-        if (i->eq("a"))
-            RET_V(DF_STD_A);
+        if (i->eq("a")) RET_V(DF_STD_A);
         break;
       case 2:
-        if (i->eq("io"))
-            RET_V(DF_STD_IO);
-        if (i->eq("gc"))
-//            RET_V_PRO(DF_STD_IO);
-            todo("nat pro fac");
+        if (i->eq("io")) RET_V(DF_STD_IO);
+        if (i->eq("gc")) RET_V(DF_STD_GC);
         break;
       default:
         eput("ERROR: can't get field $");
@@ -66,6 +62,14 @@ static int io_put(VirMac &vm, DfVal *argv, size_t argc)
         a.as.o.as_arr()->print_string();
     else
         a.print();
+    return 1;
+}
+
+static int gc(VirMac &vm, DfVal *argv, size_t argc)
+{
+    (void) argv;
+    CHECK_ARGC("STD$gc!", 0);
+    garcol::do_it(&vm);
     return 1;
 }
 

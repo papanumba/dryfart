@@ -28,6 +28,7 @@ const DF_MAGIC: [u8; 8] = [
 pub enum Op
 {
     NOP = 0x00,
+
     LVV = 0x01,
     LBT = 0x02,
     LBF = 0x03,

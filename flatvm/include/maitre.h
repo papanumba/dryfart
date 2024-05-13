@@ -3,7 +3,6 @@
 #ifndef FLATVM_MAITRE_H
 #define FLATVM_MAITRE_H
 
-//#include "common.h"
 #include "objref.h"
 
 namespace maitre

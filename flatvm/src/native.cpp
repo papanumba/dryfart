@@ -9,30 +9,47 @@
 #include "object.h"
 #include "maitre.h"
 #include "dynarr.h"
-//#include "garcol.h"
+#include "garcol.h"
 //#include "df-lib.h"
 
 #define FAC_MET(Ttt, ttt, TTT) \
+\
+static DynArr<Nat##Ttt##Tag> ttt##tags;  \
+static DynArr<ObjRef>        ttt##refs;  \
+\
 ObjRef NatFactory::get(Nat##Ttt##Tag tag)   \
 {                                           \
-    static DynArr<Nat##Ttt##Tag> tags;      \
-    static DynArr<ObjRef> refs;             \
+    auto &tags = ttt##tags;                 \
+    auto &refs = ttt##refs;                 \
     TIL(i, tags.len()) {                    \
         if (tags[i] == tag)                 \
             return refs[i];                 \
     }                                       \
     auto new_obj = maitre::alloc(OBJ_##TTT);\
     auto p = new_obj.as_ ## ttt();          \
-    p->set(Nat##Ttt(tag));       \
+    p->gc_mark = true;                      \
+    p->set(Nat##Ttt(tag));                  \
     tags.push(std::move(tag));              \
     refs.push(std::move(new_obj));          \
     return new_obj;                         \
 }
 
+//FAC_MET(Arr, arr, ARR)
 FAC_MET(Tbl, tbl, TBL)
+//FAC_MET(Fun, fun, FUN)
 FAC_MET(Pro, pro, PRO)
 
 #undef FAC_MET
+
+void NatFactory::mark_all()
+{
+#define BASURA(ttt) \
+    TIL(i, ttt##refs.len()) mark_object(ttt##refs[i]);
+    BASURA(tbl)
+//    BASURA(fun)
+    BASURA(pro)
+#undef BASURA
+}
 
 NatTbl::NatTbl(NatTblTag tag)
 {
@@ -90,9 +107,9 @@ NatPro::NatPro(NatProTag t)
 {
     this->tag = t;
     switch (t) {
-      case DF_STD_IO_PUT: this->exec = df_std::io_put;  break;
-/*      case DF_STD_GC:     this->exec = df_std_gc;      break;
-      case DF_STD_A_EKE:  this->exec = df_std_a_eke;   break;*/
+      case DF_STD_IO_PUT: this->exec = df_std::io_put; break;
+      case DF_STD_GC:     this->exec = df_std::gc;     break;
+      case DF_STD_A_EKE:  todo("eke");//this->exec = df_std_a_eke;   break;
     }
 }
 

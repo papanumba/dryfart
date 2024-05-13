@@ -8,5 +8,5 @@ n = 0u. @[[n < 100u]]
   [is5 => put!"buzz".]
   [~(is3 | is5) => put!n.]
   put!"`N".
-  n = n + 1u.
+  n ++ 1u.
 .

@@ -219,6 +219,19 @@ case OP_NOT: {
     break;
 }
 
+case OP_AND: {
+    DfVal rhs = this->pop();
+    DfVal lhs = this->pop();
+    if (lhs.type != rhs.type)
+        ERR_BINOP("&");
+    switch (lhs.type) {
+      case VAL_B: DO_BINOP(b, &&);
+      case VAL_N: DO_BINOP(n, &);
+      default: ERR_OP_TYPE("&", &lhs);
+    }
+    break;
+}
+
 case OP_IOR: {
     DfVal rhs = this->pop();
     DfVal lhs = this->pop();

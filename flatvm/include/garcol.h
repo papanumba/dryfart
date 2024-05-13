@@ -3,12 +3,16 @@
 #ifndef FLATVM_GARCOL_H
 #define FLATVM_GARCOL_H
 
-#include "common.h"
+class VirMac;
+class DfVal;
+class ObjRef;
 
-struct VirMac;
+namespace garcol
+{
+    void do_it(VirMac *);
+};
 
-void garcol_init(void);
-void garcol_exit(void);
-void garcol_do(struct VirMac *);
+void mark_dfval(DfVal &);
+void mark_object(ObjRef &);
 
 #endif /* FLATVM_GARCOL_H */

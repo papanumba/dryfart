@@ -11,6 +11,16 @@ class Hentry;
 
 class Htable {
     typedef const DfIdf * key_t;
+    class HtIter {
+        Hentry *e;
+      public:
+        HtIter(Hentry *f) : e(f) {}
+        key_t key() const;
+        const DfVal & val() const;
+        DfVal & val();
+        bool operator!=(const HtIter &that) const;
+        void next();
+    };
   private:
     Hentry *ent;
     size_t  siz;
@@ -24,6 +34,9 @@ class Htable {
     bool get(key_t, DfVal &) const;
     bool set(key_t, DfVal &&);
     void print() const;
+    HtIter begin();
+    HtIter end() const;
+    void next(HtIter &) const; // advances þe iterator
 };
 
 #endif /* FLATVM_HTABLE_H */

@@ -64,6 +64,7 @@ class NatFun {
 namespace NatFactory {
     ObjRef get(NatTblTag);
     ObjRef get(NatProTag);
+    void mark_all();
 };
 
 #endif /* FLATVM_NATIVE_H */

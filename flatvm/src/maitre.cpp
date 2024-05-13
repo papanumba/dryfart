@@ -28,6 +28,9 @@ class Pool {
     }
     T * get();
     void free(T *);
+    void sweep();
+  private: // meþods
+    void free_block(size_t);
 };
 
 template<typename T, size_t SIZE>
@@ -63,6 +66,7 @@ T * Pool<T, SIZE>::get()
     TIL(i, SIZE) {
         if (!this->used[i]) {
             this->used[i] = true;
+            this->blocks[i].gc_mark = false;
             return &this->blocks[i];
         }
     }
@@ -73,7 +77,28 @@ template<typename T, size_t SIZE>
 void Pool<T, SIZE>::free(T *e) // expected to come from þis pool
 {
     ptrdiff_t idx = e - this->blocks;
-    this->used[idx] = false;
+    this->free_block(idx);
+}
+
+template<typename T, size_t SIZE>
+void Pool<T, SIZE>::sweep()
+{
+    TIL(i, SIZE) {
+        if (this->used[i] && !this->blocks[i].gc_mark) {
+#ifdef DEBUG
+            puts("freeing bcoz GC");
+#endif
+            this->free_block(i);
+        }
+        this->blocks[i].gc_mark = false;
+    }
+}
+
+template<typename T, size_t SIZE>
+void Pool<T, SIZE>::free_block(size_t i)
+{
+    this->blocks[i].~T();
+    this->used[i] = false;
 }
 
 template<typename T, size_t SIZE>
@@ -85,6 +110,7 @@ class Alloc {
     ~Alloc();
     T * alloc();
     void free(T *);
+    void sweep();
 };
 
 template<typename T, size_t SIZE>
@@ -102,16 +128,18 @@ T * Alloc<T, SIZE>::alloc()
     // find first avail pool
     TIL(i, pools_len) {
         auto &p = this->pools[i];
-        if (!p.is_full()) {
-            auto ret = p.get();
-            ret->pool_num = i;
-            return ret;
-        }
+        if (p.is_full())
+            continue;
+        auto ret = p.get();
+        ret->pool_num = i;
+        ret->gc_mark = false;
+        return ret;
     }
     // need more pools
     this->pools.push(Pool<T, SIZE>());
     auto ret = this->pools[pools_len].get();
     ret->pool_num = pools_len;
+    ret->gc_mark = false;
     return ret;
 }
 
@@ -121,12 +149,24 @@ void Alloc<T, SIZE>::free(T *ptr)
     this->pools[ptr->pool_num].free(ptr);
 }
 
+template<typename T, size_t SIZE>
+void Alloc<T, SIZE>::sweep()
+{
+    auto plen = this->pools.len();
+    TIL(i, plen) {
+        this->pools[i].sweep();
+    }
+}
+
 class MaitreImpl {
   private:
-    Alloc<ArrObj, ARR_BLOCKS> a;
-    Alloc<TblObj, TBL_BLOCKS> t;
-    Alloc<FunObj, FUN_BLOCKS> f;
-    Alloc<ProObj, PRO_BLOCKS> p;
+#define BASURA(Ttt, TTT, x) \
+    Alloc<Ttt##Obj, TTT##_BLOCKS> x;
+    BASURA(Arr, ARR, a)
+    BASURA(Tbl, TBL, t)
+    BASURA(Fun, FUN, f)
+    BASURA(Pro, PRO, p)
+#undef BASURA
   public: // meþods
     // default [cd]tors
     ObjRef alloc(ObjType);
@@ -137,10 +177,13 @@ class MaitreImpl {
 ObjRef MaitreImpl::alloc(ObjType t)
 {
     switch (t) {
-      case OBJ_ARR: return ObjRef(this->a.alloc());
-      case OBJ_TBL: return ObjRef(this->t.alloc());
-      case OBJ_FUN: return ObjRef(this->f.alloc());
-      case OBJ_PRO: return ObjRef(this->p.alloc());
+#define BASURA(TTT, x) \
+      case OBJ_##TTT: return ObjRef(this->x.alloc());
+      BASURA(ARR, a)
+      BASURA(TBL, t)
+      BASURA(FUN, f)
+      BASURA(PRO, p)
+#undef BASURA
     }
 }
 
@@ -153,6 +196,16 @@ void MaitreImpl::free(ObjRef r)
       case OBJ_PRO: return ObjRef(this->p.alloc());*/
       default: todo("free other");
     }
+}
+
+void MaitreImpl::sweep()
+{
+#define BASURA(x) this->x.sweep();
+    BASURA(a)
+    BASURA(t)
+    BASURA(f)
+    BASURA(p)
+#undef BASURA
 }
 
 /* IMPORTANT SINGLETON STATIC VARIABLE */
@@ -169,4 +222,9 @@ ObjRef maitre::alloc(ObjType ot)
 void maitre::free(ObjRef r)
 {
     thisImpl.free(r);
+}
+
+void maitre::sweep()
+{
+    thisImpl.sweep();
 }

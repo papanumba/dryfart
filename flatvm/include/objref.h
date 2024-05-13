@@ -51,6 +51,8 @@ class ObjRef {
     void set_mut(bool m) {
         this->p = (this->p & ~MUT_MASK) | (m ? MUT_MASK : 0);
     }
+    bool get_gc_mark() const;
+    void set_gc_mark(bool m); // default m = true
     void print() const;
 #define BASURA(Typ, fn) \
     Typ ## Obj * as_ ## fn() const {        \

@@ -87,6 +87,15 @@ void DynArr<T>::push(T &&elem)
 }
 
 template <typename T>
+T && DynArr<T>::pop()
+{
+    if (this->is_empty())
+        panic("popping empty DynArr");
+    this->_len--;
+    return std::move((*this)[this->_len]);
+}
+
+template <typename T>
 DynArr<T> & DynArr<T>::operator=(DynArr &&that)
 {
     this->_arr = that._arr;

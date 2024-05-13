@@ -63,6 +63,7 @@ class ArrObj : public Object {
 
 class TblObj : public Object {
     typedef const DfIdf * key_t; // owned by VmData
+  public:
     union _as {
         Htable usr;
         NatTbl nat;

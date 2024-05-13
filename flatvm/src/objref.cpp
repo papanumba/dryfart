@@ -14,6 +14,32 @@ bool ObjRef::operator!=(const ObjRef &that) const
     return !(*this == that);
 }
 
+bool ObjRef::get_gc_mark() const
+{
+    switch (this->typ()) {
+#define BASURA(TTT, ttt) \
+      case OBJ_##TTT: return this->as_##ttt()->gc_mark;
+      BASURA(ARR, arr)
+      BASURA(TBL, tbl)
+      BASURA(FUN, fun)
+      BASURA(PRO, pro)
+#undef BASURA
+    }
+}
+
+void ObjRef::set_gc_mark(bool m = true)
+{
+    switch (this->typ()) {
+#define BASURA(TTT, ttt) \
+      case OBJ_##TTT: this->as_##ttt()->gc_mark = m; break;
+      BASURA(ARR, arr)
+      BASURA(TBL, tbl)
+      BASURA(FUN, fun)
+      BASURA(PRO, pro)
+#undef BASURA
+    }
+}
+
 void ObjRef::print() const
 {
     switch (this->typ()) {

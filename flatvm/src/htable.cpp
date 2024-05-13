@@ -48,6 +48,26 @@ Hentry & Hentry::operator=(const Hentry &that)
     return *this;
 }
 
+const DfIdf * Htable::HtIter::key() const
+{
+    return this->e->k;
+}
+
+DfVal & Htable::HtIter::val()
+{
+    return this->e->v;
+}
+
+void Htable::HtIter::next()
+{
+    this->e++;
+}
+
+bool Htable::HtIter::operator!=(const Htable::HtIter &that) const
+{
+    return this->e != that.e;
+}
+
 Htable::Htable()
 {
     this->ent = nullptr;
@@ -109,6 +129,29 @@ void Htable::print() const
         putchar('.');
     }
     putchar(';');
+}
+
+Htable::HtIter Htable::begin()
+{
+    // find 1st used entry
+    TIL(i, this->siz) {
+        auto e = &this->ent[i];
+        if (e->k != nullptr)
+            return Htable::HtIter(e);
+    }
+    return this->end();
+}
+
+Htable::HtIter Htable::end() const
+{
+    return Htable::HtIter(&this->ent[this->siz]);
+}
+
+void Htable::next(Htable::HtIter &it) const
+{
+    do {
+        it.next();
+    } while (it != this->end() && it.key() == nullptr);
 }
 
 static Hentry * find_entry(
