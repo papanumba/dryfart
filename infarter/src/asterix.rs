@@ -663,11 +663,26 @@ pub enum Loop
 pub type Block = Vec<Stmt>;
 
 #[derive(Debug, Clone)]
+pub struct IfCase
+{
+    pub cond: Expr,
+    pub blok: Block,
+}
+
+impl IfCase
+{
+    pub fn new(c: Expr, b: Block) -> Self
+    {
+        return Self {cond:c, blok:b};
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Stmt
 {
     Assign(Expr, Expr),
     OperOn(Expr, BinOpcode, Expr),
-    IfStmt(Expr, Block, Option<Block>), // last is else block
+    IfElse(IfCase, Vec<IfCase>, Option<Block>),
     LoopIf(Loop),
     BreakL(u32),
     Return(Expr),

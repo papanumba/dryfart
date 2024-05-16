@@ -256,21 +256,45 @@ impl<'src> Nip<'src>
     fn if_stmt(&mut self) -> Result<Stmt, String>
     {
         self.advance(); // [
+        // parse mandatory 1st case of þe if
         let cond = self.expr()?;
         self.exp_adv(TokenType::Then)?;
         let if_block = self.block()?;
-        // now check optional else
-        let else_block = if self.matches::<0>(TokenType::Vbar)
-                         && self.matches::<1>(TokenType::Then) {
+        let if0 = IfCase::new(cond, if_block);
+        // check if end
+        if self.matches::<0>(TokenType::RsqBra) {
+            self.advance(); // ]
+            return Ok(Stmt::IfElse(if0, vec![], None));
+        }
+        // loop until matching a "]" xor "| =>" (else case)
+        let mut elseifs = vec![];
+        loop {
+            const MSG: &'static str = "] or |";
+            let Some(tok) = self.peek::<0>() else {
+                return eof_err!(MSG);
+            };
+            let tt0 = TokenType::from(&tok.0);
+            if tt0 == TokenType::RsqBra {
+                self.advance(); // ]
+                return Ok(Stmt::IfElse(if0, elseifs, None));
+            }
+            // now must be an Elseif or an Else
+            if tt0 != TokenType::Vbar {
+                return expected_err!(MSG, tok);
+            }
             self.advance(); // |
-            self.advance(); // =>
-            let eb = self.block()?;
-            Some(eb)
-        } else {
-            None
-        };
-        self.exp_adv(TokenType::RsqBra)?;
-        return Ok(Stmt::IfStmt(cond, if_block, else_block));
+            if self.matches::<0>(TokenType::Then) { // Else
+                self.advance(); // =>
+                let eb = self.block()?;
+                self.exp_adv(TokenType::RsqBra)?;
+                return Ok(Stmt::IfElse(if0, elseifs, Some(eb)));
+            }
+            // now must be an Elseif
+            let cond = self.expr()?;
+            self.exp_adv(TokenType::Then)?;
+            let blok = self.block()?;
+            elseifs.push(IfCase::new(cond, blok));
+        }
     }
 
     // called when peek: 0 -> @

@@ -470,7 +470,7 @@ impl Compiler
         match s {
             Stmt::Assign(v, e)    => self.s_assign(v, e),
             Stmt::OperOn(l, o, e) => self.s_operon(l, o, e),
-            Stmt::IfStmt(c, b, e) => self.s_ifstmt(c, b, e),
+            Stmt::IfElse(i, o, e) => self.s_ifelse(i, o, e),
             Stmt::LoopIf(l)       => self.s_loopif(l),
             Stmt::PcCall(p, a)    => self.s_pccall(p, a),
             Stmt::TbPCal(t, f, a) => self.obj_call(t, f, a, SubrType::P),
@@ -586,30 +586,43 @@ impl Compiler
         self.push_op(ImOp::POP);
     }
 
-    fn s_ifstmt(&mut self,
-        cond: &Expr,
-        bloq: &Block,
-        elbl: &Option<Block>)
+    fn s_ifelse(
+        &mut self,
+        if_0: &IfCase,
+        eifs: &[IfCase],
+        elze: &Option<Block>)
     {
-        /*
-        **  [cond]--+
-        **   V      | (if False)
-        **  [bloq]  V
-        **   |     [elbl]?
-        **   V      |
-        **  ... <---+
-        */
-        self.expr(cond);
-        let branch = self.term_curr_bb(Term::PCH(true)); // to patch
-        self.block(bloq);
-        let end_true = self.term_curr_bb(Term::PCH(false));
-        self.curr.patch_jump(branch, Term::JFX(self.curr.curr_idx()));
-        if let Some(eb) = elbl {
+        // IDEA: a variable for the last JFX þat will go to þe next case,
+        // & an accumulator for all the JJX þat will go to þe end of þe else
+        let mut last_if_idx;
+        let mut jjx_idxs = vec![];
+        // 0st if case
+        self.expr(&if_0.cond);
+        last_if_idx = self.term_curr_bb(Term::PCH(true));
+        self.block(&if_0.blok);
+        jjx_idxs.push(self.term_curr_bb(Term::PCH(false)));
+        // oþer if cases
+        for elseif in eifs {
+            self.curr.patch_jump(
+                last_if_idx, Term::JFX(self.curr.curr_idx()));
+            self.expr(&elseif.cond);
+            last_if_idx = self.term_curr_bb(Term::PCH(true));
+            self.block(&elseif.blok);
+            jjx_idxs.push(self.term_curr_bb(Term::PCH(false)));
+        }
+        // opt else
+        let last_patch;
+        if let Some(eb) = elze {
             self.block(eb);
-            self.curr.patch_jump(end_true, Term::JJX(self.curr.curr_idx()));
-        } else {
-            self.curr.blocks[end_true].term = Term::NOP;
-            self.curr.curr.pred.add(end_true);
+            last_patch = self.term_curr_bb(Term::NOP);
+        } else { // connect last if to the end
+            last_patch = self.curr.curr_idx();
+        }
+        self.curr.patch_jump(last_if_idx, Term::JFX(last_patch));
+        // close all
+        let eo_if = self.curr.curr_idx();
+        for i in jjx_idxs {
+            self.curr.patch_jump(i, Term::JJX(eo_if));
         }
     }
 

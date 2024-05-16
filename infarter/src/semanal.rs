@@ -26,8 +26,10 @@ fn std_check_stmt(s: &mut Stmt)
     match s {
         Stmt::Assign(x, e)    => {std_check_expr(x); std_check_expr(e);},
         Stmt::OperOn(l, _, e) => {std_check_expr(l); std_check_expr(e);},
-        Stmt::IfStmt(c, b, e) => {std_check_expr(c); std_check_block(b);
-            if let Some(m) = e { check(m); }
+        Stmt::IfElse(i, o, e) => {
+            std_check_ifcase(i);
+            for c in o {std_check_ifcase(c);}
+            if let Some(m) = e {check(m);}
         },
         Stmt::LoopIf(l) => std_check_loop(l),
         Stmt::Return(e) => std_check_expr(e),
@@ -37,6 +39,13 @@ fn std_check_stmt(s: &mut Stmt)
         },
         _ => {},
     }
+}
+
+#[inline]
+fn std_check_ifcase(c: &mut IfCase)
+{
+    std_check_expr (&mut c.cond);
+    std_check_block(&mut c.blok);
 }
 
 #[inline]
@@ -177,12 +186,10 @@ impl UpvAnal
         match s {
             Stmt::Assign(a, e) => self.pass_s_assign(a, e),
             //TODO operons
-            Stmt::IfStmt(c, b, e) => {
-                self.pass_expr(c);
-                self.pass_block(b);
-                if let Some(b) = e {
-                    self.pass_block(b);
-                }
+            Stmt::IfElse(i, o, e) => {
+                self.pass_ifcase(i);
+                for c in o {self.pass_ifcase(c);}
+                if let Some(b) = e {self.pass_block(b);}
             },
             Stmt::LoopIf(l) => self.pass_loop(l),
             Stmt::Return(e) => self.pass_expr(e),
@@ -203,6 +210,12 @@ impl UpvAnal
     fn pass_ass_var(&mut self, i: &Rc<String>)
     {
         self.curr.ass_var(i);
+    }
+
+    fn pass_ifcase(&mut self, c: &mut IfCase)
+    {
+        self.pass_expr(&mut c.cond);
+        self.pass_block(&mut c.blok);
     }
 
     fn pass_loop(&mut self, l: &mut Loop)

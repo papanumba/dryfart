@@ -87,7 +87,7 @@ impl Scope
         match s {
             Stmt::Assign(v, e)    => self.do_assign(v, e),
             Stmt::OperOn(l, o, e) => self.do_operon(l, o, e),
-            Stmt::IfStmt(c, b, e) => return self.do_ifstmt(c, b, e),
+            Stmt::IfElse(i, o, e) => return self.do_ifelse(i, o, e),
             Stmt::LoopIf(l)       => return self.do_loopif(l),
             Stmt::BreakL(l)       => return Some(BlockAction::Brk(*l)),
             Stmt::Return(e)       => return Some(BlockAction::Ret(
@@ -166,21 +166,28 @@ impl Scope
         }
     }
 
-    fn do_ifstmt(
+    fn do_ifelse(
         &mut self,
-        cd: &Expr,
-        bl: &Block,
+        ic: &IfCase,
+        ei: &[IfCase],
         eb: &Option<Block>)
      -> Option<BlockAction>
     {
-         if self.eval_cond(cd) {
-            self.do_block(bl)
-         } else {
-            match eb {
-                Some(b) => self.do_block(b),
-                None => None,
+        macro_rules! do_ifcase {
+            ($zelf:ident, $c:ident) => {
+                if $zelf.eval_cond(&$c.cond) {
+                    return $zelf.do_block(&$c.blok);
+                }
             }
         }
+        do_ifcase!(self, ic);
+        for c in ei {
+            do_ifcase!(self, c);
+        }
+        return match eb {
+            Some(b) => self.do_block(b),
+            None => None,
+        };
     }
 
     fn do_loopif(&mut self, lo: &Loop) -> Option<BlockAction>
