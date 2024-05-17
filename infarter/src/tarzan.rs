@@ -308,6 +308,7 @@ impl Scope
             Expr::Array(a)       => self.eval_array(a),
             Expr::Table(v)       => self.eval_table(v),
             Expr::TblFd(e, f)    => self.eval_tblfd(e, f),
+            Expr::IfExp(c, e)    => self.eval_if_expr(c, e),
             _ => todo!("{:?}", e),
         }
     }
@@ -532,6 +533,17 @@ impl Scope
         } else {
             panic!("{:?} is not a table", tbl);
         }
+    }
+
+    #[inline]
+    fn eval_if_expr(&self, cases: &[(Expr, Expr)], elze: &Expr) -> Val
+    {
+        for (cond, res) in cases {
+            if self.eval_cond(cond) {
+                return self.eval_expr(res);
+            }
+        }
+        return self.eval_expr(elze);
     }
 }
 

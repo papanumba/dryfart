@@ -428,6 +428,12 @@ impl Compiler
     }
 
     #[inline]
+    fn curr_idx(&self) -> BbIdx
+    {
+        return self.curr.curr_idx();
+    }
+
+    #[inline]
     fn resolve_local(&self, id: &Rc<String>) -> Option<&LocIdx>
     {
         let idx = self.idents.index_of(id)?;
@@ -604,7 +610,7 @@ impl Compiler
         // oþer if cases
         for elseif in eifs {
             self.curr.patch_jump(
-                last_if_idx, Term::JFX(self.curr.curr_idx()));
+                last_if_idx, Term::JFX(self.curr_idx()));
             self.expr(&elseif.cond);
             last_if_idx = self.term_curr_bb(Term::PCH(true));
             self.block(&elseif.blok);
@@ -616,11 +622,11 @@ impl Compiler
             self.block(eb);
             last_patch = self.term_curr_bb(Term::NOP);
         } else { // connect last if to the end
-            last_patch = self.curr.curr_idx();
+            last_patch = self.curr_idx();
         }
         self.curr.patch_jump(last_if_idx, Term::JFX(last_patch));
         // close all
-        let eo_if = self.curr.curr_idx();
+        let eo_if = self.curr_idx();
         for i in jjx_idxs {
             self.curr.patch_jump(i, Term::JJX(eo_if));
         }
@@ -673,7 +679,7 @@ impl Compiler
         **   +---+
         */
         self.term_curr_bb(Term::NOP); // start b
-        let h = self.curr.curr_idx();
+        let h = self.curr_idx();
         self.no_env_block(b);
         self.term_curr_bb(Term::JJX(h));
     }
@@ -692,13 +698,13 @@ impl Compiler
         **  ...<-----+
         */
         self.term_curr_bb(Term::NOP);
-        let loop_start = self.curr.curr_idx();
+        let loop_start = self.curr_idx();
         self.no_env_block(b0);
         self.expr(cond);
         let branch = self.term_curr_bb(Term::PCH(true));
         self.no_env_block(b1);
         self.term_curr_bb(Term::JJX(loop_start));
-        self.curr.patch_jump(branch, Term::JFX(self.curr.curr_idx()));
+        self.curr.patch_jump(branch, Term::JFX(self.curr_idx()));
     }
 
     fn s_pccall(&mut self, proc: &Expr, args: &[Expr])
@@ -737,6 +743,7 @@ impl Compiler
             Expr::PcDef(s)       => self.e_pcdef(&s.borrow()),
             Expr::RecFn |
             Expr::RecPc => self.push_op(ImOp::LLX(0)), // unchecked
+            Expr::IfExp(c, e)    => self.e_ifexp(c, e),
         }
     }
 
@@ -899,6 +906,33 @@ impl Compiler
         let ari = u8::try_from(args.len())
             .expect("too many args in func call: max 255");
         self.push_op(ImOp::FCL(ari));
+    }
+
+    fn e_ifexp(&mut self, cases: &[(Expr, Expr)], elze: &Expr)
+    {
+        // copypasted from stmt if else
+        macro_rules! if_case {
+            ($zelf:ident, $li:ident, $jjx:ident, $c:expr) => {
+                $zelf.expr(&$c.0);
+                $li = $zelf.term_curr_bb(Term::PCH(true));
+                $zelf.expr(&$c.1);
+                $jjx.push($zelf.term_curr_bb(Term::PCH(false)));
+            };
+        }
+        let mut last_if_idx;
+        let mut jjx_idxs = vec![];
+        if_case!(self, last_if_idx, jjx_idxs, cases[0]);
+        for c in &cases[1..] {
+            self.curr.patch_jump(last_if_idx, Term::JFX(self.curr_idx()));
+            if_case!(self, last_if_idx, jjx_idxs, c);
+        }
+        self.expr(elze);
+        let last_patch = self.term_curr_bb(Term::NOP);
+        self.curr.patch_jump(last_if_idx, Term::JFX(last_patch));
+        let end = self.curr_idx();
+        for i in jjx_idxs {
+            self.curr.patch_jump(i, Term::JJX(end));
+        }
     }
 
     pub fn obj_call(

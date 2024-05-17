@@ -72,6 +72,7 @@ pub enum Token<'src>
     Then, // =>
     HashDollar, // #$
     BangDollar, // !$
+    BsLsb,      // \[
     // literals
     ValV,
     ValB(bool),
@@ -248,6 +249,7 @@ pub enum TokenType
     Then,       // =>
     HashDollar, // #$
     BangDollar, // !$
+    BsLsb,      // \[
     // literals
     ValV,
     ValB,
@@ -319,6 +321,7 @@ impl<'src> From<&Token<'src>> for TokenType
             Token::Then     => Self::Then,
             Token::HashDollar => Self::HashDollar,
             Token::BangDollar => Self::BangDollar,
+            Token::BsLsb      => Self::BsLsb,
             // literals
             Token::ValV     => Self::ValV,
             Token::ValB(_)  => Self::ValB,

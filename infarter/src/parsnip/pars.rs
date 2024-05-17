@@ -472,7 +472,7 @@ impl<'src> Nip<'src>
 
     fn nucle(&mut self) -> Result<Expr, String>
     {
-        const MSG: &'static str = "(, #, !, _, $, ident or literal";
+        const MSG: &'static str = "(, #, !, _, $, \\[, ident or literal";
         let tok = match self.peek::<0>() {
             Some(t) => t,
             None => return eof_err!(MSG),
@@ -480,6 +480,7 @@ impl<'src> Nip<'src>
         match tok.0 {
             Token::Lparen => self.parented(),
             Token::Hash => self.func(tok.1),
+            Token::BsLsb => self.if_expr(),
             Token::RecF => {
                 self.advance();
                 Ok(Expr::RecFn)
@@ -687,6 +688,31 @@ impl<'src> Nip<'src>
         }
         self.advance(); // END
         return Ok(res);
+    }
+
+    // called when \[
+    #[inline]
+    fn if_expr(&mut self) -> Result<Expr, String>
+    {
+        self.advance(); // \[
+        let mut cases = vec![];
+        loop {
+            if self.matches::<0>(TokenType::Then) {
+                todo!("final else");
+            }
+            let e = self.expr()?;
+            if !cases.is_empty() && self.matches::<0>(TokenType::RsqBra) {
+                self.advance(); // ]
+                return Ok(Expr::IfExp(cases, Box::new(e)));
+            }
+            if self.exp_adv(TokenType::Then).is_err() {
+                let msg = if !cases.is_empty() {"=> or ]"} else {"=>"};
+                return expected_err!(msg, self.peek::<0>().unwrap());
+            }
+            let f = self.expr()?;
+            self.exp_adv(TokenType::Semic)?;
+            cases.push((e, f));
+        }
     }
 
     fn consume_ident(&mut self) -> Result<&'src [u8], String>

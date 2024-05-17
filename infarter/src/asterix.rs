@@ -710,4 +710,5 @@ pub enum Expr
     Table(Vec<(Rc<String>, Expr)>),
     TblFd(Box<Expr>, Rc<String>),
     RecsT(u32),
+    IfExp(Vec<(Expr, Expr)>, Box<Expr>),
 }

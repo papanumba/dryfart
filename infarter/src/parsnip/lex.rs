@@ -277,10 +277,11 @@ impl<'src> Luthor<'src>
         return Token::Hash;
     }
 
-    // \, FUTURE: \\, \#, \[
+    // \, \[, FUTURE: \\, \#
     #[inline]
     fn from_bslash(&mut self) -> Token<'src>
     {
+        if_next!(self, b'[', BsLsb);
         return Token::Bslash;
     }
 

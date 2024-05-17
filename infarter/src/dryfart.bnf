@@ -68,10 +68,12 @@ use https://bnfplayground.pauliankline.com/;
             | "#$" <Ident> <FnArgs> )*
 
 <Nucle>   ::= /*<AnonFn> |*/
-            <Parented> | <Literal> | <Ident> /*| "@" /* recurs */
+            <Parented> | <Literal> | <Ident> | <IfExpr> /*| "@" /* recurs */
 
 <Parented> ::= "(" <Expr> ")"
 <Ident>   ::= r"[A-Za-z][A-Za-z0-9]*"
+
+<IfExpr>  ::= "\[" (<Expr> "=>" <Expr> ";")+ <Expr> "]"
 
 <Literal> ::= <B> | <C> | <N> | <Z> | <R> | <String> | <ArrLit> | <TblLit>
 <String>  ::= "check implementation"
