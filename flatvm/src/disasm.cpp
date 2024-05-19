@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include "disasm.h"
-#include "alzhmr.h"
 
 /* local state for disassembling */
 static VmData *dat = nullptr;

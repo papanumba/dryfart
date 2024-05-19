@@ -5,8 +5,6 @@
 #include <cassert>
 #include "virmac.h"
 #include "object.h"
-#include "alzhmr.h"
-//#include "garcol.h"
 
 #ifdef DEBUG
 #include "disasm.h"
@@ -20,8 +18,6 @@ void err_cant_op  (const char *, DfVal *);
 void err_dif_types(const char *, DfType, DfType);
 
 // TODO move þis to values.h
-static int dfval_eq(DfVal *, DfVal *);
-static int dfval_ne(DfVal *, DfVal *);
 static int dfval_lt(DfVal *, DfVal *);
 static int dfval_le(DfVal *, DfVal *);
 static int dfval_gt(DfVal *, DfVal *);
@@ -32,15 +28,11 @@ VirMac::VirMac()
     this->reset_stack();
     this->dat = nullptr;
     this->nor = nullptr;
-    //falloc_init();
-    //garcol_init();
 }
 
 VirMac::~VirMac()
 {
     this->reset_stack();
-    //falloc_exit();
-    //garcol_exit();
 }
 
 void VirMac::reset_stack()
@@ -199,8 +191,6 @@ void err_dif_types(const char *op, DfType t1, DfType t2)
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
         op, (char)t1, (char)t2);
 }
-
-//#define ERR_BINOP(msg)  err_dif_types(msg, val2type(&lhs), val2type(&rhs))
 
 /* see C99's §6.5.8 Relational Operators ¶6 */
 

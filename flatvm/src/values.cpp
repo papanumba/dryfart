@@ -1,9 +1,7 @@
 /* values.c */
 
 #include <stdio.h>
-#include "values.h"
-#include "object.h"
-#include "alzhmr.h"
+#include "object.h" // includes values.h
 
 bool DfVal::operator==(const DfVal &that) const
 {

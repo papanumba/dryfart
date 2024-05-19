@@ -3,13 +3,11 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
-#include "alzhmr.h"
 #include "object.h"
-//#include "falloc.h"
 
 static inline bool    arrt_valt_eq(DfType, enum ValType);
-static inline DfType  valt2arrt(ValType);
-static inline ValType arrt2valt(DfType);
+/*static inline DfType  valt2arrt(ValType);
+static inline ValType arrt2valt(DfType);*/
 
 /*************************** A R R A Y S ***************************/
 
@@ -511,6 +509,8 @@ static inline bool arrt_valt_eq(DfType a, enum ValType v)
     }
 }
 
+#if 0
+
 static inline enum DfType valt2arrt(enum ValType vt)
 {
     switch (vt) {
@@ -537,3 +537,6 @@ static inline enum ValType arrt2valt(enum DfType at)
     }
     unreachable();
 }
+
+#endif
+

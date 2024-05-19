@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include "loader.h"
-#include "alzhmr.h"
 #include "native.h"
 #include "maitre.h"
 #include "object.h"

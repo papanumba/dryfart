@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <utility>
 #include <type_traits>
-#include "alzhmr.h"
+#include "common.h"
 
 template <typename T>
 void DynArr<T>::init()

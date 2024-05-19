@@ -6,7 +6,6 @@
 #include "htable.h"
 #include "idents.h"
 #include "values.h"
-#include "alzhmr.h"
 
 #define MAX_LOAD 0.75f
 

@@ -3,8 +3,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include "garcol.h"
-#include "maitre.h"
-#include "alzhmr.h"
 #include "virmac.h"
 #include "object.h"
 
