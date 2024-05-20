@@ -29,7 +29,7 @@ fn std_check_stmt(s: &mut Stmt)
         Stmt::IfElse(i, o, e) => {
             std_check_ifcase(i);
             for c in o {std_check_ifcase(c);}
-            if let Some(m) = e {check(m);}
+            if let Some(m) = e {std_check_block(m);}
         },
         Stmt::LoopIf(l) => std_check_loop(l),
         Stmt::Return(e) => std_check_expr(e),
@@ -260,6 +260,13 @@ impl UpvAnal
             // þis will be important when eking $@ captures
             Expr::Table(t) => for (_, e) in t {self.pass_expr(e);},
             Expr::TblFd(t, _) => self.pass_expr(t),
+            Expr::IfExp(c, e) => {
+                for (a, b) in c {
+                    self.pass_expr(a);
+                    self.pass_expr(b);
+                }
+                self.pass_expr(e);
+            },
             _ => {},
         }
     }

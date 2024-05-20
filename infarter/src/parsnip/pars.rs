@@ -472,7 +472,7 @@ impl<'src> Nip<'src>
 
     fn nucle(&mut self) -> Result<Expr, String>
     {
-        const MSG: &'static str = "(, #, !, _, $, \\[, ident or literal";
+        const MSG: &'static str = "(, #, !, _, $, \\[, \\#, ident or literal";
         let tok = match self.peek::<0>() {
             Some(t) => t,
             None => return eof_err!(MSG),
@@ -481,6 +481,7 @@ impl<'src> Nip<'src>
             Token::Lparen => self.parented(),
             Token::Hash => self.func(tok.1),
             Token::BsLsb => self.if_expr(),
+            Token::BsHash => self.short_fn(tok.1),
             Token::RecF => {
                 self.advance();
                 Ok(Expr::RecFn)
@@ -688,6 +689,29 @@ impl<'src> Nip<'src>
         }
         self.advance(); // END
         return Ok(res);
+    }
+
+    // called when \#
+    #[inline]
+    fn short_fn(&mut self, line: usize) -> Result<Expr, String>
+    {
+        self.advance(); // \#
+        // TODO: maybe put actual name of short functions?
+        let pars: Vec<Rc<String>> = self.pars(TokenType::Semic)?
+            .iter()
+            .map(|b| Rc::new(String::from(std::str::from_utf8(b).unwrap())))
+            .collect();
+        let ret_expr = self.expr()?;
+        self.exp_adv(TokenType::Period)?;
+        let meta = SubrMeta { line: line, name: None };
+        let subr = Subr {
+            meta: meta,
+            upvs: vec![],
+            pars: pars,
+            body: vec![Stmt::Return(ret_expr)],
+        };
+        let mrs = Rc::new(RefCell::new(subr));
+        return Ok(Expr::FnDef(mrs));
     }
 
     // called when \[
