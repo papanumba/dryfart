@@ -4,7 +4,6 @@
 
 use std::io::Write;
 
-
 pub mod parsnip;
 pub mod asterix;
 pub mod tarzan;
@@ -14,7 +13,6 @@ pub mod intrep;
 pub mod optimus;
 pub mod genesis;
 pub mod util;
-
 
 fn main()
 {
@@ -39,7 +37,7 @@ pub fn parse_file(fname: &str)
     let taco: String = read_file_to_string(fname);
     let mut ast = match parsnip::parse(&taco) {
         Ok(b) => b,
-        Err(e) => panic!("{e}"),
+        Err(e) => {eprintln!("{e}"); return;},
     };
     semanal::check(&mut ast);
     tarzan::exec_main(&ast);
@@ -59,7 +57,7 @@ pub fn transfart(ifname: &str, opt: bool)
     ofname.push('c');
     let mut ast = match parsnip::parse(&taco) {
         Ok(b) => b,
-        Err(e) => panic!("{e}"),
+        Err(e) => {eprintln!("{e}"); return;},
     };
     semanal::check(&mut ast);
     let mut cfg = intrep::Compiler::from_asterix(&ast);

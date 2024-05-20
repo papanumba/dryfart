@@ -6,13 +6,14 @@ use std::{
     rc::Rc,
     cell::RefCell,
 };
-use super::toki::{Token, TokenType, PrimType};
+use super::toki::{Token, TokTyp, PrimType};
 use crate::asterix::*;
 use crate::util;
+use crate::util::string_from_ascii;
 
 macro_rules! expected_err {
     ($e:expr, $f:expr) => { util::format_err!(
-        "ParsnipError: Expected {} but found {:?} at line {}",
+        "ParsnipError: Expected {} but found {} at line {}",
         $e, $f.0, $f.1
     ) };
 }
@@ -29,7 +30,7 @@ macro_rules! left_binop_expr {
         fn $name(&mut self) -> Result<Expr, String>
         {
             let mut e = self.$term()?;
-            while self.matches::<0>(TokenType::$ttype) {
+            while self.matches::<0>(TokTyp::$ttype) {
                 self.advance(); // þe binop
                 let t = self.$term()?;
                 e = Expr::BinOp(
@@ -50,7 +51,7 @@ macro_rules! rite_uniop_expr {
         {
             // count all unary Ops
             let mut n = 0;
-            while self.matches::<0>(TokenType::$ttype) {
+            while self.matches::<0>(TokTyp::$ttype) {
                 self.advance();
                 n += 1;
             }
@@ -87,14 +88,14 @@ impl<'src> Nip<'src>
         return if self.is_at_end() {
             Ok(res)
         } else {
-            eof_err!(format!("{:?}", self.peek::<0>().unwrap().0))
+            eof_err!(format!("{}", self.peek::<0>().unwrap().0))
         };
     }
 
     #[inline]
-    fn peek<const LA: usize>(&self) -> Option<&LnToken<'src>>
+    fn peek<const LA: usize>(&self) -> Option<LnToken<'src>>
     {
-        return self.tokens.get(self.cursor + LA);
+        return self.tokens.get(self.cursor + LA).copied();
     }
 
     #[inline]
@@ -112,10 +113,10 @@ impl<'src> Nip<'src>
     }
 
     #[inline]
-    fn matches<const LA: usize>(&self, m: TokenType) -> bool
+    fn matches<const LA: usize>(&self, m: TokTyp) -> bool
     {
         match self.peek::<LA>() {
-            Some(t) => TokenType::from(&t.0) == m,
+            Some(t) => t.0.typ() == m,
             None => false,
         }
     }
@@ -136,16 +137,13 @@ impl<'src> Nip<'src>
     // advances and returns OK if peek<0> is þe passed arg
     // return Err is peek<0> is not þe expected
     #[inline]
-    fn exp_adv(&mut self, t: TokenType) -> Result<(), String>
+    fn exp_adv(&mut self, t: TokTyp) -> Result<(), String>
     {
         if self.matches::<0>(t) {
             self.advance();
             Ok(())
         } else {
-            expected_err!(
-                format!("{:?}", t),
-                self.peek::<0>().unwrap()
-            )
+            expected_err!(format!("{:?}", t), self.peek::<0>().unwrap())
         }
     }
 
@@ -154,7 +152,10 @@ impl<'src> Nip<'src>
     #[inline]
     fn print_peek(&self)
     {
-        println!("{:?}", self.peek::<0>());
+        match self.peek::<0>() {
+            Some((t, ln)) => println!("{t} at line {ln}"),
+            None => println!("None"),
+        }
     }
 
 
@@ -164,10 +165,9 @@ impl<'src> Nip<'src>
     {
         let mut stmts: Vec<Stmt> = vec![];
         loop {
-            if let Some(st) = self.stmt() {
-                stmts.push(st?);
-            } else {
-                return Ok(stmts);
+            match self.stmt() {
+                Some(st) => stmts.push(st?),
+                None => return Ok(stmts),
             }
         }
     }
@@ -175,18 +175,16 @@ impl<'src> Nip<'src>
     #[inline]
     fn stmt(&mut self) -> Option<Result<Stmt, String>>
     {
-        let t = if let Some(tok) = self.peek::<0>() {
-            tok
-        } else {
+        let Some(t) = self.peek::<0>() else {
             return None;
         };
-        match t.0 {
+        match t.0.typ() {
             // one of þe few 2-lookahead
-            Token::LsqBra  => Some(self.if_stmt()),
-            Token::AtSign  => Some(self.loop_stmt()),
-            Token::AtSign2 => Some(self.break_stmt()),
-            Token::Hash2   => Some(self.return_stmt()),
-            Token::Bang2   => Some(self.pc_end()),
+            TokTyp::LsqBra  => Some(self.if_stmt()),
+            TokTyp::AtSign  => Some(self.loop_stmt()),
+            TokTyp::AtSign2 => Some(self.break_stmt()),
+            TokTyp::Hash2   => Some(self.return_stmt()),
+            TokTyp::Bang2   => Some(self.pc_end()),
             _ => self.other_stmt(),
         }
     }
@@ -195,23 +193,22 @@ impl<'src> Nip<'src>
     fn other_stmt(&mut self) -> Option<Result<Stmt, String>>
     {
         const MSG: &'static str = "=, !, !$, ++, --, ** or //";
-        let lhs = match self.expr() {
-            Ok(e) => e,
-            _ => return None,
+        let Ok(lhs) = self.expr() else {
+            return None;
         };
-        Some(match self.peek::<0>() {
-            Some(t) => match t.0 {
-                Token::Equal => self.assign(lhs),
-                Token::Bang => self.pccall(lhs),
-                Token::BangDollar => self.tbpcal(lhs),
-                Token::Plus2     |
-                Token::Minus2    |
-                Token::Asterisk2 |
-                Token::Slash2 => self.operon(lhs, t.0),
-                _ => expected_err!(MSG, t),
-            },
-            None => eof_err!(MSG),
-        })
+        let Some(t) = self.peek::<0>() else {
+            return Some(eof_err!(MSG));
+        };
+        return Some(match t.0.typ() {
+            TokTyp::Equal => self.assign(lhs),
+            TokTyp::Bang => self.pccall(lhs),
+            TokTyp::BangDollar => self.tbpcal(lhs),
+            TokTyp::Plus2     |
+            TokTyp::Minus2    |
+            TokTyp::Asterisk2 |
+            TokTyp::Slash2 => self.operon(lhs, t.0),
+            _ => expected_err!(MSG, t),
+        });
     }
 
     #[inline]
@@ -219,7 +216,7 @@ impl<'src> Nip<'src>
     {
         self.advance(); // =
         let e = self.expr()?;
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         Ok(Stmt::Assign(lhs, e))
     }
 
@@ -227,9 +224,9 @@ impl<'src> Nip<'src>
     fn operon(&mut self, lhs: Expr, op: Token<'_>) -> Result<Stmt, String>
     {
         self.advance(); // op
-        let binop = BinOpcode::try_from(&op)?;
+        let binop = BinOpcode::try_from(op.typ())?;
         let ex = self.expr()?;
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::OperOn(lhs, binop, ex));
     }
 
@@ -237,7 +234,7 @@ impl<'src> Nip<'src>
     fn pccall(&mut self, lhs: Expr) -> Result<Stmt, String>
     {
         self.advance(); // !
-        let args = self.comma_ex(TokenType::Period)?;
+        let args = self.comma_ex(TokTyp::Period)?;
         return Ok(Stmt::PcCall(lhs, args));
     }
 
@@ -246,9 +243,9 @@ impl<'src> Nip<'src>
     {
         self.advance(); // !$
         let name = self.consume_ident()?;
-        self.exp_adv(TokenType::Bang)?; // !
-        let args = self.comma_ex(TokenType::Period)?;
-        let name = Rc::new(String::from_utf8(name.to_vec()).unwrap());
+        self.exp_adv(TokTyp::Bang)?; // !
+        let args = self.comma_ex(TokTyp::Period)?;
+        let name = Rc::new(util::string_from_ascii(name));
         return Ok(Stmt::TbPCal(lhs, name, args));
     }
 
@@ -258,11 +255,11 @@ impl<'src> Nip<'src>
         self.advance(); // [
         // parse mandatory 1st case of þe if
         let cond = self.expr()?;
-        self.exp_adv(TokenType::Then)?;
+        self.exp_adv(TokTyp::Then)?;
         let if_block = self.block()?;
         let if0 = IfCase::new(cond, if_block);
         // check if end
-        if self.matches::<0>(TokenType::RsqBra) {
+        if self.matches::<0>(TokTyp::RsqBra) {
             self.advance(); // ]
             return Ok(Stmt::IfElse(if0, vec![], None));
         }
@@ -273,25 +270,25 @@ impl<'src> Nip<'src>
             let Some(tok) = self.peek::<0>() else {
                 return eof_err!(MSG);
             };
-            let tt0 = TokenType::from(&tok.0);
-            if tt0 == TokenType::RsqBra {
+            let tt0 = tok.0.typ();
+            if tt0 == TokTyp::RsqBra {
                 self.advance(); // ]
                 return Ok(Stmt::IfElse(if0, elseifs, None));
             }
             // now must be an Elseif or an Else
-            if tt0 != TokenType::Vbar {
+            if tt0 != TokTyp::Vbar {
                 return expected_err!(MSG, tok);
             }
             self.advance(); // |
-            if self.matches::<0>(TokenType::Then) { // Else
+            if self.matches::<0>(TokTyp::Then) { // Else
                 self.advance(); // =>
                 let eb = self.block()?;
-                self.exp_adv(TokenType::RsqBra)?;
+                self.exp_adv(TokTyp::RsqBra)?;
                 return Ok(Stmt::IfElse(if0, elseifs, Some(eb)));
             }
             // now must be an Elseif
             let cond = self.expr()?;
-            self.exp_adv(TokenType::Then)?;
+            self.exp_adv(TokTyp::Then)?;
             let blok = self.block()?;
             elseifs.push(IfCase::new(cond, blok));
         }
@@ -302,16 +299,16 @@ impl<'src> Nip<'src>
     {
         self.advance(); // @
         let pre = self.block()?; // maybe empty
-        if !self.matches::<0>(TokenType::LsqBra2) { // infinite loop
-            self.exp_adv(TokenType::Period)?;
+        if !self.matches::<0>(TokTyp::LsqBra2) { // infinite loop
+            self.exp_adv(TokTyp::Period)?;
             return Ok(Stmt::LoopIf(Loop::Inf(pre)));
         }
         // now, þer should be þe condition
-        self.exp_adv(TokenType::LsqBra2)?;
+        self.exp_adv(TokTyp::LsqBra2)?;
         let cond = self.expr()?;
-        self.exp_adv(TokenType::RsqBra2)?;
+        self.exp_adv(TokTyp::RsqBra2)?;
         let post = self.block()?;
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::LoopIf(Loop::Cdt(pre, cond, post)));
     }
 
@@ -320,16 +317,18 @@ impl<'src> Nip<'src>
     {
         self.advance(); // @@
         let mut level: u32 = 0;
-        let t = match self.peek::<0>() {
-            Some(tok) => tok,
-            None => return eof_err!("ValN"),
+        let Some(t) = self.peek::<0>() else {
+            return eof_err!("ValN");
         };
-        match t.0 {
-            Token::ValN(n) => {level = n; self.advance();},
-            Token::Period  => {}, // implicit level 1
+        match t.0.typ() {
+            TokTyp::ValN => {
+                level = t.0.as_valn().unwrap();
+                self.advance();
+            },
+            TokTyp::Period  => {}, // implicit level 1
             _ => return expected_err!("ValN or .", t),
         }
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::BreakL(level));
     }
 
@@ -338,7 +337,7 @@ impl<'src> Nip<'src>
     {
         self.advance(); // ##
         let ret = self.expr()?;
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::Return(ret));
     }
 
@@ -346,7 +345,7 @@ impl<'src> Nip<'src>
     fn pc_end(&mut self) -> Result<Stmt, String>
     {
         self.advance(); // !!
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::PcExit);
     }
 
@@ -366,7 +365,7 @@ impl<'src> Nip<'src>
             if !pop.0.is_cmp() {
                 break;
             }
-            let op = BinOpcode::try_from(&pop.0).unwrap();
+            let op = BinOpcode::try_from(pop.0.typ()).unwrap();
             self.advance();
             let rhs = self.or_expr()?;
             others.push((op, rhs));
@@ -385,13 +384,13 @@ impl<'src> Nip<'src>
     fn add_expr(&mut self) -> Result<Expr, String>
     {
         let mut ae = self.neg_expr()?;
-        while self.matches::<0>(TokenType::Plus)
-           || self.matches::<0>(TokenType::Minus) {
-            let op = self.read_token().unwrap().0.clone(); // +, -
+        while self.matches::<0>(TokTyp::Plus)
+           || self.matches::<0>(TokTyp::Minus) {
+            let op = self.read_token().unwrap().0; // +, -
             let rhs = self.neg_expr()?;
-            let op = match op {
-                Token::Plus  => BinOpcode::Add,
-                Token::Minus => BinOpcode::Sub,
+            let op = match op.typ() {
+                TokTyp::Plus  => BinOpcode::Add,
+                TokTyp::Minus => BinOpcode::Sub,
                 _ => unreachable!(),
             };
             ae = Expr::BinOp(Box::new(ae), op, Box::new(rhs));
@@ -404,15 +403,15 @@ impl<'src> Nip<'src>
     fn mul_expr(&mut self) -> Result<Expr, String>
     {
         let mut me = self.inv_expr()?;
-        while self.matches::<0>(TokenType::Asterisk)
-           || self.matches::<0>(TokenType::Slash)
-           || self.matches::<0>(TokenType::Bslash) {
-            let op = self.read_token().unwrap().0.clone(); // *, /, \
+        while self.matches::<0>(TokTyp::Asterisk)
+           || self.matches::<0>(TokTyp::Slash)
+           || self.matches::<0>(TokTyp::Bslash) {
+            let op = self.read_token().unwrap().0; // *, /, \
             let rhs = self.inv_expr()?;
-            let op = match op {
-                Token::Asterisk => BinOpcode::Mul,
-                Token::Slash    => BinOpcode::Div,
-                Token::Bslash   => BinOpcode::Mod,
+            let op = match op.typ() {
+                TokTyp::Asterisk => BinOpcode::Mul,
+                TokTyp::Slash    => BinOpcode::Div,
+                TokTyp::Bslash   => BinOpcode::Mod,
                 _ => unreachable!(),
             };
             me = Expr::BinOp(Box::new(me), op, Box::new(rhs));
@@ -426,45 +425,50 @@ impl<'src> Nip<'src>
 
     fn cast_expr(&mut self) -> Result<Expr, String>
     {
-        match self.peek::<0>() {
-            Some(t) => match t.0 {
-                Token::PrimType(pt) => {
-                    self.advance(); // þe primtype
-                    let casted = self.cast_expr()?;
-                    Ok(Expr::Tcast(pt.into(), Box::new(casted)))
-                }
-                _ => self.fn_acc_ex(),
-            },
-            _ => eof_err!("type%, ident or literal"),
+        let Some(t) = self.peek::<0>() else {
+            return eof_err!("type%, ident or literal");
+        };
+        if t.0.typ() != TokTyp::PrimType {
+            return self.fn_acc_ex();
         }
+        self.advance(); // þe primtype
+        let casted = self.cast_expr()?;
+        return Ok(Expr::Tcast(
+            t.0.as_primtype().unwrap().into(),
+            Box::new(casted)
+        ));
     }
 
     fn fn_acc_ex(&mut self) -> Result<Expr, String>
     {
         let mut e = self.nucle()?;
         loop {
-            if self.matches::<0>(TokenType::Dollar) {
-                self.advance(); // $
-                let i = self.consume_ident()?;
-                e = Expr::TblFd(Box::new(e),
-                    Rc::new(String::from(std::str::from_utf8(i).unwrap())),
-                );
-            } else
-            if self.matches::<0>(TokenType::Hash) {
-                self.advance(); // #
-                let args = self.comma_ex(TokenType::Semic)?;
-                e = Expr::Fcall(Box::new(e), args);
-            } else
-            if self.matches::<0>(TokenType::HashDollar){
-                self.advance(); // #$
-                let i = self.consume_ident()?;
-                self.exp_adv(TokenType::Hash)?; // #
-                let args = self.comma_ex(TokenType::Semic)?;
-                e = Expr::TbFcl(Box::new(e),
-                    Rc::new(String::from(std::str::from_utf8(i).unwrap())),
-                    args);
-            } else {
+            let Some(t) = self.peek::<0>() else {
                 break;
+            };
+            match t.0.typ() {
+                TokTyp::Dollar => {
+                    self.advance(); // $
+                    let i = self.consume_ident()?;
+                    e = Expr::TblFd(Box::new(e),
+                        Rc::new(string_from_ascii(i)),
+                    );
+                },
+                TokTyp::Hash => {
+                    self.advance(); // #
+                    let args = self.comma_ex(TokTyp::Semic)?;
+                    e = Expr::Fcall(Box::new(e), args);
+                },
+                TokTyp::HashDollar => {
+                    self.advance(); // #$
+                    let i = self.consume_ident()?;
+                    self.exp_adv(TokTyp::Hash)?; // #
+                    let args = self.comma_ex(TokTyp::Semic)?;
+                    e = Expr::TbFcl(Box::new(e),
+                        Rc::new(string_from_ascii(i)),
+                        args);
+                },
+                _ => break,
             }
         }
         return Ok(e);
@@ -473,42 +477,41 @@ impl<'src> Nip<'src>
     fn nucle(&mut self) -> Result<Expr, String>
     {
         const MSG: &'static str = "(, #, !, _, $, \\[, \\#, ident or literal";
-        let tok = match self.peek::<0>() {
-            Some(t) => t,
-            None => return eof_err!(MSG),
+        let Some(tok) = self.peek::<0>() else {
+            return eof_err!(MSG);
         };
-        match tok.0 {
-            Token::Lparen => self.parented(),
-            Token::Hash => self.func(tok.1),
-            Token::BsLsb => self.if_expr(),
-            Token::BsHash => self.short_fn(tok.1),
-            Token::RecF => {
+        match tok.0.typ() {
+            TokTyp::Lparen => self.parented(),
+            TokTyp::Hash => self.func(tok.1),
+            TokTyp::BsLsb => self.if_expr(),
+            TokTyp::BsHash => self.short_fn(tok.1),
+            TokTyp::RecF => {
                 self.advance();
                 Ok(Expr::RecFn)
             },
-            Token::Bang => self.proc(tok.1),
-            Token::RecP => {
+            TokTyp::Bang => self.proc(tok.1),
+            TokTyp::RecP => {
                 self.advance();
                 Ok(Expr::RecPc)
             },
-            Token::Uscore =>     self.arrlit(),
-            Token::Dollar =>     self.tbllit(),
-            Token::RecT(l) => {
+            TokTyp::Uscore =>     self.arrlit(),
+            TokTyp::Dollar =>     self.tbllit(),
+            TokTyp::RecT => {
                 self.advance();
-                Ok(Expr::RecsT(l))
+                Ok(Expr::RecsT(tok.0.as_rect().unwrap()))
             },
-            Token::Ident(id) => {
+            TokTyp::Ident => {
                 self.advance();
-                return Ok(Expr::Ident(Rc::new(std::str::from_utf8(id)
-                    .unwrap().to_owned())))
+                let id = tok.0.as_ident().unwrap();
+                return Ok(Expr::Ident(Rc::new(string_from_ascii(id))));
             },
             // literals
-            Token::ValV    => {self.advance(); Ok(Expr::Const(Val::V))},
-            Token::ValB(b) => Ok(self.valb(b)),
-            Token::ValN(n) => Ok(self.valn(n)),
-            Token::ValZ(z) => Ok(self.valz(z)),
-            Token::ValR(r) => Ok(self.valr(r)),
-            Token::String(s) =>  self.string(s),
+            TokTyp::ValV => {self.advance(); Ok(Expr::Const(Val::V))},
+            TokTyp::ValB => Ok(self.valb(tok.0.as_valb().unwrap())),
+            TokTyp::ValN => Ok(self.valn(tok.0.as_valn().unwrap())),
+            TokTyp::ValZ => Ok(self.valz(tok.0.as_valz().unwrap())),
+            TokTyp::ValR => Ok(self.valr(tok.0.as_valr().unwrap())),
+            TokTyp::String =>  self.string(tok.0.as_string().unwrap()),
             _ => expected_err!(MSG, tok),
         }
     }
@@ -551,7 +554,7 @@ impl<'src> Nip<'src>
 
     // parses comma separated exprs which end in a specific token
     // it also consumes þe end token, so no need to exp_adv after
-    fn comma_ex(&mut self, end: TokenType) -> Result<Vec<Expr>, String>
+    fn comma_ex(&mut self, end: TokTyp) -> Result<Vec<Expr>, String>
     {
         // check empty
         if self.matches::<0>(end) {
@@ -563,16 +566,15 @@ impl<'src> Nip<'src>
         loop {
             let ex = self.expr()?;
             exs.push(ex);
-            let tok = match self.peek::<0>() {
-                Some(t) => t,
-                None => return eof_err!(comma_or_end),
+            let Some(tok) = self.peek::<0>() else {
+                return eof_err!(comma_or_end);
             };
-            let tt = TokenType::from(&tok.0);
+            let tt = tok.0.typ();
             if tt == end {
                 self.advance(); // consume end
                 return Ok(exs);
             }
-            if tt != TokenType::Comma {
+            if tt != TokTyp::Comma {
                 return expected_err!(comma_or_end, tok);
             }
             self.advance();
@@ -584,7 +586,7 @@ impl<'src> Nip<'src>
     {
         self.advance(); // (
         let e = self.expr()?;
-        self.exp_adv(TokenType::Rparen)?;
+        self.exp_adv(TokTyp::Rparen)?;
         return Ok(e);
     }
 
@@ -592,7 +594,7 @@ impl<'src> Nip<'src>
     fn arrlit(&mut self) -> Result<Expr, String>
     {
         self.advance(); // _
-        let arr_e = self.comma_ex(TokenType::Semic)?;
+        let arr_e = self.comma_ex(TokTyp::Semic)?;
         return Ok(Expr::Array(arr_e));
     }
 
@@ -603,20 +605,19 @@ impl<'src> Nip<'src>
         self.advance(); // $
         let mut tbl_e = vec![];
         loop {
-            if let Some(t) = self.peek::<0>() {
-                match t.0 {
-                    Token::Ident(_) => {}, // ok, continue
-                    Token::Semic => break,
-                    _ => return expected_err!(MSG, t),
-                }
-            } else {
+            let Some(t) = self.peek::<0>() else {
                 return eof_err!(MSG);
+            };
+            match t.0.typ() {
+                TokTyp::Ident => {}, // ok, continue reading
+                TokTyp::Semic => break,
+                _ => return expected_err!(MSG, t),
             }
             let i = self.consume_ident()?;
-            self.exp_adv(TokenType::Equal)?;
+            self.exp_adv(TokTyp::Equal)?;
             let e = self.expr()?;
-            self.exp_adv(TokenType::Period)?;
-            let i = Rc::new(String::from(std::str::from_utf8(i).unwrap()));
+            self.exp_adv(TokTyp::Period)?;
+            let i = Rc::new(string_from_ascii(i));
             tbl_e.push((i, e));
         }
         self.advance(); // ;
@@ -640,23 +641,24 @@ impl<'src> Nip<'src>
     {
         self.advance(); // # or !
         let name = match self.peek::<0>() {
-            Some((Token::String(s), _)) =>
-                Some(Rc::new(std::str::from_utf8(*s).unwrap().to_string())),
+            Some((t, _)) => if let Some(s) = t.as_string() {
+                Some(Rc::new(string_from_ascii(s)))
+            } else { None },
             _ => None,
         };
         if name.is_some() {
             self.advance(); // string
         }
         let end_tok = match st {
-            SubrType::F => TokenType::Semic,
-            SubrType::P => TokenType::Period,
+            SubrType::F => TokTyp::Semic,
+            SubrType::P => TokTyp::Period,
         };
         let pars: Vec<Rc<String>> = self.pars(end_tok)?
             .iter()
-            .map(|b| Rc::new(String::from(std::str::from_utf8(b).unwrap())))
+            .map(|b| Rc::new(string_from_ascii(b)))
             .collect();
         let bloq = self.block()?;
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         let meta = SubrMeta { line: line, name: name };
         let subr = Subr {
             meta: meta,
@@ -672,7 +674,7 @@ impl<'src> Nip<'src>
     }
 
     // matches (Ident (Comma Ident)*)? END
-    fn pars(&mut self, end: TokenType) -> Result<Vec<&[u8]>, String>
+    fn pars(&mut self, end: TokTyp) -> Result<Vec<&[u8]>, String>
     {
         let mut res: Vec<&[u8]> = vec![];
         if self.matches::<0>(end) {
@@ -683,7 +685,7 @@ impl<'src> Nip<'src>
             res.push(i);
         }
         while !self.matches::<0>(end) {
-            self.exp_adv(TokenType::Comma)?;
+            self.exp_adv(TokTyp::Comma)?;
             let id = self.consume_ident()?;
             res.push(id);
         }
@@ -697,12 +699,12 @@ impl<'src> Nip<'src>
     {
         self.advance(); // \#
         // TODO: maybe put actual name of short functions?
-        let pars: Vec<Rc<String>> = self.pars(TokenType::Semic)?
+        let pars: Vec<Rc<String>> = self.pars(TokTyp::Semic)?
             .iter()
-            .map(|b| Rc::new(String::from(std::str::from_utf8(b).unwrap())))
+            .map(|b| Rc::new(string_from_ascii(b)))
             .collect();
         let ret_expr = self.expr()?;
-        self.exp_adv(TokenType::Period)?;
+        self.exp_adv(TokTyp::Period)?;
         let meta = SubrMeta { line: line, name: None };
         let subr = Subr {
             meta: meta,
@@ -721,36 +723,34 @@ impl<'src> Nip<'src>
         self.advance(); // \[
         let mut cases = vec![];
         loop {
-            if self.matches::<0>(TokenType::Then) {
-                todo!("final else");
+            if self.matches::<0>(TokTyp::Then) {
+                todo!("final else =>");
             }
             let e = self.expr()?;
-            if !cases.is_empty() && self.matches::<0>(TokenType::RsqBra) {
+            if !cases.is_empty() && self.matches::<0>(TokTyp::RsqBra) {
                 self.advance(); // ]
                 return Ok(Expr::IfExp(cases, Box::new(e)));
             }
-            if self.exp_adv(TokenType::Then).is_err() {
+            if self.exp_adv(TokTyp::Then).is_err() {
                 let msg = if !cases.is_empty() {"=> or ]"} else {"=>"};
                 return expected_err!(msg, self.peek::<0>().unwrap());
             }
             let f = self.expr()?;
-            self.exp_adv(TokenType::Semic)?;
+            self.exp_adv(TokTyp::Semic)?;
             cases.push((e, f));
         }
     }
 
     fn consume_ident(&mut self) -> Result<&'src [u8], String>
     {
-        let tok = match self.peek::<0>() {
-            Some(t) => t,
-            None => return eof_err!("Ident"),
+        let Some(tok) = self.peek::<0>() else {
+            return eof_err!("Ident");
         };
-        if let Token::Ident(i) = tok.0 {
-            self.advance();
-            Ok(i)
-        } else {
-            expected_err!("Ident", tok)
-        }
+        let Some(i) = tok.0.as_ident() else {
+            return expected_err!("Ident", tok);
+        };
+        self.advance(); // ident
+        return Ok(i);
     }
 
     // called when curr tok is String
@@ -776,28 +776,26 @@ impl From<PrimType> for Type
     }
 }
 
-impl TryFrom<&Token<'_>> for BinOpcode
+impl TryFrom<TokTyp> for BinOpcode
 {
     type Error = String;
-    fn try_from(t: &Token<'_>) -> Result<Self, Self::Error>
+    fn try_from(t: TokTyp) -> Result<Self, Self::Error>
     {
         match t {
-            Token::Equal2 => Ok(BinOpcode::Eq),
-            Token::Ne     => Ok(BinOpcode::Ne),
-            Token::Langle => Ok(BinOpcode::Lt),
-            Token::Le     => Ok(BinOpcode::Le),
-            Token::Rangle => Ok(BinOpcode::Gt),
-            Token::Ge     => Ok(BinOpcode::Ge),
+            TokTyp::Equal2 => Ok(BinOpcode::Eq),
+            TokTyp::Ne     => Ok(BinOpcode::Ne),
+            TokTyp::Langle => Ok(BinOpcode::Lt),
+            TokTyp::Le     => Ok(BinOpcode::Le),
+            TokTyp::Rangle => Ok(BinOpcode::Gt),
+            TokTyp::Ge     => Ok(BinOpcode::Ge),
             // for Operons
-            Token::Plus2  => Ok(BinOpcode::Add),
-            Token::Minus2 => Ok(BinOpcode::Sub),
-            Token::Asterisk2 => Ok(BinOpcode::Mul),
-            Token::Slash2 => Ok(BinOpcode::Div),
-            Token::And2   => Ok(BinOpcode::And),
-            Token::Vbar2  => Ok(BinOpcode::Or),
-            _ => util::format_err!(
-                "cannot convert token {:?} into a BinOp", t
-            ),
+            TokTyp::Plus2  => Ok(BinOpcode::Add),
+            TokTyp::Minus2 => Ok(BinOpcode::Sub),
+            TokTyp::Asterisk2 => Ok(BinOpcode::Mul),
+            TokTyp::Slash2 => Ok(BinOpcode::Div),
+            TokTyp::And2   => Ok(BinOpcode::And),
+            TokTyp::Vbar2  => Ok(BinOpcode::Or),
+            _ => unreachable!("cannot convert token {:?} into a BinOp", t),
         }
     }
 }

@@ -1,14 +1,21 @@
 /* src/parsnip/lex.rs */
 
-use super::toki::{Token, PrimType};
+use super::toki::new_tok;
+use super::toki::{Token, TokTyp, PrimType};
 
 macro_rules! if_next {
-    ($this:ident, $c:expr, $tt:ident) => {
-        if $this.matches::<0>($c) {
-            $this.advance();
-            return Token::$tt;
+    ($zelf:expr, $c:expr, $tt:ident) => {
+        if $zelf.matches::<0>($c) {
+            $zelf.advance();
+            return Token::simple(TokTyp::$tt, $zelf.lexeme());
         }
     };
+}
+
+macro_rules! lex_new_tok {
+    ($zelf:expr, $tt:ident) => {
+        new_tok!($tt, $zelf.lexeme())
+    }
 }
 
 #[derive(Debug)]
@@ -40,12 +47,12 @@ impl<'src> Luthor<'src>
         self.init();
         let mut res = Vec::new();
         while let Some(t) = self.next_token() {
-            match t {
-                Token::Comment(_) => continue,
+            match t.as_comment() {
+                Some(_) => continue,
                 _ => res.push((t, self.line)),
             }
         }
-        res.push((Token::Eof, self.line));
+        res.push((Token::new_eof(), self.line));
         return Ok(res);
     }
 
@@ -161,15 +168,15 @@ impl<'src> Luthor<'src>
             None => return None,
         };
         Some(match c {
-            b'_' => Token::Uscore,
-            b'.' => Token::Period,
-            b',' => Token::Comma,
-            b';' => Token::Semic,
-            b'(' => Token::Lparen,
-            b')' => Token::Rparen,
-            b'{' => Token::Lbrace,
-            b'}' => Token::Rbrace,
-            b'^' => Token::Caret,
+            b'_' => lex_new_tok!(self, Uscore),
+            b'.' => lex_new_tok!(self, Period),
+            b',' => lex_new_tok!(self, Comma),
+            b';' => lex_new_tok!(self, Semic),
+            b'(' => lex_new_tok!(self, Lparen),
+            b')' => lex_new_tok!(self, Rparen),
+            b'{' => lex_new_tok!(self, Lbrace),
+            b'}' => lex_new_tok!(self, Rbrace),
+            b'^' => lex_new_tok!(self, Caret),
             b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' |
             b'&' | b'|' => self.maybe_2ble(*c),
             b'#' => self.from_hash(),
@@ -184,7 +191,7 @@ impl<'src> Luthor<'src>
             b'a'..=b'z' | b'A'..=b'Z' => self.get_ident(),
             b'"' => self.get_string(),
             b'\'' => self.comment(),
-             _ => Token::Unknown(*c),
+             _ => Token::new_unknown(self.lexeme()),
         })
     }
 
@@ -192,10 +199,10 @@ impl<'src> Luthor<'src>
     pub fn maybe_2ble(&mut self, c: u8) -> Token<'src>
     {
         if !self.is_at_2ble(c) {
-            return Token::try_from(&c).unwrap();
+            return Token::try_1gle_from(self.lexeme()).unwrap();
         }
-        if let Ok(t) = Token::try_2ble_from(c) {
-            self.advance();
+        self.advance();
+        if let Ok(t) = Token::try_2ble_from(self.lexeme()) {
             return t;
         }
         panic!("not a double {0}{0}", char::from(c));
@@ -206,20 +213,20 @@ impl<'src> Luthor<'src>
     fn from_dollar(&mut self) -> Token<'src>
     {
         let Some(c) = self.peek::<0>() else {
-            return Token::Dollar;
+            return lex_new_tok!(self, Dollar);
         };
         if *c != b'@' {
-            return Token::Dollar;
+            return lex_new_tok!(self, Dollar);
         }
         if self.has_digit_next() {
             self.advance(); // @
             self.adv_while(|c| c.is_ascii_digit());
             let level = std::str::from_utf8(&self.lexeme()[2..])
                 .unwrap().parse::<u32>().unwrap();
-            return Token::RecT(level);
+            return Token::new_rect(level, self.lexeme());
         } else { // default level
             self.advance(); // @
-            return Token::RecT(0);
+            return Token::new_rect(0, self.lexeme());
         }
     }
 
@@ -229,7 +236,7 @@ impl<'src> Luthor<'src>
     {
         if_next!(self, b'~', Tilde2);
         if_next!(self, b'=', Ne);
-        return Token::Tilde;
+        return lex_new_tok!(self, Tilde);
     }
 
     // =, ==, =>
@@ -238,7 +245,7 @@ impl<'src> Luthor<'src>
     {
         if_next!(self, b'=', Equal2);
         if_next!(self, b'>', Then);
-        return Token::Equal;
+        return lex_new_tok!(self, Equal);
     }
 
     // <, <=
@@ -246,7 +253,7 @@ impl<'src> Luthor<'src>
     fn from_langle(&mut self) -> Token<'src>
     {
         if_next!(self, b'=', Le);
-        return Token::Langle;
+        return lex_new_tok!(self, Langle);
     }
 
     // >, >=
@@ -254,7 +261,7 @@ impl<'src> Luthor<'src>
     fn from_rangle(&mut self) -> Token<'src>
     {
         if_next!(self, b'=', Ge);
-        return Token::Rangle;
+        return lex_new_tok!(self, Rangle);
     }
 
     // !, !!, !@, !$
@@ -264,7 +271,7 @@ impl<'src> Luthor<'src>
         if_next!(self, b'!', Bang2);
         if_next!(self, b'@', RecP);
         if_next!(self, b'$', BangDollar);
-        return Token::Bang;
+        return lex_new_tok!(self, Bang);
     }
 
     // #, ##, #@, #$
@@ -274,7 +281,7 @@ impl<'src> Luthor<'src>
         if_next!(self, b'#', Hash2);
         if_next!(self, b'@', RecF);
         if_next!(self, b'$', HashDollar);
-        return Token::Hash;
+        return lex_new_tok!(self, Hash);
     }
 
     // \, \[, \#, FUTURE: \\
@@ -283,7 +290,7 @@ impl<'src> Luthor<'src>
     {
         if_next!(self, b'[', BsLsb);
         if_next!(self, b'#', BsHash);
-        return Token::Bslash;
+        return lex_new_tok!(self, Bslash);
     }
 
     // gets called when current char is a digit
@@ -311,7 +318,7 @@ impl<'src> Luthor<'src>
     {
         if let Some(pt) = self.try_prim_type() {
             self.advance();
-            return Token::PrimType(pt);
+            return Token::new_primtype(pt, self.lexeme());
         }
         while let Some(c) = self.peek::<0>() {
             if c.is_ascii_alphanumeric() {
@@ -323,13 +330,13 @@ impl<'src> Luthor<'src>
         let lex = self.lexeme();
         if lex.len() == 1 { // try boolean keywords
             match lex[0] {
-                b'V' => return Token::ValV,
-                b'T' => return Token::ValB(true),
-                b'F' => return Token::ValB(false),
+                b'V' => return new_tok!(ValV, lex),
+                b'T' => return Token::new_valb(true,  lex),
+                b'F' => return Token::new_valb(false, lex),
                 _ => {},
             }
         }
-        return Token::Ident(lex);
+        return Token::new_ident(lex);
     }
 
     // gets called when parsing an Ident
@@ -368,7 +375,7 @@ impl<'src> Luthor<'src>
         }
         let raw = &self.lexeme()[1..];
         self.advance(); // skip final quote
-        return Token::String(raw);
+        return Token::new_string(raw);
     }
 
     // called when '
@@ -381,6 +388,6 @@ impl<'src> Luthor<'src>
             }
             self.advance();
         }
-        return Token::Comment(self.lexeme());
+        return Token::new_comment(self.lexeme());
     }
 }

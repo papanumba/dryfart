@@ -156,60 +156,21 @@ impl TryFrom<ImOp> for Op
     type Error = ();
     fn try_from(imop: ImOp) -> Result<Op, ()>
     {
-        match imop {
-            ImOp::LVV => Ok(Op::LVV),
-            ImOp::LBX(b) => Ok(if b {Op::LBT} else {Op::LBF}),
-            ImOp::LN0 => Ok(Op::LN0),
-            ImOp::LN1 => Ok(Op::LN1),
-            ImOp::LN2 => Ok(Op::LN2),
-            ImOp::LN3 => Ok(Op::LN3),
-            ImOp::LM1 => Ok(Op::LM1),
-            ImOp::LZ0 => Ok(Op::LZ0),
-            ImOp::LZ1 => Ok(Op::LZ1),
-            ImOp::LZ2 => Ok(Op::LZ2),
-            ImOp::LR0 => Ok(Op::LR0),
-            ImOp::LR1 => Ok(Op::LR1),
-
-            ImOp::NEG => Ok(Op::NEG),
-            ImOp::ADD => Ok(Op::ADD),
-            ImOp::SUB => Ok(Op::SUB),
-            ImOp::MUL => Ok(Op::MUL),
-            ImOp::DIV => Ok(Op::DIV),
-            ImOp::INV => Ok(Op::INV),
-            ImOp::INC => Ok(Op::INC),
-            ImOp::DEC => Ok(Op::DEC),
-            ImOp::MOD => Ok(Op::MOD),
-
-            ImOp::CEQ => Ok(Op::CEQ),
-            ImOp::CNE => Ok(Op::CNE),
-            ImOp::CLT => Ok(Op::CLT),
-            ImOp::CLE => Ok(Op::CLE),
-            ImOp::CGT => Ok(Op::CGT),
-            ImOp::CGE => Ok(Op::CGE),
-
-            ImOp::NOT => Ok(Op::NOT),
-            ImOp::AND => Ok(Op::AND),
-            ImOp::IOR => Ok(Op::IOR),
-            ImOp::XOR => Ok(Op::XOR),
-
-            ImOp::AMN => Ok(Op::AMN),
-            ImOp::APE => Ok(Op::APE),
-            ImOp::AGE => Ok(Op::AGE),
-            ImOp::ASE => Ok(Op::ASE),
-
-            ImOp::TMN => Ok(Op::TMN),
-
-            ImOp::CAN => Ok(Op::CAN),
-            ImOp::CAZ => Ok(Op::CAZ),
-            ImOp::CAR => Ok(Op::CAR),
-
-            ImOp::DUP => Ok(Op::DUP),
-            ImOp::SWP => Ok(Op::SWP),
-            ImOp::ROT => Ok(Op::ROT),
-            ImOp::POP => Ok(Op::POP),
-
-            _ => Err(()),
+        macro_rules! convert {
+            ($imop:ident, $($name:ident),+;) => {
+                return match $imop {
+                    ImOp::LBX(b) => Ok(if b {Op::LBT} else {Op::LBF}),
+                    $(ImOp::$name => Ok(Op::$name),)+
+                    _ => Err(()),
+                }
+            }
         }
+        convert!(imop, LVV,
+            LN0, LN1, LN2, LN3, LM1, LZ0, LZ1, LZ2, LR0, LR1, NEG, ADD, SUB,
+            MUL, DIV, INV, INC, DEC, MOD, CEQ, CNE, CLT, CLE, CGT, CGE, NOT,
+            AND, IOR, XOR, AMN, APE, AGE, ASE, TMN, CAN, CAZ, CAR, DUP, SWP,
+            ROT, POP;
+        );
     }
 }
 
