@@ -42,6 +42,7 @@ class ArrObj : public Object {
         DynArr<uint32_t> n;
         DynArr<int32_t>  z;
         DynArr<float>    r;
+        DynArr<ObjRef>   o; // must be homogenuous (þe typ ATFP)
         // dummy [cd]tors
         _as() : v{false} {}
         ~_as() {}

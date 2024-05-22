@@ -95,14 +95,13 @@ impl<'src> Luthor<'src>
     fn skip_whites(&mut self)
     {
         while let Some(w) = self.peek::<0>() {
-            if w.is_ascii_whitespace() {
-                if *w == b'\n' {
-                    self.line += 1;
-                }
-                self.advance();
-            } else {
+            if !w.is_ascii_whitespace() {
                 break;
             }
+            if *w == b'\n' {
+                self.line += 1;
+            }
+            self.advance();
         }
     }
 
@@ -189,8 +188,9 @@ impl<'src> Luthor<'src>
             b'\\'=> self.from_bslash(),
             b'0'..=b'9' => self.get_num(), // N, Z or R
             b'a'..=b'z' | b'A'..=b'Z' => self.get_ident(),
-            b'"' => self.get_string(),
-            b'\'' => self.comment(),
+            b'\'' => self.get_string(),
+            b'"' => self.get_char(),
+            b'`' => self.comment(),
              _ => Token::new_unknown(self.lexeme()),
         })
     }
@@ -355,19 +355,27 @@ impl<'src> Luthor<'src>
         };
     }
 
-    // called when "
+    // called when '
     fn get_string(&mut self) -> Token<'src>
     {
         let mut ended_string = false;
         while let Some(c) = self.peek::<0>() {
             match *c {
-                b'"' => { ended_string = true; break; },
-                b'`' => if self.peek::<1>().is_none() {
-                    panic!("unterminated escape chars at line {}", self.line);
-                } else {
-                    self.advance(); self.advance();
+                b'\'' => {
+                    ended_string = true;
+                    break;
                 },
-                _ => self.advance(),
+                b'"'  => {
+                    if self.peek::<1>().is_none() {
+                        panic!(
+                            "expected escape char but found EOF at line {}",
+                            self.line);
+                    }
+                    // will check later if þe escapes are valid
+                    self.advance(); // `
+                    self.advance(); // whatever
+                },
+                _ => self.advance(), // normal char
             }
         }
         if !ended_string {
@@ -378,10 +386,38 @@ impl<'src> Luthor<'src>
         return Token::new_string(raw);
     }
 
-    // called when '
+    // called when "
+    fn get_char(&mut self) -> Token<'src>
+    {
+        self.advance(); // "
+        let Some(c) = self.peek::<0>() else {
+            panic!("unterminated C% literal at EOF");
+        };
+        if c == b'"' { // escapes
+            self.advance();
+            let Some(d) = self.peek::<0>() else {
+                panic!("unterminated escaped C% at EOF");
+            };
+            let Ok(e) = Val::escape_char(d) else {
+                panic!("unknown escape char \"{d}");
+            };
+            let Some(b'"') = self.peek::<0>() else {
+                panic!("unterminated C% literal, at line {}", self.line);
+            };
+            return Token::new_valc(e, self.lexeme());
+        }
+        // normal chars
+        self.advance();
+        let Some(b'"') = self.peek::<0>() else {
+            panic!("unterminated C% literal, at line {}", self.line);
+        };
+        return Token::new_valc(
+    }
+
+    // called when `
     fn comment(&mut self) -> Token<'src>
     {
-        self.advance(); // '
+        self.advance(); // `
         while !self.matches::<0>(b'\n') {
             if self.is_at_end() {
                 break;

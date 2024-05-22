@@ -5,10 +5,6 @@
 #include <new>
 #include "object.h"
 
-static inline bool    arrt_valt_eq(DfType, enum ValType);
-/*static inline DfType  valt2arrt(ValType);
-static inline ValType arrt2valt(DfType);*/
-
 /*************************** A R R A Y S ***************************/
 
 const char * accres_what(AccRes ar)
@@ -22,18 +18,19 @@ const char * accres_what(AccRes ar)
 
 ArrObj::ArrObj(DfVal &&v)
 {
-    switch (v.as_type()) {
-      case DfType::V: unreachable();
-      case DfType::B: todo("B% arr, in ArrObj(DfVal &&)");
-#define BASURA(dft, m, t) \
-      case dft:                             \
+    switch (v.type) {
+      case VAL_V: unreachable();
+      case VAL_B: todo("B% arr, in ArrObj(DfVal &&)");
+#define BASURA(M, m, t) \
+      case VAL_##M:                         \
         new (&this->as.m) DynArr<t>();      \
         this->as.m.push(std::move(v.as.m)); \
         break;
-      BASURA(DfType::C, c, uint8_t)
-      BASURA(DfType::N, n, uint32_t)
-      BASURA(DfType::Z, z, int32_t)
-      BASURA(DfType::R, r, float)
+      BASURA(C, c, uint8_t)
+      BASURA(N, n, uint32_t)
+      BASURA(Z, z, int32_t)
+      BASURA(R, r, float)
+      BASURA(O, o, ObjRef)
 #undef BASURA
       default: todo("singleton other array types");
     }
@@ -51,25 +48,33 @@ ArrObj::~ArrObj()
       BASURA(DfType::Z, z, int32_t)
       BASURA(DfType::R, r, float)
 #undef BASURA
+      // mega fallþru
+      case DfType::A:
+      case DfType::T:
+      case DfType::F:
+      case DfType::P:
+        this->as.o.~DynArr<ObjRef>();
+        break;
       default: todo("destruct other arrays");
     }
 }
 
 uint32_t ArrObj::len() const
 {
-    uint32_t len = 0;
     switch (this->typ) {
       case DfType::V: return 0;
-      case DfType::B: todo("B% array len"); break;
-#define BASURA(M, m) case M: len = this->as.m.len(); break;
-      BASURA(DfType::C, c)
-      BASURA(DfType::N, n)
-      BASURA(DfType::Z, z)
-      BASURA(DfType::R, r)
+      case DfType::B: todo("B% array len");
+#define BASURA(M, m) case DfType::M: return this->as.m.len();
+      BASURA(C, c)
+      BASURA(N, n)
+      BASURA(Z, z)
+      BASURA(R, r)
+      BASURA(A, o)
+      BASURA(T, o)
+      BASURA(F, o)
+      BASURA(P, o)
 #undef BASURA
-      default: todo("len other array types");
     }
-    return len;
 }
 
 // returns true if OK, returns false if are different types
@@ -80,21 +85,25 @@ AccRes ArrObj::push(DfVal &&v)
         new(this) ArrObj(std::move(v));
         return AccRes::OK;
     }
-    if (!arrt_valt_eq(at, v.type))
+    DfType vt = v.as_type();
+    if (at != vt)
         return AccRes::DIFF_TYPE;
     switch (at) {
       case DfType::V: unreachable(); break;
       case DfType::B: todo("push B% array"); break;
-#define BASURA(arrt, m, T) \
-      case arrt:                            \
+#define BASURA(M, m) \
+      case DfType::M:                       \
         this->as.m.push(std::move(v.as.m)); \
         break;
-      BASURA(DfType::C, c, uint8_t)
-      BASURA(DfType::N, n, uint32_t)
-      BASURA(DfType::Z, z, int32_t)
-      BASURA(DfType::R, r, float)
+      BASURA(C, c)
+      BASURA(N, n)
+      BASURA(Z, z)
+      BASURA(R, r)
+      BASURA(A, o)
+      BASURA(T, o)
+      BASURA(F, o)
+      BASURA(P, o)
 #undef BASURA
-      default: todo("push other array types");
     }
     return AccRes::OK;
 }
@@ -104,18 +113,21 @@ AccRes ArrObj::get(uint32_t idx, DfVal &ret) const
     switch (this->typ) {
       case DfType::V: return AccRes::OUT_OF_BOUNDS; // coz it's mt
       case DfType::B: todo("get from B% array"); break;
-#define BASURA(arrx, x) \
-      case arrx:                          \
+#define BASURA(M, x) \
+      case DfType::M:                     \
         if (idx >= this->as.x.len())      \
             return AccRes::OUT_OF_BOUNDS; \
         ret = DfVal(this->as.x[idx]);     \
         break;
-      BASURA(DfType::C, c)
-      BASURA(DfType::N, n)
-      BASURA(DfType::Z, z)
-      BASURA(DfType::R, r)
+      BASURA(C, c)
+      BASURA(N, n)
+      BASURA(Z, z)
+      BASURA(R, r)
+      BASURA(A, o)
+      BASURA(T, o)
+      BASURA(F, o)
+      BASURA(P, o)
 #undef BASURA
-      default: todo("get other array types");
     }
     return AccRes::OK;
 }
@@ -125,21 +137,26 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
     DfType at = this->typ;
     if (at == DfType::V)
         return AccRes::OUT_OF_BOUNDS;
-    if (!arrt_valt_eq(at, val.type))
+    DfType vt = val.as_type();
+    if (at != vt)
         return AccRes::DIFF_TYPE;
     switch (at) {
       case DfType::V: unreachable(); break;
       case DfType::B: todo("B% array"); break;
-#define BASURA(arrx, x) \
-      case arrx:                          \
+#define BASURA(M, x) \
+      case DfType::M:                     \
         if (idx >= this->as.x.len())      \
             return AccRes::OUT_OF_BOUNDS; \
         this->as.x[idx] = val.as.x;       \
         break;
-      BASURA(DfType::C, c)
-      BASURA(DfType::N, n)
-      BASURA(DfType::Z, z)
-      BASURA(DfType::R, r)
+      BASURA(C, c)
+      BASURA(N, n)
+      BASURA(Z, z)
+      BASURA(R, r)
+      BASURA(A, o)
+      BASURA(T, o)
+      BASURA(F, o)
+      BASURA(P, o)
 #undef BASURA
       default: todo("set other array types");
     }
@@ -152,8 +169,8 @@ void ArrObj::print() const
     switch (this->typ) {
       case DfType::V: break;
       case DfType::B: todo("B% array"); break;
-#define BASURA(arrx, x, fmt) \
-      case arrx: {                      \
+#define BASURA(M, x, fmt) \
+      case DfType::M: {                 \
         auto &arr = this->as.x;         \
         printf("%" #fmt, arr[0]);       \
         auto len = arr.len();           \
@@ -161,11 +178,27 @@ void ArrObj::print() const
             printf(", %" #fmt, arr[i]); \
         break;                          \
       }
-      BASURA(DfType::C, c, c)
-      BASURA(DfType::N, n, u)
-      BASURA(DfType::Z, z, d)
-      BASURA(DfType::R, r, f)
+      BASURA(C, c, c)
+      BASURA(N, n, u)
+      BASURA(Z, z, d)
+      BASURA(R, r, f)
 #undef BASURA
+#define BASORA(M, xxx) \
+      case DfType::M: {         \
+        auto &arr = this->as.o; \
+        arr[0].as_##xxx()->print(); \
+        auto len = arr.len();   \
+        FOR(i, 1, len) {        \
+            printf(", ");       \
+            arr[i].as_##xxx()->print(); \
+        }                       \
+        break;                  \
+      }
+      BASORA(A, arr)
+      BASORA(T, tbl)
+      BASORA(F, fun)
+      BASORA(P, pro)
+#undef BASORA
       default: todo("print other array types");
     }
     putchar(';');
@@ -316,227 +349,3 @@ void ProObj::print() const
     // usr pro
     this->as.usr.print();
 }
-
-#if 0
-
-/* create empty table */
-struct ObjTbl * objtbl_new(void)
-{
-    struct ObjTbl *tbl = OBJ_AS_TBL(alloc_object(OBJ_TBL));
-    tbl->obj.is_nat = FALSE;
-    htable_init(&tbl->as.usr);
-    return tbl;
-}
-
-struct ObjTbl * objtbl_new_nat(enum NatTb nt)
-{
-    struct ObjTbl *tbl = OBJ_AS_TBL(alloc_object(OBJ_TBL));
-    tbl->obj.is_nat = TRUE;
-    tbl->as.nat = nt;
-    return tbl;
-}
-
-int objtbl_get(struct ObjTbl *t, struct DfIdf *k, struct DfVal *v)
-{
-    if (t->obj.is_nat)
-        return nat_tb_get(t->as.nat, k, v);
-    else
-        return htable_get(&t->as.usr, k, v);
-}
-
-int objtbl_set(struct ObjTbl *t, struct DfIdf *k, struct DfVal v)
-{
-    if (t->obj.is_nat)
-        return FALSE; /* immutable native tables */
-    else
-        return htable_set(&t->as.usr, k, v);
-}
-
-struct ObjPro * objpro_new(struct Norris *n)
-{
-    struct ObjPro *pro = OBJ_AS_PRO(alloc_object(OBJ_PRO));
-    pro->obj.is_nat = FALSE;
-    pro->as.usr = n;
-    return pro;
-}
-
-struct ObjPro * objpro_new_nat(enum NatPcTag t)
-{
-    struct ObjPro *pro = OBJ_AS_PRO(alloc_object(OBJ_PRO));
-    pro->obj.is_nat = TRUE;
-    pro->as.nat = nat_pc_from(t);
-    return pro;
-}
-
-struct ObjFun * objfun_new(struct Norris *n)
-{
-    struct ObjFun *fun = OBJ_AS_FUN(alloc_object(OBJ_FUN));
-    fun->as.usr = n;
-    return fun;
-}
-
-struct ObjFun * objfun_new_nat(enum NatFnTag t)
-{
-    struct ObjFun *fun = OBJ_AS_FUN(alloc_object(OBJ_FUN));
-    fun->obj.is_nat = TRUE;
-    fun->as.nat = nat_fn_from(t);
-    return fun;
-}
-
-/******************** S T A T I C ***************************/
-
-static void ArrObj::print(struct ObjArr *arr)
-{
-    switch (arr->typ) {
-      case DfType::V: printf("_;"); break;
-      case DfType::B: todo("print B% array"); break;
-      case DfType::C:
-        for (uint i = 0; i < arr->as.c.len; ++i)
-            putchar((char) arr->as.c.arr[i]);
-        break;
-#define BASURA(arrx, x, fmt) \
-      case arrx: {                              \
-        putchar('_');                           \
-        uint len1 = arr->as.x.len - 1; /* len is > 0 */ \
-        for (uint i = 0; i < len1; ++i)         \
-            printf(fmt ", ", arr->as.x.arr[i]); \
-        printf(fmt ";", arr->as.x.arr[len1]);   \
-        break;                                  \
-      }
-      BASURA(DfType::N, n, "%u")
-      BASURA(DfType::Z, z, "%d")
-      BASURA(DfType::R, r, "%f")
-#undef BASURA
-      default: todo("print other arrays");
-    }
-}
-
-/* free only interior array, not þe objarr header */
-static void ArrObj::free(struct ObjArr *arr)
-{
-    if (arr->typ == DfType::V)
-        return;
-    switch (arr->typ) {
-      case DfType::V: return;
-      case DfType::B: todo("free B% array"); return ;
-#define BASURA(arrx, x) case arrx: df ## x ## arr_free(&arr->as.x); break
-    BASURA(DfType::C, c);
-    BASURA(DfType::N, n);
-    BASURA(DfType::Z, z);
-    BASURA(DfType::R, r);
-#undef BASURA
-      default: todo("free other array types");
-    }
-}
-
-static void objtbl_print(struct ObjTbl *t)
-{
-    if (t->obj.is_nat)
-        nat_tb_print(t->as.nat);
-    else
-        htable_print(&t->as.usr);
-}
-
-static void objtbl_free (struct ObjTbl *t)
-{
-    if (!t->obj.is_nat)
-        htable_free(&t->as.usr);
-}
-
-static void objpro_print(struct ObjPro *p)
-{
-    if (p->obj.is_nat) {
-        nat_pc_print(p->as.nat.tag);
-        return;
-    }
-    struct Norris *nor = p->as.usr;
-    if (nor->nam != NULL)
-        printf("<! \"%s\">", nor->nam->str);
-    else
-        printf("<! from line %u>", nor->lne);
-}
-
-static void objpro_free (struct ObjPro *p)
-{
-    (void)(p);
-    /* FUTURE: free upvalues */
-}
-
-static void objfun_print(struct ObjFun *f)
-{
-    if (f->obj.is_nat) {
-        nat_fn_print(f->as.nat.tag);
-        return;
-    }
-    struct Norris *nor = f->as.usr;
-    if (nor->nam != NULL)
-        printf("<# \"%s\">", nor->nam->str);
-    else
-        printf("<# from line %u>", nor->lne);
-}
-
-static void objfun_free (struct ObjFun *f)
-{
-    (void)(f);
-    /* FUTURE: free upvalues */
-}
-
-static struct Object * alloc_object(enum ObjType type)
-{
-    struct Object *obj = falloc_alloc();
-    obj->type = type;
-    obj->gc_mark = FALSE;
-    return obj;
-}
-
-#endif
-
-/* return if a is compatible with v,
-** DfType::V is always eq to a val type.
-*/
-static inline bool arrt_valt_eq(DfType a, enum ValType v)
-{
-    switch (a) {
-      case DfType::V: return true;
-      case DfType::B: return VAL_B == v;
-      case DfType::C: return VAL_C == v;
-      case DfType::N: return VAL_N == v;
-      case DfType::Z: return VAL_Z == v;
-      case DfType::R: return VAL_R == v;
-      default:
-        fprintf(stderr, "%u and %u ", (uint) a, (uint) v);
-        todo("arrt valt eq other array types");
-    }
-}
-
-#if 0
-
-static inline enum DfType valt2arrt(enum ValType vt)
-{
-    switch (vt) {
-      case VAL_B: return DfType::B;
-      case VAL_C: return DfType::C;
-      case VAL_N: return DfType::N;
-      case VAL_Z: return DfType::Z;
-      case VAL_R: return DfType::R;
-      default: unreachable();
-    }
-}
-
-static inline enum ValType arrt2valt(enum DfType at)
-{
-    switch (at) {
-      case DfType::V: return VAL_V;
-      case DfType::B: return VAL_B;
-      case DfType::C: return VAL_C;
-      case DfType::N: return VAL_N;
-      case DfType::Z: return VAL_Z;
-      case DfType::R: return VAL_R;
-      default:
-        todo("arrt2valt other array types");
-    }
-    unreachable();
-}
-
-#endif
-

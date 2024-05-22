@@ -36,8 +36,7 @@ class ObjRef {
     }
   public:
     ObjRef() = default;
-    ObjRef(ObjRef &)  = default;
-    ObjRef(ObjRef &&) = default;
+    ObjRef(const ObjRef &that) : p(that.p) {}
     // meþods
     ObjType typ() const {
         return (ObjType) (this->p & TYP_MASK);
