@@ -193,6 +193,10 @@ impl UpvAnal
             },
             Stmt::LoopIf(l) => self.pass_loop(l),
             Stmt::Return(e) => self.pass_expr(e),
+            Stmt::PcCall(p, a) => {
+                self.pass_expr(p);
+                for x in a {self.pass_expr(x);}
+            },
             _ => {},
         }
     }

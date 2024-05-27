@@ -40,7 +40,7 @@ fn put(args: &[Val])
     match &args[0] {
         Val::V    => print!("V"),
         Val::B(b) => if *b {print!("T");} else {print!("F");},
-        Val::C(c) => print!("{c}"),
+        Val::C(c) => print!("{}", char::from(*c)),
         Val::N(n) => print!("{n}"),
         Val::Z(z) => print!("{z}"),
         Val::R(r) => print!("{r}"),

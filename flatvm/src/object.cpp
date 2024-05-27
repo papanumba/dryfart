@@ -298,9 +298,7 @@ void UsrSrt::print() const
 
 FunObj::~FunObj()
 {
-    if (this->is_nat)
-        todo("delete nat fun");
-    else
+    if (!this->is_nat)
         this->as.usr.~UsrSrt();
 }
 
@@ -309,6 +307,12 @@ void FunObj::set(UsrSrt up)
     this->is_nat = false;
     // destructive set
     new (&this->as.usr) UsrSrt(std::move(up));
+}
+
+void FunObj::set(NatFun &&f)
+{
+    this->is_nat = true;
+    new (&this->as.nat) NatFun(std::move(f));
 }
 
 void FunObj::print() const

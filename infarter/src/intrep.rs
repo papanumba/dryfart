@@ -753,6 +753,7 @@ impl Compiler
         match v {
             Val::V => return self.push_op(ImOp::LVV),
             Val::B(b) => return self.push_op(ImOp::LBX(*b)),
+            Val::C(_) => {},
             Val::N(n) => match n {
                 0 => return self.push_op(ImOp::LN0),
                 1 => return self.push_op(ImOp::LN1),

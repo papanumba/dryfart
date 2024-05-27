@@ -55,13 +55,14 @@ static bool io_get(const DfIdf *i, DfVal &v)
 static int io_put(VirMac &vm, DfVal *argv, size_t argc)
 {
     (void)vm;
-    CHECK_ARGC("STD$io$put!", 1);
-    // check case string
-    auto &a = argv[0];
-    if (a.is_arr() && a.as.o.as_arr()->typ == DfType::C)
-        a.as.o.as_arr()->print_string();
-    else
-        a.print();
+    TIL(i, argc) {
+        auto &a = argv[i];
+        // check case string
+        if (a.is_arr() && a.as.o.as_arr()->typ == DfType::C)
+            a.as.o.as_arr()->print_string();
+        else
+            a.print();
+    }
     return 1;
 }
 
@@ -73,22 +74,26 @@ static int gc(VirMac &vm, DfVal *argv, size_t argc)
     return 1;
 }
 
-#if 0
 static bool a_get(const DfIdf *i, DfVal &v)
 {
-    if (i->eq("len")) {
-        v->type = VAL_O;
-        v->as.o = (void *) objfun_new_nat(DF_STD_A_LEN);
-        return true;
-    }
-    if (i->eq("eke")) {
-        v->type = VAL_O;
-        v->as.o = (void *) objpro_new_nat(DF_STD_A_EKE);
-        return true;
-    }
+    if (i->eq("len"))
+        RET_V(DF_STD_A_LEN);
+    if (i->eq("eke"))
+        RET_V(DF_STD_A_EKE);
     return false;
 }
 
-#endif
+static int a_len(VirMac &vm, DfVal *argv, size_t argc, DfVal &ret)
+{
+    (void)vm;
+    CHECK_ARGC("STD$a$len#", 1);
+    auto &a = argv[0];
+    if (!a.is_arr()) {
+        eputln("argument passed to STD$a$len is not array");
+        return 0;
+    }
+    ret = DfVal(a.as.o.as_arr()->len());
+    return 1;
+}
 
 }; // namespace df_std

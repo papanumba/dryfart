@@ -24,7 +24,8 @@ ObjRef NatFactory::get(Nat##Ttt##Tag tag)   \
     auto new_obj = maitre::alloc(OBJ_##TTT);\
     auto p = new_obj.as_ ## ttt();          \
     p->gc_mark = true;                      \
-    p->set(Nat##Ttt(tag));                  \
+    auto tmp = Nat##Ttt(tag);               \
+    p->set(std::move(tmp));                 \
     tags.push(std::move(tag));              \
     refs.push(std::move(new_obj));          \
     return new_obj;                         \
@@ -32,7 +33,7 @@ ObjRef NatFactory::get(Nat##Ttt##Tag tag)   \
 
 //FAC_MET(Arr, arr, ARR)
 FAC_MET(Tbl, tbl, TBL)
-//FAC_MET(Fun, fun, FUN)
+FAC_MET(Fun, fun, FUN)
 FAC_MET(Pro, pro, PRO)
 
 #undef FAC_MET
@@ -42,7 +43,7 @@ void NatFactory::mark_all()
 #define BASURA(ttt) \
     TIL(i, ttt##refs.len()) mark_object(ttt##refs[i]);
     BASURA(tbl)
-//    BASURA(fun)
+    BASURA(fun)
     BASURA(pro)
 #undef BASURA
 }
@@ -84,9 +85,17 @@ bool NatTbl::get(key_t k, DfVal &v) const
         return df_std::get(k, v);
       case DF_STD_IO:
         return df_std::io_get(k, v);
-/*      case DF_STD_A:
-        return df_std::a_get(k, v);*/
+      case DF_STD_A:
+        return df_std::a_get(k, v);
       default: unreachable();
+    }
+}
+
+NatFun::NatFun(NatFunTag t)
+{
+    this->tag = t;
+    switch (t) {
+      case DF_STD_A_LEN: this->eval = df_std::a_len; break;
     }
 }
 

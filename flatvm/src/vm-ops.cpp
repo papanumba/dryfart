@@ -539,9 +539,13 @@ case OP_FCL: {
 #endif
     auto *fun = cle->as.o.as_fun();
     if (fun->is_nat) {
-        /*int res = fun->as.nat.exec(vm, this->sp - arity, arity);
-        this->sp -= arity + 1;*/
-        todo("call nat fun");
+        DfVal ret;
+        int res = fun->as.nat.eval(*this, this->sp - arity, arity, ret);
+        if (res == 0)
+            SIMPLE_ERR("some nat func err");
+        this->sp -= arity;
+        this->sp[-1] = ret;
+        break;
     }
 #ifdef SAFE
     // user funs

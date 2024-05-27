@@ -111,6 +111,11 @@ impl<'src> Token<'src>
         return Self {typ:TokTyp::ValB, val: TokVal{ValB:b}, lex:s};
     }
 
+    pub fn new_valc(c: u8, s: &'src [u8]) -> Self
+    {
+        return Self {typ:TokTyp::ValC, val: TokVal{ValC:c}, lex:s};
+    }
+
     pub fn new_primtype(pt: PrimType, s: &'src [u8]) -> Self
     {
         return Self {
@@ -182,6 +187,7 @@ impl<'src> Token<'src>
     }
 
     acc_fn!(as_valb,     ValB,     bool);
+    acc_fn!(as_valc,     ValC,     u8);
     acc_fn!(as_valn,     ValN,     u32);
     acc_fn!(as_valz,     ValZ,     i32);
     acc_fn!(as_valr,     ValR,     f32);
@@ -272,6 +278,7 @@ pub enum TokTyp
     // literals
     ValV,
     ValB,
+    ValC,
     ValN,
     ValZ,
     ValR,
@@ -294,6 +301,7 @@ pub union TokVal<'src>
 {
     Other:    (),
     ValB:     bool,
+    ValC:     u8,
     ValN:     u32,
     ValZ:     i32,
     ValR:     f32,

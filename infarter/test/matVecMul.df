@@ -1,0 +1,23 @@
+len = STD$a$len.
+
+matVecMul = #m, v;
+  mv = _;.
+  n = len#v;.
+  i = 0u. @[[i < n]]
+    mi = m_i.
+    elem = mi_0 * v_0.
+    j = 1u. @[[j < n]]
+      elem ++ mi_j * v_j.
+      j ++ 1u.
+    .
+    mv ++ _elem;.
+    i ++ 1u.
+  .
+  ##(mv).
+..
+
+STD$io$put!matVecMul#
+  __1,0;,
+   _0,1;;,
+   _2,3;
+;.

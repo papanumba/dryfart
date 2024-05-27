@@ -64,6 +64,19 @@ macro_rules! rite_uniop_expr {
     };
 }
 
+macro_rules! valx_fn {
+    ($name:ident, $X:ident, $t:ty) => {
+        // called when peek: 0 -> $X
+        #[inline]
+        fn $name(&mut self, x: $t) -> Expr
+        {
+            let val = Expr::Const(Val::$X(x));
+            self.advance();
+            return val;
+        }
+    }
+}
+
 type LnToken<'a> = (Token<'a>, usize);
 
 pub struct Nip<'src>
@@ -508,6 +521,7 @@ impl<'src> Nip<'src>
             // literals
             TokTyp::ValV => {self.advance(); Ok(Expr::Const(Val::V))},
             TokTyp::ValB => Ok(self.valb(tok.0.as_valb().unwrap())),
+            TokTyp::ValC => Ok(self.valc(tok.0.as_valc().unwrap())),
             TokTyp::ValN => Ok(self.valn(tok.0.as_valn().unwrap())),
             TokTyp::ValZ => Ok(self.valz(tok.0.as_valz().unwrap())),
             TokTyp::ValR => Ok(self.valr(tok.0.as_valr().unwrap())),
@@ -516,41 +530,11 @@ impl<'src> Nip<'src>
         }
     }
 
-    // called when peek: 0 -> B
-    #[inline]
-    fn valb(&mut self, b: bool) -> Expr
-    {
-        let val = Expr::Const(Val::B(b));
-        self.advance();
-        return val;
-    }
-
-    // called when peek: 0 -> N
-    #[inline]
-    fn valn(&mut self, n: u32) -> Expr
-    {
-        let val = Expr::Const(Val::N(n));
-        self.advance();
-        return val;
-    }
-
-    // called when peek: 0 -> Z
-    #[inline]
-    fn valz(&mut self, z: i32) -> Expr
-    {
-        let val = Expr::Const(Val::Z(z));
-        self.advance();
-        return val;
-    }
-
-    // called when peek: 0 -> R
-    #[inline]
-    fn valr(&mut self, r: f32) -> Expr
-    {
-        let val = Expr::Const(Val::R(r));
-        self.advance();
-        return val;
-    }
+    valx_fn!(valb, B, bool);
+    valx_fn!(valc, C, u8);
+    valx_fn!(valn, N, u32);
+    valx_fn!(valz, Z, i32);
+    valx_fn!(valr, R, f32);
 
     // parses comma separated exprs which end in a specific token
     // it also consumes þe end token, so no need to exp_adv after

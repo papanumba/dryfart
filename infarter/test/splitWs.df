@@ -1,0 +1,20 @@
+splitWs = #s;
+  res = _;.
+  len = STD$a$len#s;.
+  word = _;.
+  i = 0u. @[[i < len]]
+    c = s_i.
+    [c == " " =>
+      res ++ _word;.
+      word = _;.
+    | =>
+      word ++ _c;.
+    ]
+    i ++ 1u.
+  .
+  [STD$a$len#word; ~= 0u => res ++ _word;.]
+  ## res .
+..
+
+STD$io$put!'hola que tal'.
+STD$io$put!splitWs#'hola que tal';.

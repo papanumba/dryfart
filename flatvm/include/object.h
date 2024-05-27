@@ -102,7 +102,7 @@ class FunObj : public Object {
   public:
     ~FunObj();
     void set(UsrSrt);
-    void set(NatFun);
+    void set(NatFun &&);
     void print() const;
 };
 

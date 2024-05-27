@@ -2,6 +2,8 @@
 
 use super::toki::new_tok;
 use super::toki::{Token, TokTyp, PrimType};
+use crate::asterix::Val;
+use crate::asterix;
 
 macro_rules! if_next {
     ($zelf:expr, $c:expr, $tt:ident) => {
@@ -162,9 +164,8 @@ impl<'src> Luthor<'src>
     {
         self.skip_whites();
         self.base_pos = self.next_pos;
-        let c = match self.read_char() {
-            Some(ch) => ch,
-            None => return None,
+        let Some(c) = self.read_char() else {
+           return None;
         };
         Some(match c {
             b'_' => lex_new_tok!(self, Uscore),
@@ -359,59 +360,51 @@ impl<'src> Luthor<'src>
     fn get_string(&mut self) -> Token<'src>
     {
         let mut ended_string = false;
-        while let Some(c) = self.peek::<0>() {
-            match *c {
-                b'\'' => {
-                    ended_string = true;
-                    break;
-                },
-                b'"'  => {
-                    if self.peek::<1>().is_none() {
-                        panic!(
-                            "expected escape char but found EOF at line {}",
-                            self.line);
-                    }
-                    // will check later if þe escapes are valid
-                    self.advance(); // `
-                    self.advance(); // whatever
-                },
-                _ => self.advance(), // normal char
+        while let Some(c) = self.read_char() {
+            if *c == b'\'' {
+                ended_string = true;
+                break;
+            }
+            if *c == asterix::ESC_CH {
+                if self.read_char().is_none() {
+                    panic!(
+                        "expected escape char but found EOF at line {}",
+                        self.line);
+                }
+                // will check later if þe escapes are valid
             }
         }
         if !ended_string {
             panic!("unterminated string at line {}", self.line);
         }
-        let raw = &self.lexeme()[1..];
-        self.advance(); // skip final quote
+        let lxm = self.lexeme();
+        let raw = &lxm[1..lxm.len()-1];
         return Token::new_string(raw);
     }
 
     // called when "
     fn get_char(&mut self) -> Token<'src>
     {
-        self.advance(); // "
-        let Some(c) = self.peek::<0>() else {
+        let Some(c) = self.read_char() else {
             panic!("unterminated C% literal at EOF");
         };
-        if c == b'"' { // escapes
-            self.advance();
-            let Some(d) = self.peek::<0>() else {
+        if *c == asterix::ESC_CH { // escapes
+            let Some(d) = self.read_char() else {
                 panic!("unterminated escaped C% at EOF");
             };
-            let Ok(e) = Val::escape_char(d) else {
+            let Ok(e) = Val::escape_char(*d) else {
                 panic!("unknown escape char \"{d}");
             };
-            let Some(b'"') = self.peek::<0>() else {
+            let Some(b'"') = self.read_char() else {
                 panic!("unterminated C% literal, at line {}", self.line);
             };
             return Token::new_valc(e, self.lexeme());
         }
         // normal chars
-        self.advance();
-        let Some(b'"') = self.peek::<0>() else {
+        let Some(b'"') = self.read_char() else {
             panic!("unterminated C% literal, at line {}", self.line);
         };
-        return Token::new_valc(
+        return Token::new_valc(*c, self.lexeme());
     }
 
     // called when `

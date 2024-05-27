@@ -283,16 +283,16 @@ impl std::convert::TryFrom<&[u8]> for Array
         let mut res = Self::default();
         let mut i = 0;
         while i < s.len() {
-            if s[i] == b'`' {
+            if s[i] == ESC_CH {
                 // from þe lexer, we know it's followed by a char
                 match s[i+1] {
-                    b'`' => res.try_push(&Val::C(b'`')),
+                    ESC_CH => res.try_push(&Val::C(ESC_CH)),
+                    b'\'' => res.try_push(&Val::C(b'\'')),
                     b'"' => res.try_push(&Val::C(b'"')),
                     b'0' => res.try_push(&Val::C(b'\0')),
                     b'N' => res.try_push(&Val::C(b'\n')),
                     b'R' => res.try_push(&Val::C(b'\r')),
                     b'T' => res.try_push(&Val::C(b'\t')),
-                    b'x' => todo!("hex escapes"),
                     _ => return Err("unknown escape char"),
                 }.unwrap();
                 i += 1;
@@ -489,6 +489,8 @@ impl Func
     }
 }
 
+pub const ESC_CH: u8 = b'?';
+
 #[derive(Debug, Clone)]
 pub enum Val
 {
@@ -512,6 +514,20 @@ pub enum Val
 
 impl Val
 {
+    pub fn escape_char(e: u8) -> Result<u8, ()>
+    {
+        match e {
+            b'\'' => Ok(b'\''),
+            b'"' => Ok(b'"'),
+            b'0' => Ok(b'\0'),
+            b'N' => Ok(b'\n'),
+            b'R' => Ok(b'\r'),
+            b'T' => Ok(b'\t'),
+            ESC_CH => Ok(ESC_CH),
+            _ => Err(()),
+        }
+    }
+
     pub fn from_array(a: Array) -> Self
     {
         Self::A(Rc::new(RefCell::new(a)))

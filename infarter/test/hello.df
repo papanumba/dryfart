@@ -1,3 +1,3 @@
-' Hello world in DryFart
+` Hello world in DryFart
 
-STD$io$put!"Hello, world!`N".
+STD$io$put!'Hello, world!`N'.
