@@ -9,7 +9,6 @@ use std::{
 use super::toki::{Token, TokTyp, PrimType};
 use crate::asterix::*;
 use crate::util;
-use crate::util::string_from_ascii;
 
 macro_rules! expected_err {
     ($e:expr, $f:expr) => { util::format_err!(
@@ -258,7 +257,7 @@ impl<'src> Nip<'src>
         let name = self.consume_ident()?;
         self.exp_adv(TokTyp::Bang)?; // !
         let args = self.comma_ex(TokTyp::Period)?;
-        let name = Rc::new(util::string_from_ascii(name));
+        let name = Rc::new(name.try_into().unwrap());
         return Ok(Stmt::TbPCal(lhs, name, args));
     }
 
@@ -464,7 +463,7 @@ impl<'src> Nip<'src>
                     self.advance(); // $
                     let i = self.consume_ident()?;
                     e = Expr::TblFd(Box::new(e),
-                        Rc::new(string_from_ascii(i)),
+                        Rc::new(i.try_into().unwrap()),
                     );
                 },
                 TokTyp::Hash => {
@@ -478,7 +477,7 @@ impl<'src> Nip<'src>
                     self.exp_adv(TokTyp::Hash)?; // #
                     let args = self.comma_ex(TokTyp::Semic)?;
                     e = Expr::TbFcl(Box::new(e),
-                        Rc::new(string_from_ascii(i)),
+                        Rc::new(i.try_into().unwrap()),
                         args);
                 },
                 _ => break,
@@ -516,7 +515,9 @@ impl<'src> Nip<'src>
             TokTyp::Ident => {
                 self.advance();
                 let id = tok.0.as_ident().unwrap();
-                return Ok(Expr::Ident(Rc::new(string_from_ascii(id))));
+                return Ok(Expr::Ident(Rc::new(
+                    id.try_into().unwrap()
+                )));
             },
             // literals
             TokTyp::ValV => {self.advance(); Ok(Expr::Const(Val::V))},
@@ -601,7 +602,7 @@ impl<'src> Nip<'src>
             self.exp_adv(TokTyp::Equal)?;
             let e = self.expr()?;
             self.exp_adv(TokTyp::Period)?;
-            let i = Rc::new(string_from_ascii(i));
+            let i = Rc::new(i.try_into().unwrap());
             tbl_e.push((i, e));
         }
         self.advance(); // ;
@@ -626,7 +627,7 @@ impl<'src> Nip<'src>
         self.advance(); // # or !
         let name = match self.peek::<0>() {
             Some((t, _)) => if let Some(s) = t.as_string() {
-                Some(Rc::new(string_from_ascii(s)))
+                Some(Rc::new(s.try_into().unwrap()))
             } else { None },
             _ => None,
         };
@@ -637,9 +638,9 @@ impl<'src> Nip<'src>
             SubrType::F => TokTyp::Semic,
             SubrType::P => TokTyp::Period,
         };
-        let pars: Vec<Rc<String>> = self.pars(end_tok)?
+        let pars: Vec<Rc<DfStr>> = self.pars(end_tok)?
             .iter()
-            .map(|b| Rc::new(string_from_ascii(b)))
+            .map(|b| Rc::new(b.try_into().unwrap()))
             .collect();
         let bloq = self.block()?;
         self.exp_adv(TokTyp::Period)?;
@@ -683,9 +684,9 @@ impl<'src> Nip<'src>
     {
         self.advance(); // \#
         // TODO: maybe put actual name of short functions?
-        let pars: Vec<Rc<String>> = self.pars(TokTyp::Semic)?
+        let pars: Vec<Rc<DfStr>> = self.pars(TokTyp::Semic)?
             .iter()
-            .map(|b| Rc::new(string_from_ascii(b)))
+            .map(|b| Rc::new(b.try_into().unwrap()))
             .collect();
         let ret_expr = self.expr()?;
         self.exp_adv(TokTyp::Period)?;

@@ -43,8 +43,8 @@ pub enum ImOp
     IOR,
     XOR,
 
-    LGX(IdfIdx),
-    SGX(IdfIdx),
+    LGX(DfStrIdx),
+    SGX(DfStrIdx),
     LLX(LocIdx),
     SLX(LocIdx),
     ULX(LocIdx),
@@ -55,8 +55,8 @@ pub enum ImOp
     ASE,
 
     TMN,
-    TSF(IdfIdx),
-    TGF(IdfIdx),
+    TSF(DfStrIdx),
+    TGF(DfStrIdx),
 
     FMN(PagIdx),
     FCL(u8),
@@ -115,7 +115,7 @@ impl ImOp
 
 // Addressing modes
 type CtnIdx = usize; // in constant pool
-type IdfIdx = usize; // in identifier pool
+type DfStrIdx = usize; // in identifier pool
 type LocIdx = usize; // in þe stack
 type UpvIdx = usize; // in þe curr subr's upv arr
 pub type BbIdx = usize; // in Cfg's BasicBlock vec
@@ -198,8 +198,8 @@ pub struct SubrEnv // subroutine environment compiler
     pub scpdpt:   usize,
     pub presize:  usize,
     pub locsize:  usize,
-    pub locals:   VecMap<IdfIdx, LocIdx>,
-    pub upvals:   ArraySet<IdfIdx>, // upvalue names
+    pub locals:   VecMap<DfStrIdx, LocIdx>,
+    pub upvals:   ArraySet<DfStrIdx>, // upvalue names
     pub blocks:   Vec<BasicBlock>,  // graph arena
     pub curr:     BasicBlock,       // current working bblock
     pub rect:     Stack<LocIdx>,    // accumulating $@N
@@ -235,7 +235,7 @@ impl SubrEnv
         return self.blocks.len();
     }
 
-    fn assign(&mut self, idx: IdfIdx)
+    fn assign(&mut self, idx: DfStrIdx)
     {
         // if exists local, it's an assign
         if let Some(i) = self.locals.get(&idx) {
@@ -293,8 +293,8 @@ pub struct Page
 #[derive(Debug)]
 pub struct Compiler
 {
-    pub consts:  ArraySet<Val>,        // constant pool
-    pub idents:  ArraySet<Rc<String>>, // identifier pool
+    pub consts:  ArraySet<Val>,     // constant pool
+    pub idents:  ArraySet<Rc<DfStr>>, // identifier pool
     pub subrs:   Vec<Page>,
     pub curr:    SubrEnv,
 }
@@ -345,7 +345,7 @@ impl Compiler
     }
 
     #[inline]
-    fn push_ident(&mut self, id: &Rc<String>) -> IdfIdx
+    fn push_ident(&mut self, id: &Rc<DfStr>) -> DfStrIdx
     {
         if let Some(i) = self.idents.index_of(id) {
             i
@@ -434,21 +434,21 @@ impl Compiler
     }
 
     #[inline]
-    fn resolve_local(&self, id: &Rc<String>) -> Option<&LocIdx>
+    fn resolve_local(&self, id: &Rc<DfStr>) -> Option<&LocIdx>
     {
         let idx = self.idents.index_of(id)?;
         return self.curr.locals.get(&idx);
     }
 
     #[inline]
-    fn resolve_upval(&self, id: &Rc<String>) -> Option<UpvIdx>
+    fn resolve_upval(&self, id: &Rc<DfStr>) -> Option<UpvIdx>
     {
         let idx = self.idents.index_of(id)?;
         return self.curr.upvals.index_of(&idx);
     }
 
     #[inline]
-    fn exists_var(&self, id: &Rc<String>) -> bool
+    fn exists_var(&self, id: &Rc<DfStr>) -> bool
     {
         return self.resolve_local(id).is_some()
             || self.resolve_upval(id).is_some();
@@ -540,7 +540,7 @@ impl Compiler
     fn s_operon_tbl( // t$f oo e.
         &mut self,
         t: &Expr,
-        f: &Rc<String>,
+        f: &Rc<DfStr>,
         o: &BinOpcode,
         e: &Expr)
     {
@@ -555,13 +555,13 @@ impl Compiler
     }
 
     #[inline]
-    fn new_local(&mut self, id: &Rc<String>)
+    fn new_local(&mut self, id: &Rc<DfStr>)
     {
         let idx = self.push_ident(id);
         self.curr.assign(idx);
     }
 
-    fn s_varass(&mut self, id: &Rc<String>, ex: &Expr)
+    fn s_varass(&mut self, id: &Rc<DfStr>, ex: &Expr)
     {
         self.expr(ex);
         self.new_local(id);
@@ -582,7 +582,7 @@ impl Compiler
     fn s_tblass(
         &mut self,
         t: &Expr,
-        f: &Rc<String>,
+        f: &Rc<DfStr>,
         e: &Expr)
     {
         self.expr(t);
@@ -783,9 +783,9 @@ impl Compiler
         self.push_op(ImOp::LKX(idx));
     }
 
-    fn e_ident(&mut self, id: &Rc<String>)
+    fn e_ident(&mut self, id: &Rc<DfStr>)
     {
-        if **id == "STD" {
+        if id.as_u8s() == b"STD" {
             //let s = Val::new_nat_tb("STD");
             todo!("STD");
             //self.e_new_const(&s.clone());
@@ -850,7 +850,7 @@ impl Compiler
         }
     }
 
-    fn e_table(&mut self, v: &[(Rc<String>, Expr)])
+    fn e_table(&mut self, v: &[(Rc<DfStr>, Expr)])
     {
         self.push_op(ImOp::TMN);
         self.curr.rect.push(self.locsize()); // new $@0 will be on þe stack
@@ -864,7 +864,7 @@ impl Compiler
         self.decloc();
     }
 
-    fn e_tblfd(&mut self, t: &Expr, f: &Rc<String>)
+    fn e_tblfd(&mut self, t: &Expr, f: &Rc<DfStr>)
     {
         self.expr(t);
         let idx = self.push_ident(f);
@@ -939,7 +939,7 @@ impl Compiler
     pub fn obj_call(
         &mut self,
         obj: &Expr,
-        field: &Rc<String>,
+        field: &Rc<DfStr>,
         args: &[Expr],
         st: SubrType)
     {
@@ -968,7 +968,7 @@ impl Compiler
     }
 
     // helper fn
-    fn declar_upvs(&mut self, upvs: &[Rc<String>])
+    fn declar_upvs(&mut self, upvs: &[Rc<DfStr>])
     {
         for upv in upvs {
             let idfidx = self.push_ident(upv);

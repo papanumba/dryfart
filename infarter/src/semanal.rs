@@ -64,7 +64,7 @@ fn std_check_loop(l: &mut Loop)
 fn std_check_expr(e: &mut Expr)
 {
     match e {
-        Expr::Ident(i) => if i.as_str() == "STD" {
+        Expr::Ident(i) => if i.as_u8s() == b"STD" {
             *e = Expr::Const(Val::from(NatTb::STD));
         },
         Expr::Tcast(_, b) => std_check_expr(b),
@@ -103,40 +103,40 @@ fn upv_check(b: &mut Block)
     ua.pass_block(b);
 }
 
-type IdfAccum = util::ArraySet<Rc<String>>;
+type DfStrAccum = util::ArraySet<Rc<DfStr>>;
 
 #[derive(Debug, Default)]
 struct UpvEnv
 {
     // declared variables (all)
-    var: IdfAccum,
+    var: DfStrAccum,
     // found upvalue variables
-    upv: IdfAccum,
+    upv: DfStrAccum,
 }
 
 impl UpvEnv
 {
     #[inline]
-    pub fn has_var(&self, i: &Rc<String>) -> bool
+    pub fn has_var(&self, i: &Rc<DfStr>) -> bool
     {
         return self.var.has(i);
     }
 
     #[inline]
-    pub fn ass_var(&mut self, i: &Rc<String>)
+    pub fn ass_var(&mut self, i: &Rc<DfStr>)
     {
         if !self.var.has(i) {
             self.var.add(i.clone());
         }
     }
 
-    pub fn new_upv(&mut self, i: &Rc<String>)
+    pub fn new_upv(&mut self, i: &Rc<DfStr>)
     {
         self.var.add(i.clone());
         self.upv.add(i.clone());
     }
 
-    pub fn die_to_upvs(self) -> Vec<Rc<String>>
+    pub fn die_to_upvs(self) -> Vec<Rc<DfStr>>
     {
         return self.upv.to_vec();
     }
@@ -164,7 +164,7 @@ impl UpvAnal
     }
 
     // returns the self.curr's detected upvalues
-    pub fn exit_subr(&mut self) -> Vec<Rc<String>>
+    pub fn exit_subr(&mut self) -> Vec<Rc<DfStr>>
     {
         let aux = std::mem::replace(
             &mut self.curr,
@@ -211,7 +211,7 @@ impl UpvAnal
         }
     }
 
-    fn pass_ass_var(&mut self, i: &Rc<String>)
+    fn pass_ass_var(&mut self, i: &Rc<DfStr>)
     {
         self.curr.ass_var(i);
     }
@@ -293,7 +293,7 @@ impl UpvAnal
         s.upvs = self.exit_subr();
     }
 
-    fn try_upv_idf(&mut self, i: &Rc<String>)
+    fn try_upv_idf(&mut self, i: &Rc<DfStr>)
     {
         let mut lev = None;
         for level in 0..self.pres.size() {

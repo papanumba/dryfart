@@ -23,7 +23,7 @@ fn exec_block(b: &Block) -> Option<BlockAction>
 
 pub struct Scope
 {
-    vars: util::VecMap<Rc<String>, Val>,
+    vars: util::VecMap<Rc<DfStr>, Val>,
     callee: Option<Val>, // main (None), func or proc
 }
 
@@ -53,7 +53,7 @@ impl Scope
         self.vars.trunc(pre);
     }
 
-    fn declar(&mut self, v: &Rc<String>, e: Val)
+    fn declar(&mut self, v: &Rc<DfStr>, e: Val)
     {
         self.vars.set(v.clone(), e);
     }
@@ -116,7 +116,7 @@ impl Scope
 
     // v = e.
     #[inline]
-    fn do_var_ass(&mut self, v: &Rc<String>, e: &Expr)
+    fn do_var_ass(&mut self, v: &Rc<DfStr>, e: &Expr)
     {
         self.declar(v, self.eval_expr(e));
     }
@@ -139,7 +139,7 @@ impl Scope
     }
 
     // t$f = e.
-    fn do_tbl_ass(&self, t: &Expr, f: &Rc<String>, e: &Expr)
+    fn do_tbl_ass(&self, t: &Expr, f: &Rc<DfStr>, e: &Expr)
     {
         if let Val::T(mut t) = self.eval_expr(t) {
             let e_val = self.eval_expr(e);
@@ -314,7 +314,7 @@ impl Scope
     }
 
     #[inline]
-    fn eval_ident(&self, i: &Rc<String>) -> Val
+    fn eval_ident(&self, i: &Rc<DfStr>) -> Val
     {
         // try variable
         if let Some(v) = self.vars.get(i) {
@@ -511,7 +511,7 @@ impl Scope
         )
     }
 
-    fn eval_table(&self, e: &[(Rc<String>, Expr)]) -> Val
+    fn eval_table(&self, e: &[(Rc<DfStr>, Expr)]) -> Val
     {
         let mut t = Table::new();
         // TODO eke $@
@@ -522,7 +522,7 @@ impl Scope
         return Val::T(t);
     }
 
-    fn eval_tblfd(&self, t: &Expr, f: &String) -> Val
+    fn eval_tblfd(&self, t: &Expr, f: &DfStr) -> Val
     {
         let tbl = self.eval_expr(t);
         if let Val::T(trc) = tbl {

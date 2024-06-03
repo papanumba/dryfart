@@ -429,17 +429,17 @@ impl Phil // 'a lifetime of AST
         }
     }
 
-    fn push_idents(&mut self, idents: &[Rc<String>])
+    fn push_idents(&mut self, idents: &[Rc<DfStr>])
     {
         self.extend(u16::try_from(idents.len())
             .expect(&format!("Too many identifiers (max = {})", u16::MAX))
         );
         for id in idents {
-            let id_len_u8 = u8::try_from(id.len())
+            let id_len_u8 = u8::try_from(id.as_u8s().len())
                 .expect(&format!("identifier {} too long (max is {})",
                     id, u8::MAX));
             self.extend(id_len_u8);
-            self.extend_bytes(&id.as_bytes());
+            self.extend_bytes(&id.as_u8s());
             self.extend(0 as u8); // '\0'
         }
     }

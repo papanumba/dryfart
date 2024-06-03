@@ -7,24 +7,17 @@ use std::{
 use crate::{util, dflib, util::MutRc};
 
 #[derive(Debug, Clone)]
-pub struct DfStr
+pub struct Idf
 {
     s: Vec<u8>, // ascii string
     h: u32,
 }
 
-impl DfStr
+impl Idf
 {
     pub fn as_u8s(&self) -> &[u8]
     {
         return &self.s;
-    }
-
-    pub fn as_str(&self) -> &str
-    {
-        unsafe {
-            return std::str::from_utf8_unchecked(&self.s);
-        }
     }
 
     fn check_ascii(s: &[u8]) -> bool
@@ -48,7 +41,7 @@ impl DfStr
     }
 }
 
-impl TryFrom<Vec<u8>> for DfStr
+impl TryFrom<Vec<u8>> for Idf
 {
     type Error = (); // indicates þat þe vector is not ascii
     fn try_from(s: Vec<u8>) -> Result<Self, ()>
@@ -61,7 +54,7 @@ impl TryFrom<Vec<u8>> for DfStr
     }
 }
 
-impl TryFrom<&[u8]> for DfStr
+impl TryFrom<&[u8]> for Idf
 {
     type Error = (); // indicates þat þe vector is not ascii
     fn try_from(s: &[u8]) -> Result<Self, ()>
@@ -74,7 +67,7 @@ impl TryFrom<&[u8]> for DfStr
     }
 }
 
-impl TryFrom<&&[u8]> for DfStr
+impl TryFrom<&&[u8]> for Idf
 {
     type Error = (); // indicates þat þe vector is not ascii
     fn try_from(s: &&[u8]) -> Result<Self, ()>
@@ -87,7 +80,7 @@ impl TryFrom<&&[u8]> for DfStr
     }
 }
 
-impl std::hash::Hash for DfStr
+impl std::hash::Hash for Idf
 {
     fn hash<H>(&self, state: &mut H)
     where H: std::hash::Hasher
@@ -96,7 +89,7 @@ impl std::hash::Hash for DfStr
     }
 }
 
-impl PartialEq for DfStr
+impl PartialEq for Idf
 {
     fn eq(&self, other: &Self) -> bool
     {
@@ -105,9 +98,9 @@ impl PartialEq for DfStr
     }
 }
 
-impl Eq for DfStr {}
+impl Eq for Idf {}
 
-impl std::fmt::Display for DfStr
+impl std::fmt::Display for Idf
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error>
     {
@@ -447,7 +440,7 @@ impl std::fmt::Display for Array
 pub enum Table
 {
     Nat(dflib::tables::NatTb),
-    Usr(MutRc<Vec<(Rc<DfStr>, Val)>>),
+    Usr(MutRc<Vec<(Rc<String>, Val)>>),
 }
 
 impl Table
@@ -457,13 +450,13 @@ impl Table
         Self::Usr(Rc::new(RefCell::new(vec![])))
     }
 
-    pub fn get(&self, k: &DfStr) -> Option<Val>
+    pub fn get(&self, k: &str) -> Option<Val>
     {
         match &self {
-            Self::Nat(n) => n.get(k.as_str()),
+            Self::Nat(n) => n.get(k),
             Self::Usr(u) => {
                 for p in u.borrow().iter() {
-                    if &*p.0 == k {
+                    if *p.0 == k {
                         return Some(p.1.clone());
                     }
                 }
@@ -472,7 +465,7 @@ impl Table
         }
     }
 
-    pub fn set(&mut self, k: &Rc<DfStr>, v: Val)
+    pub fn set(&mut self, k: &Rc<String>, v: Val)
     {
         match &mut *self {
             Self::Nat(_) => unreachable!("cannot set a native table"),
@@ -487,13 +480,13 @@ impl Table
         };
     }
 
-    pub fn has(&self, k: &DfStr) -> bool
+    pub fn has(&self, k: &str) -> bool
     {
         match &self {
-            Self::Nat(n) => n.get(k.as_str()).is_some(),
+            Self::Nat(n) => n.get(k).is_some(),
             Self::Usr(u) => {
                 for p in u.borrow().iter() {
-                    if &*p.0 == k {
+                    if *p.0 == k {
                         return true;
                     }
                 }
@@ -540,15 +533,15 @@ impl Eq for $tname {}
 pub struct SubrMeta
 {
     pub line: usize, // line where it started (# xor !)
-    pub name: Option<Rc<DfStr>>,
+    pub name: Option<Rc<String>>,
 }
 
 #[derive(Debug)]
 pub struct Subr
 {
     pub meta: SubrMeta,
-    pub upvs: Vec<Rc<DfStr>>, // eval'd at definition
-    pub pars: Vec<Rc<DfStr>>, // eval'd at call
+    pub upvs: Vec<Rc<Idf>>, // eval'd at definition
+    pub pars: Vec<Rc<Idf>>, // eval'd at call
     pub body: Block,
 }
 
@@ -817,27 +810,27 @@ pub enum Stmt
     Return(Expr),
     PcExit,
     PcCall(Expr, Vec<Expr>),
-    TbPCal(Expr, Rc<DfStr>, Vec<Expr>),
+    TbPCal(Expr, Rc<String>, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]
 pub enum Expr
 {
     Const(Val),
-    Ident(Rc<DfStr>),
+    Ident(Rc<Idf>),
     Tcast(Type, Box<Expr>),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     UniOp(Box<Expr>, UniOpcode),
     CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
     FnDef(MutRc<Subr>),
     Fcall(Box<Expr>, Vec<Expr>),
-    TbFcl(Box<Expr>, Rc<DfStr>, Vec<Expr>), // expr#$ident#exprs,;
+    TbFcl(Box<Expr>, Rc<String>, Vec<Expr>), // expr#$ident#exprs,;
     RecFn,
     PcDef(MutRc<Subr>),
     RecPc,
     Array(Vec<Expr>),
-    Table(Vec<(Rc<DfStr>, Expr)>),
-    TblFd(Box<Expr>, Rc<DfStr>),
+    Table(Vec<(Rc<String>, Expr)>),
+    TblFd(Box<Expr>, Rc<String>),
     RecsT(u32),
     IfExp(Vec<(Expr, Expr)>, Box<Expr>),
 }

@@ -8,23 +8,6 @@ macro_rules! format_err {
 
 pub(crate) use format_err;
 
-/*macro_rules! silent_panic {
-    ($($args:expr),+) => {
-        eprintln!($($args),+);
-        std::process::exit(1);
-    }
-}
-
-pub(crate) use silent_panic;*/
-
-// unchecked
-pub fn string_from_ascii(s: &[u8]) -> String
-{
-    unsafe {
-        return String::from(std::str::from_utf8_unchecked(s));
-    }
-}
-
 pub type StrRes<T> = Result<T, String>;
 pub type MutRc<T> = std::rc::Rc<std::cell::RefCell<T>>;
 
