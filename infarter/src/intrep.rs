@@ -592,6 +592,7 @@ impl Compiler
         self.push_op(ImOp::POP);
     }
 
+    // FIXME: else block is not tied correctly
     fn s_ifelse(
         &mut self,
         if_0: &IfCase,

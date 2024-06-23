@@ -42,7 +42,7 @@ impl DfStr
         let mut hash: u32 = 2166136261;
         for c in s {
             hash ^= *c as u32;
-            hash *= 16777619;
+            hash = hash.wrapping_mul(16777619);
         }
         return hash;
     }

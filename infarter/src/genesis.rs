@@ -12,21 +12,13 @@ pub fn comp_into_bytes(c: &Compiler) -> Vec<u8>
     return Phil::transfart(c);
 }
 
-const DF_MAGIC: [u8; 8] = [
-    0xDF,
-    b'D',
-    b'R',
-    b'Y',
-    b'F',
-    b'A',
-    b'R',
-    b'T',
-];
+const DF_MAGIC: &'static [u8; 8] = b"\xDFDRYFART";
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum Op
 {
+    #[default]
     NOP = 0x00,
 
     LVV = 0x01,
@@ -206,53 +198,155 @@ impl TryFrom<&Term> for Op {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
+enum LowerTerm
+{
+    #[default]
+    Nop,      // NOP
+    One,      // "simple" op
+    Jjs(i8),  // short jump
+    Jjl(i16), // long jump
+}
+
+impl LowerTerm
+{
+    // how many bytes needs to be written, including the op itself
+    pub fn size(&self) -> usize
+    {
+        match self {
+            Self::Nop    => 0,
+            Self::One    => 1,
+            Self::Jjs(_) => 2,
+            Self::Jjl(_) => 3,
+        }
+    }
+
+    pub fn jmp_dist(&self) -> Option<isize>
+    {
+        match self {
+            Self::Nop |
+            Self::One => None,
+            Self::Jjs(d) => Some(*d as isize),
+            Self::Jjl(d) => Some(*d as isize),
+        }
+    }
+
+    // returns serialized jump arg
+    pub fn to_bytes(&self) -> Option<(u8, Option<u8>)>
+    {
+        match self {
+            Self::Nop |
+            Self::One => None,
+            Self::Jjs(d) => Some((d.to_bytes()[0], None)),
+            Self::Jjl(d) => {
+                let b = d.to_bytes();
+                Some((b[0], Some(b[1])))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 struct LowerBlock // lower level basic block
 {
-    pub code: Vec<u8>, // what will be actually written
-    pub term: [u8; 3],
+    pub code: Vec<u8>,   // what will be actually written
+    pub term: Op,        // term op
+    pub tinf: LowerTerm, // stores info about t_op
 }
 
 impl LowerBlock
 {
-    #[inline]
-    pub fn new() -> Self
-    {
-        return Self {code: vec![], term: [0; 3]};
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize
-    {
-        return self.code.len() + 3;
-    }
-
     // transfarts all non-term ImOps from a bb into bytes in lb
     pub fn from_imops(bbcode: &[ImOp]) -> Self
     {
-        let mut res = Self::new();
+        let mut res = Self::default();
         for imop in bbcode {
             res.push_imop(imop);
         }
         return res;
     }
 
-    pub fn write_jmp(&mut self, term: Term, dist: isize)
+    #[inline]
+    pub fn size(&self) -> usize
     {
-        if let Ok(s) = i8::try_from(dist+1) { // þe NOP
+        return self.code.len() + self.tinf.size();
+    }
+
+    #[inline]
+    pub fn set_simple_term(&mut self, t: Op)
+    {
+        self.term = t;
+        self.tinf = if t == Op::NOP {
+            LowerTerm::Nop
+        } else {
+            LowerTerm::One
+        }
+    }
+
+    pub fn shrink_jj_by(&mut self, dx: u8)
+    {
+        match &mut self.tinf {
+            LowerTerm::Jjs(ref mut d) => {
+                let dx = dx as i8;
+                if *d < 0 {
+                    *d += dx;
+                } else if *d > 0 {
+                    *d -= dx;
+                } else { // 0
+                    panic!("0 jump");
+                }
+            },
+            LowerTerm::Jjl(ref mut d) => {
+                let dx = dx as i16;
+                if *d < 0 {
+                    *d += dx;
+                } else if *d > 0 {
+                    *d -= dx;
+                } else { // 0
+                    panic!("0 jump");
+                }
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    // warning: term is expected to be a Jump
+    // returns true if jmp is small (8), false if long (16)
+    pub fn write_jmp(&mut self, term: Term, dist: isize) -> bool
+    {
+        if let Ok(s) = i8::try_from(dist+1) { // +1 bcoz þe NOP
             if let Some(j) = Op::try_s_jmp(term) {
-                self.term[0] = j as u8;
-                self.term[1] = s.to_bytes()[0];
-                return;
+                self.term = j;
+                self.tinf = LowerTerm::Jjs(s);
+                return true;
             } // else long, even if can i8
         }
         if let Ok(l) = i16::try_from(dist) {
             let j = Op::try_l_jmp(term).unwrap();
-            let b = l.to_bytes();
-            self.term = [j as u8, b[0], b[1]];
-        } else {
-            panic!("jump too long {}", dist);
+            self.term = j;
+            self.tinf = LowerTerm::Jjl(l);
+            return false;
         }
+        panic!("jump too long {} to fit in 2 bytes", dist);
+    }
+
+    // both code and term
+    pub fn into_bytes(mut self) -> Vec<u8>
+    {
+        let mut code = std::mem::replace(&mut self.code, vec![]);
+        if self.term == Op::NOP {
+            return code;
+        }
+        // term != NOP
+        code.push(self.term as u8);
+        // check if has some jmp arg
+        if let Some((x, o)) = self.tinf.to_bytes() {
+            code.push(x);
+            if let Some(y) = o { // long jump
+                code.push(y);
+            }
+        }
+        return code;
     }
 
     fn push_imop(&mut self, imop: &ImOp)
@@ -297,7 +391,9 @@ impl LowerBlock
                 _ => unreachable!(),
             });
             self.code.push(u);
-        } else if let Ok(s) = u16::try_from(opnd) { // Long
+            return;
+        }
+        if let Ok(s) = u16::try_from(opnd) { // Long
             self.push_op(match imop {
                 ImOp::LKX(_) => Op::LKL,
                 ImOp::LLX(_) => Op::LLL,
@@ -306,9 +402,9 @@ impl LowerBlock
                 _ => unreachable!(),
             });
             self.push_num(s);
-        } else { // too long
-            panic!("address loo long for 2 bytes");
+            return;
         }
+        panic!("op argument is loo long for 2 bytes");
     }
 
     // anoþer stupid function
@@ -368,7 +464,7 @@ impl Phil // 'a lifetime of AST
     pub fn transfart(comp: &Compiler) -> Vec<u8>
     {
         let mut collins = Self { out: vec![] };
-        collins.extend_bytes(&DF_MAGIC);
+        collins.extend_bytes(DF_MAGIC);
         collins.push_idents(comp.idents.as_slice());
         collins.push_consts(comp.consts.as_slice());
         collins.push_pages(&comp.subrs);
@@ -466,7 +562,8 @@ impl Phil // 'a lifetime of AST
     // joins all bblocks in one line & computes þe relative jumps
     fn push_pag(&mut self, pag: &Page)
     {
-        let lblocks = Self::bb_to_low(&pag.code);
+        // convert to lower basic blocks
+        let lblocks = bb2lb(&pag.code);
         /************** W R I T E **************/
         self.extend(pag.arity as u8);
         self.extend(u8::try_from(pag.uvs).expect("too many upvals"));
@@ -475,31 +572,13 @@ impl Phil // 'a lifetime of AST
         self.extend(0 as u32); // dummy for len
         let x0 = self.at();
         // emit all lblocks
-        for lb in &lblocks {
-            self.extend_bytes(&lb.code);
-            self.extend_bytes(&lb.term);
+        for lb in lblocks.into_iter() {
+            self.extend_bytes(&lb.into_bytes());
         }
         let x1 = self.at();
         let len = u32::try_from(x1 as isize - x0 as isize).unwrap();
         self.overwrite_at(&len.to_bytes(), len_idx);
-        // final '\0'
-        self.extend(0 as u8);
-    }
-
-    // aux
-    fn bb_to_low(bblocks: &[BasicBlock]) -> Vec<LowerBlock>
-    {
-        let mut lblocks = vec![];
-        // compile all bblocks to lblocks separately
-        for b in bblocks { // basic block
-            lblocks.push(LowerBlock::from_imops(&b.code));
-        }
-        // compute þe rel jumps
-        for i in 0..lblocks.len() {
-            lblocks[i].term = [0; 3]; // NOPs
-            write_lb_term(&mut lblocks, bblocks, i);
-        }
-        return lblocks;
+        self.extend(0 as u8); // final '\0'
     }
 
     fn push_page_meta(&mut self, pm: &PageMeta)
@@ -514,15 +593,61 @@ impl Phil // 'a lifetime of AST
     }
 }
 
-fn write_lb_term(
-    lblocks: &mut [LowerBlock],
+fn bb2lb(bblocks: &[BasicBlock]) -> Vec<LowerBlock>
+{
+    let len = bblocks.len();
+    // compile all bblocks to lblocks separately
+    let mut lblocks = bblocks
+        .iter()
+        .map(|b| LowerBlock::from_imops(&b.code))
+        .collect::<Vec<_>>();
+    // compute þe rel jumps assuming filled terms with NOPs
+    for i in 0..len {
+        write_lb_term(bblocks, &mut lblocks, i);
+    }
+    // recompute jumps w/o þe NOPs
+    for i in 0..len {
+        recomp_term(bblocks, &mut lblocks, i);
+    }
+    assert!(check_jumps(bblocks, &lblocks));
+    return lblocks;
+}
+
+fn recomp_term(
     bblocks: &[BasicBlock],
+    lblocks: &mut [LowerBlock],
+    i: usize)
+{
+    let nops_num = (3 - lblocks[i].tinf.size() as isize) as u8;
+    if nops_num == 0 {
+        return;
+    }
+    let len = bblocks.len();
+    // edit jumps before or i-þ itself þat jump after
+    for j in 0..=i {
+        let Some(target) = bblocks[j].term.jmp_target() else {continue;};
+        if i < target {
+            lblocks[j].shrink_jj_by(nops_num);
+        }
+    }
+    // edit jumps after `i`-þ þat jump before or onto `i`-þ
+    for j in (i+1)..len {
+        let Some(target) = bblocks[j].term.jmp_target() else {continue;};
+        if target <= i {
+            lblocks[j].shrink_jj_by(nops_num);
+        }
+    }
+}
+
+fn write_lb_term(
+    bblocks: &[BasicBlock],
+    lblocks: &mut [LowerBlock],
     i: usize)
 {
     let t = bblocks[i].term;
     // check simple terms
     if let Ok(op) = Op::try_from(t) {
-        lblocks[i].term[0] = op as u8;
+        lblocks[i].set_simple_term(op);
         return;
     }
     // jump to compute
@@ -531,10 +656,34 @@ fn write_lb_term(
     let (sign, range) = if i < bbi {(1, i+1..bbi)} else {(-1, bbi..i+1)};
     let dist = sign * isize::try_from(lblocks[range]
             .iter()
-            .map(|lb| lb.len())
+            .map(|lb| lb.code.len()+3) // supose max size (terms can fit in 3b)
             .sum::<usize>())
         .unwrap();
     lblocks[i].write_jmp(t, dist as isize);
+}
+
+fn check_jumps(
+    bblocks: &[BasicBlock],
+    lblocks: &[LowerBlock],
+) -> bool
+{
+    let len = lblocks.len();
+    for i in 0..len {
+        let Some(dist) = lblocks[i].tinf.jmp_dist() else {
+            continue;
+        };
+        let bbi = bblocks[i].term.jmp_target().unwrap();
+        let range = if i < bbi {i+1..bbi} else {bbi..i+1};
+        let blocks_dist = lblocks[range]
+            .iter()
+            .map(|lb| lb.size())
+            .sum::<usize>();
+        let jmp_dist = dist.abs() as usize;
+        if blocks_dist != jmp_dist {
+            panic!("rrong distance");
+        }
+    }
+    return true;
 }
 
 // for serializing þe constant pool
