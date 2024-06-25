@@ -336,18 +336,20 @@ OP_JBX(F, !)
 
 #undef OP_JBX
 
-#define OP_JFX(X, x) \
-case OP_JF ## X: {                \
-    DfVal b = this->pop();        \
-    CHECK_IS_B(b);                \
-    this->j ## x ## _if(!b.as.b); \
-    break;                        \
+#define OP_JXY(X, op, Y, y) \
+case OP_J##X##Y: {              \
+    DfVal b = this->pop();      \
+    CHECK_IS_B(b);              \
+    this->j##y##_if(op b.as.b); \
+    break;                      \
 }
 
-OP_JFX(S, s)
-OP_JFX(L, l)
+OP_JXY(T, !!, S, s)
+OP_JXY(T, !!, L, l)
+OP_JXY(F,  !, S, s)
+OP_JXY(F,  !, L, l)
 
-#undef OP_JFX
+#undef OP_JXY
 
 #define OP_J_CMP(CMP, cmp, msg) \
 case OP_J ## CMP: {          \

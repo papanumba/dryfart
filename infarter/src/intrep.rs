@@ -130,6 +130,7 @@ pub enum Term
     JJX(BbIdx), // contain a index for a basic block target
     JBT(BbIdx),
     JBF(BbIdx),
+    JTX(BbIdx),
     JFX(BbIdx),
     JLT(BbIdx),
     JLE(BbIdx),
@@ -154,6 +155,7 @@ impl Term
             Term::NOP    |
             Term::JBT(_) |
             Term::JBF(_) |
+            Term::JTX(_) |
             Term::JFX(_) |
             Term::JLT(_) |
             Term::JLE(_) |
@@ -169,6 +171,7 @@ impl Term
             Term::JJX(i) |
             Term::JBT(i) |
             Term::JBF(i) |
+            Term::JTX(i) |
             Term::JFX(i) |
             Term::JLT(i) |
             Term::JLE(i) |
