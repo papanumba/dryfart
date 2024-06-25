@@ -323,12 +323,18 @@ OP_JJX(L, 16)
 
 #undef OP_JJX
 
-case OP_JBF: {
-    DfVal &b = this->peek();
-    CHECK_IS_B(b);
-    this->js_if(!b.as.b);
-    break;
+#define OP_JBX(TF, op) \
+case OP_JB##TF: {           \
+    DfVal &b = this->peek();\
+    CHECK_IS_B(b);          \
+    this->js_if(op b.as.b); \
+    break;                  \
 }
+
+OP_JBX(T, !!) // þer'sn't an Id bool op
+OP_JBX(F, !)
+
+#undef OP_JBX
 
 #define OP_JFX(X, x) \
 case OP_JF ## X: {                \

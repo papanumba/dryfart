@@ -128,6 +128,7 @@ pub enum Term
     #[default]
     NOP,        // just inc þe bbidx for þe next block
     JJX(BbIdx), // contain a index for a basic block target
+    JBT(BbIdx),
     JBF(BbIdx),
     JFX(BbIdx),
     JLT(BbIdx),
@@ -151,6 +152,7 @@ impl Term
         match self {
             Term::PCH(b) => *b,
             Term::NOP    |
+            Term::JBT(_) |
             Term::JBF(_) |
             Term::JFX(_) |
             Term::JLT(_) |
@@ -165,6 +167,7 @@ impl Term
     {
         match self {
             Term::JJX(i) |
+            Term::JBT(i) |
             Term::JBF(i) |
             Term::JFX(i) |
             Term::JLT(i) |
@@ -822,18 +825,35 @@ impl Compiler
     fn e_binop(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
     {
         if o.is_sce() {
-            todo!("short circuits");
+            self.e_bin_sce(l, o, r);
+            return;
         }
         self.expr(l);
         self.expr(r);
         self.push_binop(o);
     }
 
+    fn e_bin_sce(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
+    {
+        self.expr(l);
+        let branch_i = self.term_curr_bb(Term::PCH(true));
+        self.push_op(ImOp::POP); // unneeded lhs term
+        self.expr(r);
+        self.term_curr_bb(Term::NOP);
+        // patch
+        let here = self.curr_idx();
+        self.curr.patch_jump(branch_i, match o {
+            BinOpcode::Cand => Term::JBF(here), // F & * = F
+            BinOpcode::Cor  => Term::JBT(here), // T | * = T
+            _ => unreachable!(),
+        });
+    }
+
     fn e_cmpop(&mut self, l: &Expr, v: &[(BinOpcode, Expr)])
     {
         self.expr(l);
         match v.len() {
-            0 => {},
+            0 => return,
             1 => { // normal cmpop
                 self.expr(&v[0].1);
                 self.push_binop(&v[0].0);

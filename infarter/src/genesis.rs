@@ -70,6 +70,7 @@ pub enum Op
 
     JJS = 0x50,
     JJL = 0x51,
+    JBT = 0x52,
     JBF = 0x53,
     JFS = 0x56,
     JFL = 0x57,
@@ -121,6 +122,7 @@ impl Op
     {
         match j {
             Term::JJX(_) => Some(Op::JJS),
+            Term::JBT(_) => Some(Op::JBT),
             Term::JBF(_) => Some(Op::JBF),
             Term::JFX(_) => Some(Op::JFS),
             _ => None,

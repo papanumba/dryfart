@@ -1,17 +1,17 @@
-' FizzBuzz in DryFart
+` FizzBuzz in DryFart
 
-isMultipleOf = #n, mod; ## n \ mod == 0u ...
+isMultipleOf = \#n, mod; n \ mod == 0u ..
 
 put = STD$io$put.
 n = 0u. @[[n < 100u]]
   is3 = isMultipleOf#n, 3u;.
   is5 = isMultipleOf#n, 5u;.
   put!
-   \[is3 & is5 => "fizzbuzz"
-    ;is3 => "fizz"
-    ;is5 => "buzz"
+   \[~((~is3) || ~is5) => 'fizzbuzz'
+    ;is3 => 'fizz'
+    ;is5 => 'buzz'
     ;Z%n]
   .
-  put!"`N".
+  put!'?N'.
   n ++ 1u.
 .
