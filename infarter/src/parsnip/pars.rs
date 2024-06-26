@@ -159,8 +159,7 @@ impl<'src> Nip<'src>
         }
     }
 
-    // debug only
-    #[allow(dead_code)]
+    #[allow(dead_code)] // debug only
     #[inline]
     fn print_peek(&self)
     {
@@ -169,7 +168,6 @@ impl<'src> Nip<'src>
             None => println!("None"),
         }
     }
-
 
     /******** G R A M M A R ********/
 
@@ -204,7 +202,8 @@ impl<'src> Nip<'src>
     // þese are assigns, operons or pccalls
     fn other_stmt(&mut self) -> Option<Result<Stmt, String>>
     {
-        const MSG: &'static str = "=, !, !$, ++, --, ** or //";
+        const MSG: &'static str =
+            "=, !, !$, ++, --, **, //, && or ||";
         let Ok(lhs) = self.expr() else {
             return None;
         };
@@ -218,7 +217,9 @@ impl<'src> Nip<'src>
             TokTyp::Plus2     |
             TokTyp::Minus2    |
             TokTyp::Asterisk2 |
-            TokTyp::Slash2 => self.operon(lhs, t.0),
+            TokTyp::Slash2    |
+            TokTyp::And2      |
+            TokTyp::Vbar2 => self.operon(lhs, t.0),
             _ => expected_err!(MSG, t),
         });
     }
@@ -366,8 +367,8 @@ impl<'src> Nip<'src>
         return self.cor_expr();
     }
 
-    left_binop_expr!( cor_expr, cand_expr, Vbar2,  Cor);
-    left_binop_expr!(cand_expr,  cmp_expr,  And2, Cand);
+    left_binop_expr!( cor_expr, cand_expr, VbarQu,  Cor);
+    left_binop_expr!(cand_expr,  cmp_expr,  AndQu, Cand);
 
     fn cmp_expr(&mut self) -> Result<Expr, String>
     {

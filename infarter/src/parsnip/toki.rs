@@ -275,6 +275,8 @@ pub enum TokTyp
     BangDollar, // !$
     BsLsb,      // \[
     BsHash,     // \#
+    AndQu,      // &?
+    VbarQu,     // |?
     // literals
     ValV,
     ValB,

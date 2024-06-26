@@ -20,6 +20,17 @@ macro_rules! lex_new_tok {
     }
 }
 
+macro_rules! from_char_fn {
+    ($name:ident, $base:ident, $($ch:expr => $t:ident,)+) => {
+        #[inline]
+        fn $name(&mut self) -> Token<'src>
+        {
+            $(if_next!(self, $ch, $t);)+
+            return lex_new_tok!(self, $base);
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Luthor<'src>
 {
@@ -177,8 +188,10 @@ impl<'src> Luthor<'src>
             b'{' => lex_new_tok!(self, Lbrace),
             b'}' => lex_new_tok!(self, Rbrace),
             b'^' => lex_new_tok!(self, Caret),
-            b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' |
-            b'&' | b'|' => self.maybe_2ble(*c),
+            b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']'
+                 => self.maybe_2ble(*c),
+            b'&' => self.from_and(),
+            b'|' => self.from_vbar(),
             b'#' => self.from_hash(),
             b'!' => self.from_bang(),
             b'$' => self.from_dollar(),
@@ -209,6 +222,51 @@ impl<'src> Luthor<'src>
         panic!("not a double {0}{0}", char::from(c));
     }
 
+    from_char_fn!{from_and, And,
+        b'&' => And2,
+        b'?' => AndQu,
+    }
+
+    from_char_fn!{from_vbar, Vbar,
+        b'|' => Vbar2,
+        b'?' => VbarQu,
+    }
+
+    from_char_fn!{from_tilde, Tilde,
+        b'~' => Tilde2,
+        b'=' => Ne,
+    }
+
+    from_char_fn!{from_equal, Equal,
+        b'=' => Equal2,
+        b'>' => Then,
+    }
+
+    from_char_fn!{from_langle, Langle,
+        b'=' => Le,
+    }
+
+    from_char_fn!{from_rangle, Rangle,
+        b'=' => Ge,
+    }
+
+    from_char_fn!{from_bang, Bang,
+        b'!' => Bang2,
+        b'@' => RecP,
+        b'$' => BangDollar,
+    }
+
+    from_char_fn!{from_hash, Hash,
+        b'#' => Hash2,
+        b'@' => RecF,
+        b'$' => HashDollar,
+    }
+
+    from_char_fn!{from_bslash, Bslash,
+        b'[' => BsLsb,
+        b'#' => BsHash,
+    }
+
     // $, $@[0-9]*
     #[inline]
     fn from_dollar(&mut self) -> Token<'src>
@@ -229,69 +287,6 @@ impl<'src> Luthor<'src>
             self.advance(); // @
             return Token::new_rect(0, self.lexeme());
         }
-    }
-
-    // ~, ~~, ~=
-    #[inline]
-    fn from_tilde(&mut self) -> Token<'src>
-    {
-        if_next!(self, b'~', Tilde2);
-        if_next!(self, b'=', Ne);
-        return lex_new_tok!(self, Tilde);
-    }
-
-    // =, ==, =>
-    #[inline]
-    fn from_equal(&mut self) -> Token<'src>
-    {
-        if_next!(self, b'=', Equal2);
-        if_next!(self, b'>', Then);
-        return lex_new_tok!(self, Equal);
-    }
-
-    // <, <=
-    #[inline]
-    fn from_langle(&mut self) -> Token<'src>
-    {
-        if_next!(self, b'=', Le);
-        return lex_new_tok!(self, Langle);
-    }
-
-    // >, >=
-    #[inline]
-    fn from_rangle(&mut self) -> Token<'src>
-    {
-        if_next!(self, b'=', Ge);
-        return lex_new_tok!(self, Rangle);
-    }
-
-    // !, !!, !@, !$
-    #[inline]
-    fn from_bang(&mut self) -> Token<'src>
-    {
-        if_next!(self, b'!', Bang2);
-        if_next!(self, b'@', RecP);
-        if_next!(self, b'$', BangDollar);
-        return lex_new_tok!(self, Bang);
-    }
-
-    // #, ##, #@, #$
-    #[inline]
-    fn from_hash(&mut self) -> Token<'src>
-    {
-        if_next!(self, b'#', Hash2);
-        if_next!(self, b'@', RecF);
-        if_next!(self, b'$', HashDollar);
-        return lex_new_tok!(self, Hash);
-    }
-
-    // \, \[, \#, FUTURE: \\
-    #[inline]
-    fn from_bslash(&mut self) -> Token<'src>
-    {
-        if_next!(self, b'[', BsLsb);
-        if_next!(self, b'#', BsHash);
-        return lex_new_tok!(self, Bslash);
     }
 
     // gets called when current char is a digit

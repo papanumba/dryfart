@@ -78,6 +78,16 @@ fn opt_one_bb(bb: &mut BasicBlock)
         },
     );
 
+    // LKX(a) LKX(a) -> LKX(a) DUP
+    peephole::<_, 2, 2>(
+        bb,
+        |w| match w {
+            [ImOp::LKX(x), ImOp::LKX(y)] => if x == y {
+                Some([ImOp::LKX(*x), ImOp::DUP])} else {None},
+            _ => None,
+        },
+    );
+
     // L[NZ]1 ADD -> INC
     peephole::<_, 2, 1>(
         bb,
