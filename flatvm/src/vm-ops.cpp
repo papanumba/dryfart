@@ -209,7 +209,7 @@ case OP_MOD: {
     break;
 }
 
-// boolean ----------------------
+// bool/bits ----------------------
 
 case OP_NOT: {
     DfVal &val = this->peek();
@@ -219,31 +219,26 @@ case OP_NOT: {
     break;
 }
 
-case OP_AND: {
-    DfVal rhs = this->pop();
-    DfVal lhs = this->pop();
-    if (lhs.type != rhs.type)
-        ERR_BINOP("&");
-    switch (lhs.type) {
-      case VAL_B: DO_BINOP(b, &&);
-      case VAL_N: DO_BINOP(n, &);
-      default: ERR_OP_TYPE("&", &lhs);
-    }
-    break;
+// applicable to B% and N%
+#define BIT_BINOP(name, b_op, n_op, msg) \
+case OP_ ## name: {             \
+    DfVal rhs = this->pop();    \
+    DfVal lhs = this->pop();    \
+    if (lhs.type != rhs.type)   \
+        ERR_BINOP(msg);         \
+    switch (lhs.type) {         \
+      case VAL_B: DO_BINOP(b, b_op);    \
+      case VAL_N: DO_BINOP(n, n_op);    \
+      default: ERR_OP_TYPE(msg, &lhs);  \
+    }                           \
+    break;                      \
 }
 
-case OP_IOR: {
-    DfVal rhs = this->pop();
-    DfVal lhs = this->pop();
-    if (lhs.type != rhs.type)
-        ERR_BINOP("|");
-    switch (lhs.type) {
-      case VAL_B: DO_BINOP(b, ||);
-      case VAL_N: DO_BINOP(n, |);
-      default: ERR_OP_TYPE("|", &lhs);
-    }
-    break;
-}
+BIT_BINOP(AND, &&, &, "&")
+BIT_BINOP(IOR, ||, |, "|")
+BIT_BINOP(XOR,  ^, ^, "^")
+
+#undef BIT_BINOP
 
 // compare ----------------------
 

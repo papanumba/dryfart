@@ -220,7 +220,8 @@ impl<'src> Nip<'src>
             TokTyp::Slash2    |
             TokTyp::Bslash2   |
             TokTyp::And2      |
-            TokTyp::Vbar2 => self.operon(lhs, t.0),
+            TokTyp::Vbar2     |
+            TokTyp::Caret2    => self.operon(lhs, t.0),
             _ => expected_err!(MSG, t),
         });
     }
@@ -783,6 +784,7 @@ impl TryFrom<TokTyp> for BinOpcode
             TokTyp::Bslash2   => Ok(BinOpcode::Mod),
             TokTyp::And2      => Ok(BinOpcode::And),
             TokTyp::Vbar2     => Ok(BinOpcode::Or),
+            TokTyp::Caret2    => Ok(BinOpcode::Xor),
             _ => unreachable!("cannot convert token {:?} into a BinOp", t),
         }
     }

@@ -44,6 +44,7 @@ enum Op : uint8_t {
     OP_NOT = 0x20,
     OP_AND = 0x21,
     OP_IOR = 0x22,
+    OP_XOR = 0x23,
 
     OP_LLS = 0x44,
     OP_SLS = 0x45,

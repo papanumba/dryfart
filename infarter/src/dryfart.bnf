@@ -25,26 +25,27 @@ use https://bnfplayground.pauliankline.com/;
 /*<EndProc> ::= "!!" <N>? "." /* end Nth level proc call */*/
 
 /*
-    TODO: $
-    TODO: #;
-    T%
+    Precedence
+    ----------
+    $ #;
+    T%      (unary)
     _
-    unary /
-    * / TODO: %
-    unary -
+    /       (unary)
+    * / \
+    -       (unary)
     + -
     MAYBE: << >>
-    TODO: &
-    TODO: ^
-    TODO: |
+    &
+    ^
+    |
     == ~= < <= > >=
-    &&
-    ||
+    &?
+    |?
 */
 
-<Expr>    ::= <BOrExpr>
-<BOrExpr> ::= <BAndExpr> ("||" <BAndExpr>)*
-<BAndExpr> ::= <CmpExpr> ("&&" <CmpExpr>)*
+<Expr>    ::= <COrExpr>
+<COrExpr> ::= <CAndExpr> ("||" <CAndExpr>)*
+<CAndExpr> ::= <CmpExpr> ("&&" <CmpExpr>)*
 <CmpExpr> ::= <AddExpr> (<CmpOp> <AddExpr>)*
 <CmpOp>   ::= r"([=~<>]=|<|>)"
 <AddExpr> ::= <AddTerm> (("+" | "-") <AddTerm>)*

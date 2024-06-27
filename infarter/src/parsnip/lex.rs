@@ -187,8 +187,7 @@ impl<'src> Luthor<'src>
             b')' => lex_new_tok!(self, Rparen),
             b'{' => lex_new_tok!(self, Lbrace),
             b'}' => lex_new_tok!(self, Rbrace),
-            b'^' => lex_new_tok!(self, Caret),
-            b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']'
+            b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' | b'^'
                  => self.maybe_2ble(*c),
             b'&' => self.from_and(),
             b'|' => self.from_vbar(),

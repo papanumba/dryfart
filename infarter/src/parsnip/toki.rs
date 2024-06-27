@@ -164,7 +164,7 @@ impl<'src> Token<'src>
             b'/' => Slash2,     b'&' => And2,       b'|' => Vbar2,
             b'~' => Tilde2,     b'=' => Equal2,     b'#' => Hash2,
             b'!' => Bang2,      b'@' => AtSign2,    b'[' => LsqBra2,
-            b']' => RsqBra2,    b'\\'=> Bslash2;
+            b']' => RsqBra2,    b'\\'=> Bslash2,    b'^' => Caret2;
             _ => util::format_err!(
                 "unknown double char token {0}{0}", char::from(s[0])
             )
@@ -260,6 +260,7 @@ pub enum TokTyp
     Bslash2,
     And2,
     Vbar2,
+    Caret2,
     Tilde2,
     Equal2,
     Hash2,
