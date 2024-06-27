@@ -263,6 +263,7 @@ impl<'src> Luthor<'src>
     }
 
     from_char_fn!{from_bslash, Bslash,
+        b'\\'=> Bslash2,
         b'[' => BsLsb,
         b'#' => BsHash,
     }

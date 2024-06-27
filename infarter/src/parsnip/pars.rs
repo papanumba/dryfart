@@ -203,7 +203,7 @@ impl<'src> Nip<'src>
     fn other_stmt(&mut self) -> Option<Result<Stmt, String>>
     {
         const MSG: &'static str =
-            "=, !, !$, ++, --, **, //, && or ||";
+            "=, !, !$, ++, --, **, //, \\\\, && or ||";
         let Ok(lhs) = self.expr() else {
             return None;
         };
@@ -218,6 +218,7 @@ impl<'src> Nip<'src>
             TokTyp::Minus2    |
             TokTyp::Asterisk2 |
             TokTyp::Slash2    |
+            TokTyp::Bslash2   |
             TokTyp::And2      |
             TokTyp::Vbar2 => self.operon(lhs, t.0),
             _ => expected_err!(MSG, t),
@@ -775,12 +776,13 @@ impl TryFrom<TokTyp> for BinOpcode
             TokTyp::Rangle => Ok(BinOpcode::Gt),
             TokTyp::Ge     => Ok(BinOpcode::Ge),
             // for Operons
-            TokTyp::Plus2  => Ok(BinOpcode::Add),
-            TokTyp::Minus2 => Ok(BinOpcode::Sub),
+            TokTyp::Plus2     => Ok(BinOpcode::Add),
+            TokTyp::Minus2    => Ok(BinOpcode::Sub),
             TokTyp::Asterisk2 => Ok(BinOpcode::Mul),
-            TokTyp::Slash2 => Ok(BinOpcode::Div),
-            TokTyp::And2   => Ok(BinOpcode::And),
-            TokTyp::Vbar2  => Ok(BinOpcode::Or),
+            TokTyp::Slash2    => Ok(BinOpcode::Div),
+            TokTyp::Bslash2   => Ok(BinOpcode::Mod),
+            TokTyp::And2      => Ok(BinOpcode::And),
+            TokTyp::Vbar2     => Ok(BinOpcode::Or),
             _ => unreachable!("cannot convert token {:?} into a BinOp", t),
         }
     }
