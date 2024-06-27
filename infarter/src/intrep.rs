@@ -180,6 +180,23 @@ impl Term
             _ => None,
         }
     }
+
+    // panics if self is not jmp
+    pub fn set_jmp_target(&mut self, new_i: BbIdx)
+    {
+        match &mut *self {
+            Term::JJX(i) |
+            Term::JBT(i) |
+            Term::JBF(i) |
+            Term::JTX(i) |
+            Term::JFX(i) |
+            Term::JLT(i) |
+            Term::JLE(i) |
+            Term::JGT(i) |
+            Term::JGE(i) => *i = new_i,
+            _ => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]

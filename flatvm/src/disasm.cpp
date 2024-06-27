@@ -121,6 +121,7 @@ static void disasm_ins_fast()
 
       case OP_LLS: num_ins("LLS", 1); break;
       case OP_SLS: num_ins("SLS", 1); break;
+      case OP_ULS: num_ins("ULS", 1); break;
       case OP_LLL: num_ins("LLL", 2); break;
       case OP_SLL: num_ins("SLL", 2); break;
 
