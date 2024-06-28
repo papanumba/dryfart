@@ -9,8 +9,8 @@ pub fn red(bb: &mut BasicBlock, bbi: usize)
     }
     match bb.term {
         Term::JJX(x) => jjx(bb, x, bbi),
-        Term::JFX(x) => jfx(bb, x),
         Term::JTX(x) => jtx(bb, x),
+        Term::JFX(x) => jfx(bb, x),
         Term::END    |
         Term::HLT => ignoring_terms(bb),
         _ => {}, // TODO eke
@@ -30,6 +30,8 @@ fn jtx(bb: &mut BasicBlock, x: BbIdx)
     let new_term = match bb.code.last().unwrap() {
         ImOp::LBX(b) => if *b {Term::JJX(x)} else {Term::NOP},
         ImOp::NOT => Term::JFX(x),
+        ImOp::CEQ => Term::JEX(x),
+        ImOp::CNE => Term::JNX(x),
         ImOp::CLT => Term::JLT(x),
         ImOp::CLE => Term::JLE(x),
         ImOp::CGT => Term::JGT(x),
@@ -45,6 +47,8 @@ fn jfx(bb: &mut BasicBlock, x: BbIdx)
     let new_term = match bb.code.last().unwrap() {
         ImOp::LBX(b) => if *b {Term::NOP} else {Term::JJX(x)},
         ImOp::NOT => Term::JTX(x),
+        ImOp::CEQ => Term::JNX(x),
+        ImOp::CNE => Term::JEX(x),
         ImOp::CLT => Term::JGE(x),
         ImOp::CLE => Term::JGT(x),
         ImOp::CGT => Term::JLE(x),

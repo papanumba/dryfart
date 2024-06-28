@@ -59,8 +59,10 @@ static void disasm_ins_fast()
 
     switch (instru) {
 
-#define ONE(XXX) case OP_ ## XXX: one_ins(#XXX); break;
-#define CTN(XXX, size) case OP_ ## XXX: ctn_ins(size); break;
+#define ONE(XXX)       case OP_ ## XXX: one_ins(#XXX      ); break;
+#define CTN(XXX, size) case OP_ ## XXX: ctn_ins(      size); break;
+#define NUM(XXX, size) case OP_ ## XXX: num_ins(#XXX, size); break;
+#define JMP(XXX, size) case OP_ ## XXX: jmp_ins(#XXX, size); break;
 
       ONE(NOP)
       ONE(LVV)
@@ -110,11 +112,9 @@ static void disasm_ins_fast()
       ONE(AGE)
       ONE(ASE)
 
-      case OP_TMN: one_ins("TMN"); break;
+      ONE(TMN)
       case OP_TSF: idf_ins("TSF", 2); break;
       case OP_TGF: idf_ins("TGF", 2); break;
-
-#define NUM(XXX, size) case OP_ ## XXX: num_ins(#XXX, size); break;
 
       NUM(PMN, 2)
       NUM(PCL, 1)
@@ -127,10 +127,6 @@ static void disasm_ins_fast()
       NUM(ULS, 1)
       NUM(LLL, 2)
       NUM(SLL, 2)
-
-#undef NUM
-
-#define JMP(XXX, size) case OP_ ## XXX: jmp_ins(#XXX, size); break;
 
       JMP(JJS, 1)
       JMP(JJL, 2)
@@ -148,7 +144,6 @@ static void disasm_ins_fast()
       JMP(JLE, 2)
       JMP(JGT, 2)
       JMP(JGE, 2)
-#undef JMP
 
       ONE(RET)
       ONE(END)
@@ -158,6 +153,9 @@ static void disasm_ins_fast()
       ONE(POP)
       ONE(HLT)
 
+#undef JMP
+#undef NUM
+#undef CTN
 #undef ONE
 
       default:

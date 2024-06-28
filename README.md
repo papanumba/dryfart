@@ -5,8 +5,8 @@
 <div align="center">
   <a href="https://github.com/papanumba/dryfart/blob/main/doc/index.md"><img alt="Documentation" src="https://img.shields.io/badge/docs-meh-blue"></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-green"></a>
-  <a href="https://github.com/papanumba/dryfart"><img alt="yea" src="https://img.shields.io/badge/fart-dry-orange"></a>
   <a href="https://github.com/papanumba/dryfart"><img alt="Lines of Code" src="https://img.shields.io/badge/SLOC-~9k-0"></a>
+  <a href="https://github.com/papanumba/dryfart"><img alt="yea" src="https://img.shields.io/badge/fart-dry-orange"></a>
 </div>
 
 :warning: wARNING: this project is still under construction. :construction:

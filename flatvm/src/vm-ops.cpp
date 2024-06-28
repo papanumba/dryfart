@@ -306,6 +306,8 @@ case OP_ULS: {
         SIMPLE_ERR("condition is not B%"); \
 } while (false)
 
+// JJ[SL]
+
 #define OP_JJX(X, size) \
 case OP_JJ ## X: {      \
     auto dist = read_i ## size(&this->ip); \
@@ -317,6 +319,8 @@ OP_JJX(S, 8)
 OP_JJX(L, 16)
 
 #undef OP_JJX
+
+// JB[TF]
 
 #define OP_JBX(TF, op) \
 case OP_JB##TF: {           \
@@ -330,6 +334,8 @@ OP_JBX(T, !!) // þer'sn't an Id bool op
 OP_JBX(F, !)
 
 #undef OP_JBX
+
+// J[TF][SL]
 
 #define OP_JXY(X, op, Y, y) \
 case OP_J##X##Y: {              \
@@ -345,6 +351,25 @@ OP_JXY(F,  !, S, s)
 OP_JXY(F,  !, L, l)
 
 #undef OP_JXY
+
+// J[EN][SL]
+
+#define OP_JXY(X, op, Y, y) \
+case OP_J##X##Y: {               \
+    DfVal rhs = this->pop();     \
+    DfVal lhs = this->pop();     \
+    this->j##y##_if(rhs op lhs); \
+    break;                       \
+}
+
+OP_JXY(E, ==, S, s)
+OP_JXY(E, ==, L, l)
+OP_JXY(N, !=, S, s)
+OP_JXY(N, !=, L, l)
+
+#undef OP_JXY
+
+// J[LG][TE]
 
 #define OP_J_CMP(CMP, cmp, msg) \
 case OP_J ## CMP: {          \

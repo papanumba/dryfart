@@ -114,12 +114,12 @@ impl ImOp
 }
 
 // Addressing modes
-type CtnIdx = usize; // in constant pool
-type DfStrIdx = usize; // in identifier pool
-type LocIdx = usize; // in þe stack
-type UpvIdx = usize; // in þe curr subr's upv arr
+type    CtnIdx = usize; // in constant pool
+type  DfStrIdx = usize; // in identifier pool
+type    LocIdx = usize; // in þe stack
+type    UpvIdx = usize; // in þe curr subr's upv arr
 pub type BbIdx = usize; // in Cfg's BasicBlock vec
-type PagIdx = usize; // in bytecode pages for subroutines
+type    PagIdx = usize; // in bytecode pages for subroutines
 
 // terminators
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
@@ -132,6 +132,8 @@ pub enum Term
     JBF(BbIdx),
     JTX(BbIdx),
     JFX(BbIdx),
+    JEX(BbIdx),
+    JNX(BbIdx),
     JLT(BbIdx),
     JLE(BbIdx),
     JGT(BbIdx),
@@ -157,6 +159,8 @@ impl Term
             Term::JBF(_) |
             Term::JTX(_) |
             Term::JFX(_) |
+            Term::JEX(_) |
+            Term::JNX(_) |
             Term::JLT(_) |
             Term::JLE(_) |
             Term::JGT(_) |
@@ -173,6 +177,8 @@ impl Term
             Term::JBF(i) |
             Term::JTX(i) |
             Term::JFX(i) |
+            Term::JEX(i) |
+            Term::JNX(i) |
             Term::JLT(i) |
             Term::JLE(i) |
             Term::JGT(i) |
@@ -190,6 +196,8 @@ impl Term
             Term::JBF(i) |
             Term::JTX(i) |
             Term::JFX(i) |
+            Term::JEX(i) |
+            Term::JNX(i) |
             Term::JLT(i) |
             Term::JLE(i) |
             Term::JGT(i) |

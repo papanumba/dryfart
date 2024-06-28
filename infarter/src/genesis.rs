@@ -76,6 +76,10 @@ pub enum Op
     JTL = 0x55,
     JFS = 0x56,
     JFL = 0x57,
+    JES = 0x58,
+    JEL = 0x59,
+    JNS = 0x5A,
+    JNL = 0x5B,
     JLT = 0x5C,
     JLE = 0x5D,
     JGT = 0x5E,
@@ -112,6 +116,18 @@ pub enum Op
     // TODO: add opcodes
 }
 
+macro_rules! term2jmp { // short jump
+    ($fnname:ident, $($term:ident => $op:ident),+) => {
+        pub fn $fnname(j: Term) -> Option<Self>
+        {
+            match j {
+                $(Term::$term(_) => Some(Op::$op),)+
+                _ => None
+            }
+        }
+    }
+}
+
 impl Op
 {
     #[inline]
@@ -120,30 +136,14 @@ impl Op
         return *self as u8 >> 4 == 0x5;
     }
 
-    pub fn try_s_jmp(j: Term) -> Option<Self>
-    {
-        match j {
-            Term::JJX(_) => Some(Op::JJS),
-            Term::JBT(_) => Some(Op::JBT),
-            Term::JBF(_) => Some(Op::JBF),
-            Term::JTX(_) => Some(Op::JTS),
-            Term::JFX(_) => Some(Op::JFS),
-            _ => None,
-        }
+    term2jmp!{try_s_jmp,
+        JJX => JJS, JBT => JBT, JBF => JBF, JTX => JTS,
+        JFX => JFS, JEX => JES, JNX => JNS
     }
 
-    pub fn try_l_jmp(j: Term) -> Option<Self>
-    {
-        match j {
-            Term::JJX(_) => Some(Op::JJL),
-            Term::JTX(_) => Some(Op::JTL),
-            Term::JFX(_) => Some(Op::JFL),
-            Term::JLT(_) => Some(Op::JLT),
-            Term::JLE(_) => Some(Op::JLE),
-            Term::JGT(_) => Some(Op::JGT),
-            Term::JGE(_) => Some(Op::JGE),
-            _ => None,
-        }
+    term2jmp!{try_l_jmp,
+        JJX => JJL, JTX => JTL, JFX => JFL, JEX => JEL, JNX => JNL,
+        JLT => JLT, JLE => JLE, JGT => JGT, JGE => JGE
     }
 }
 
