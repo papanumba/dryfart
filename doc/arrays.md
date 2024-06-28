@@ -34,16 +34,6 @@ For example, to set a value in an array:
 a_0 = 1 + 2 + 3.
 ```
 
-### Strings (TODO)
-
-Strings are implemented as `C%` character arrays. Their explicit array are
-the usual strings surrounded by double quotes `"`.
-Escape sequences start by a backtick:
-* ``"`N"`` newline
-* ``"`T"`` tab
-* ``"`""`` double quote
-* ``"`'"`` single quote
-
 ### Operations
 
 `+` can be used to concatenate 2 arrays (and create a new one).
@@ -55,4 +45,4 @@ b = _3, 4;.
 
 Then `a + b` will be `_1, 2, 3, 4;`.
 
-[Next ch.](tables.md)
+[Next ch.](strings.md)

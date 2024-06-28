@@ -1,40 +1,99 @@
 # Control flow
 
-## If-then-(else)
+Generally speaking, a "condition" is an expression that evaluates to `B%` values.
+There are no truthy or falsy values e.g. 0 vs 1.
 
-Example:
+## If-Else
+
+The basic form is `[` condition `=>` statements `]`. For example:
 
 ```
 [a > 0 =>
-    put!"yes".
-| =>
-    put!"no".
+    b = a.
+    a = b.
 ]
 ```
 
-There is no else-if/elif in-between case.
+For more cases (`else-if`), add `|` condition `=>` statements before the last
+`]`. For example:
+
+```
+[a > 0 =>
+    b = a.
+|a < 0 =>
+    b = -a.
+]
+```
+
+For the `else` general case, add `|` `=>` statements before the last `]`. For
+example:
+
+```
+[a > 0 =>
+    b = a.
+|a < 0 =>
+    b = -a.
+| =>
+    b = 0.
+]
+```
 
 ## While loop
 
-Example:
+The most basic loop is the infinite loop, it is `@` statements `.`
+
+For example:
+
+```
+@
+    a = 1.
+    forever = a.
+.
+```
+
+For a contidion-controlled loop, add `[[` condition `]]` anywhere between the statements.
+
+It can go at the beginning:
 
 ```
 a = 0.
 @ [[a < 10]]
-    put!"a",.
     a ++ 1.
 .
 ```
 
-Example with "break" inside an "if":
+in the middle:
 
 ```
 a = 0.
-@ [[a < 10]]
-    [a == 5 => @@.]
-    put!"a".
+@
+    a = a.
+  [[a < 10]]
     a ++ 1.
 .
 ```
+
+or at the end of the loop
+
+```
+a = 0.
+@
+    a ++ 1.
+  [[a < 10]]
+.
+```
+
+The usual way to make a for loop is:
+
+```
+i = 0. @[[i < 10]]
+    ...
+    i ++ 1.
+.
+```
+
+Maybe in the future there will be some form of `for` range loop.
+
+**NOTE**: There will be a "break" statement, but it currently doesn't work.
 
 [Next ch.](funcs_n_procs.md)

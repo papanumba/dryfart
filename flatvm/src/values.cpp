@@ -13,7 +13,7 @@ bool DfVal::operator==(const DfVal &that) const
       case VAL_C: return this->as.c == that.as.c;
       case VAL_N: return this->as.n == that.as.n;
       case VAL_Z: return this->as.z == that.as.z;
-      case VAL_R: return false; // must use an ε
+      case VAL_R: return this->as.r == that.as.r;
       case VAL_O: return this->as.o == that.as.o; // see objref.cpp
     }
     unreachable();
@@ -29,7 +29,7 @@ bool DfVal::operator!=(const DfVal &that) const
       case VAL_C: return this->as.c != that.as.c;
       case VAL_N: return this->as.n != that.as.n;
       case VAL_Z: return this->as.z != that.as.z;
-      case VAL_R: return true; // must use an ε
+      case VAL_R: return this->as.r != that.as.r;
       case VAL_O: return this->as.o != that.as.o; // see objref.cpp
     }
     unreachable();
@@ -52,13 +52,15 @@ DfType DfVal::as_type() const
 {
     DfType t = DfType::V;
     switch (this->type) {
-        case VAL_V: t = DfType::V; break;
-        case VAL_B: t = DfType::B; break;
-        case VAL_C: t = DfType::C; break;
-        case VAL_N: t = DfType::N; break;
-        case VAL_Z: t = DfType::Z; break;
-        case VAL_R: t = DfType::R; break;
-        case VAL_O: t = objt2dft(this->as.o.get_type()); break;
+#define BASURA(X) case VAL_##X: t = DfType::X; break;
+      BASURA(V)
+      BASURA(B)
+      BASURA(C)
+      BASURA(N)
+      BASURA(Z)
+      BASURA(R)
+#undef BASURA
+      case VAL_O: t = objt2dft(this->as.o.get_type()); break;
     }
     return t;
 }
