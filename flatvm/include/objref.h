@@ -3,7 +3,7 @@
 #ifndef FLATVM_OBJREF_H
 #define FLATVM_OBJREF_H
 
-#include "common.h"
+#include <cstdint>
 
 // fits in 2 bits
 enum ObjType {

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "disasm.h"
+#include "idents.h"
 
 /* local state for disassembling */
 static VmData *dat = nullptr;

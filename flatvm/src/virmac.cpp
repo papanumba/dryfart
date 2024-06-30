@@ -4,7 +4,9 @@
 #include <cstdlib>
 #include <cassert>
 #include "virmac.h"
+#include "maitre.h"
 #include "object.h"
+#include "idents.h"
 
 #ifdef DEBUG
 #include "disasm.h"

@@ -3,12 +3,9 @@
 #include <cstdio>
 #include <cstring>
 #include <utility>
-#include "common.h"
 #include "virmac.h"
-#include "native.h"
 #include "object.h"
-#include "maitre.h"
-#include "dynarr.h"
+#include "idents.h"
 //#include "garcol.h"
 //#include "df-lib.h"
 

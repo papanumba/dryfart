@@ -1,8 +1,6 @@
 /* vm-ops.c */
 
 #include <cassert>
-#include "values.h"
-#include "virmac.h"
 
 #define SIMPLE_ERR(msg) do { \
     eputln(msg);            \

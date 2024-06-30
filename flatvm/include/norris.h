@@ -3,8 +3,7 @@
 #ifndef FLATVM_NORRIS_H
 #define FLATVM_NORRIS_H
 
-#include "common.h"
-#include "idents.h"
+#include <cstdint>
 
 enum Op : uint8_t {
     OP_NOP = 0x00,
@@ -101,6 +100,8 @@ enum Op : uint8_t {
     /* TODO: add opcodes */
 };
 
+class DfIdf;
+
 /* chunk norris */
 class Norris {
  public:
@@ -108,13 +109,13 @@ class Norris {
     uint8_t *cod; /* bytecode */
     uint32_t len; /* lengþ */
     uint32_t lne; /* line */
-    uint8_t ari : 8; /* arity */
-    uint8_t uvs : 8; /* upval size */
+    uint8_t  ari : 8; /* arity */
+    uint8_t  uvs : 8; /* upval size */
     const DfIdf *nam;  /* þis points to a Idf in þe idf pool of vmdata
                         ** NULL if it's anonymous */
   public:
     Norris(
-        cbyte_p,                // bcode
+        const uint8_t *,        // bcode
         size_t,
         uint32_t,               // line
         uint8_t,                // arity

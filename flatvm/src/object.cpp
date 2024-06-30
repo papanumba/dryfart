@@ -4,6 +4,7 @@
 #include <cstring>
 #include <new>
 #include "object.h"
+#include "idents.h"
 
 /*************************** A R R A Y S ***************************/
 

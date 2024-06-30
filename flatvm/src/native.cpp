@@ -7,6 +7,7 @@
 #include "native.h"
 #include "object.h"
 #include "garcol.h"
+#include "maitre.h"
 
 #define FAC_MET(Ttt, ttt, TTT) \
 \

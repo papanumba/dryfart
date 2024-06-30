@@ -5,6 +5,7 @@
 #include "native.h"
 #include "maitre.h"
 #include "object.h"
+#include "idents.h"
 
 static bool check_magic_df(cbyte_p *);
 static void load_idf    (DynArr<DfIdf> &, cbyte_p *);

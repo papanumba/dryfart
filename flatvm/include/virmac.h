@@ -4,7 +4,6 @@
 #define FLATVM_VIRMAC_H
 
 #include "loader.h"
-#include "maitre.h"
 
 #define STACK_MAX   0x200
 #define CALLS_MAX   0x100

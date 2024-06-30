@@ -14,7 +14,7 @@ class DfIdf {
     uint32_t hsh;
   public:
     DfIdf(DfIdf &&);
-    DfIdf(const uint8_t *, size_t);
+    DfIdf(cbyte_p, size_t);
     ~DfIdf();
     uint32_t get_hash() const;
     size_t get_len() const;

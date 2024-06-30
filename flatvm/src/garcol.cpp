@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include "garcol.h"
 #include "virmac.h"
+#include "maitre.h"
 #include "object.h"
 
 using namespace garcol;

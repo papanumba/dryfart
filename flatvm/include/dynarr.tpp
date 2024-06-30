@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <utility>
 #include <type_traits>
+#include <new>
 #include "common.h"
 
 template <typename T>

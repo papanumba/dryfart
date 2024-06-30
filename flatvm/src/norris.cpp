@@ -1,6 +1,7 @@
 /* norris.cpp */
 
 #include <cstring>
+#include "common.h"
 #include "norris.h"
 
 Norris::Norris(
