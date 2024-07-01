@@ -1,9 +1,7 @@
 # hieliter.py
 
-#import sys
 from PyQt5.QtCore import QRegExp
 from PyQt5.QtGui import QColor, QTextCharFormat, QFont, QSyntaxHighlighter
-
 
 # returns a QTextCharFormat with the given attributes
 def format(color, style=''):
@@ -61,20 +59,34 @@ class DFHieliter(QSyntaxHighlighter):
     def __init__(self, document):
         QSyntaxHighlighter.__init__(self, document)
         rules = [
+            # numbers
             (r'(\b|_)[0-9][0-9]*(u|\.[0-9]+\b)?(\b|_)', 0, STYLES['number']),
+            # parens
             (r'[()]',           0, STYLES['string']),
-            (r'(=>|\[|\]|@)',   0, STYLES['control']),
-            (r'(\b|_)[BCNZR]%',     0, STYLES['type']),
+            # control flow symbols
+            (r'(=>|@|\\?(\[|\]))',   0, STYLES['control']),
+            # type casts
+            (r'(\b|_)[BCNZR]%', 0, STYLES['type']),
+            # "keywords"
             (r'\b[TFV]\b',      0, STYLES['table']),
+            # funcs
             (r'#(@[0-9]*)?',    0, STYLES['func']),
-            (r'(\b|_)[A-Za-z][A-Za-z\d]*#',    0, STYLES['func']),
+            (r'\\#',    0, STYLES['func']),
+            (r'(\b|_)[A-Za-z][A-Za-z\d]* *#',  0, STYLES['func']),
+            # procs
             (r'!(@[0-9]*)?',    0, STYLES['proc']),
-            (r'[A-Za-z][A-Za-z\d]*!',    0, STYLES['proc']),
+            (r'[A-Za-z][A-Za-z\d]* *!',        0, STYLES['proc']),
+            # tables
             (r'\$(@[0-9]*)?',   0, STYLES['table']),
-            (r'(\b|_)[A-Za-z][A-Za-z\d]*\$',   0, STYLES['table']),
+            (r'(\b|_)[A-Za-z][A-Za-z\d]* *[#!]?\$', 0, STYLES['table']),
+            # _ operator
             (r'_',              0, STYLES['array']),
-            (r'"([^"$]*["$NT]\$)*[^"$]*"', 0, STYLES['string']),
-            (r"'[^\n]*", 0, STYLES['comment'])
+            # string
+            (r"'([^'\"?]*\?[?0'\"NRT])*[^'\"?]*'",   0, STYLES['string']),
+            # char
+            (r'"([^\'"?]|\?[?0\'"NRT])"',   0, STYLES['number']),
+            # comments
+            (r'`[^\n]*', 0, STYLES['comment'])
         ]
         # Build a QRegExp for each pattern
         self.rules = [(QRegExp(pat), index, fmt)
