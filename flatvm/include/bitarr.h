@@ -1,15 +1,29 @@
 /* bitarr.h */
 
-#ifndef BITARR_H
-#define BITARR_H
+#ifndef FLATVM_BITARR_H
+#define FLATVM_BITARR_H
 
-struct BitArr {
-    uint8_t *buff;
-    uint32_t blen;
+#include "dynarr.h"
+
+class BitArr {
+  private:
+    DynArr<uint8_t> _buf;
+    das_t           _len; // in bits
+  public:
+    BitArr() = default;
+    BitArr(BitArr &&) = default;
+    BitArr(das_t);
+    ~BitArr() = default;
+    // getters
+    das_t len() const;
+    bool is_empty() const;
+    // modifiers
+    void push(bool);
+    bool pop();
+    void set(das_t, bool);
+    // operators
+    bool operator[](das_t i) const;
+    BitArr & operator=(BitArr &&that) = default;
 };
 
-#define bitarr_len(ba) ((ba)->blen / 8)
-
-int bitarr_set(struct BitArr *, uint32_t, int);
-
-#endif /* BITARR_H */
+#endif // FLATVM_BITARR_H

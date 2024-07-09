@@ -7,7 +7,7 @@
 #include "htable.h"
 #include "norris.h"
 #include "native.h"
-#include "dynarr.h"
+#include "bitarr.h"
 
 class Object {
   public:
@@ -37,7 +37,7 @@ class ArrObj : public Object {
   private:
     union _as {
         bool v; // dummy for ctor
-        // TODO: B% bit array
+        BitArr           b;
         DynArr<uint8_t>  c;
         DynArr<uint32_t> n;
         DynArr<int32_t>  z;

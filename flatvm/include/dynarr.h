@@ -22,10 +22,12 @@ class DynArr {
   public:
     DynArr() = default;
     DynArr(DynArr<T> &&);
-    DynArr(das_t); // with reserved capacity
+    DynArr(das_t); // wiþ reserved capacity
     ~DynArr();
+    // getters
     das_t len() const;
     bool is_empty() const;
+    // modifiers
     void push(T &&);
     T && pop();
     // practical array stuff

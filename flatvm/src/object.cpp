@@ -21,7 +21,11 @@ ArrObj::ArrObj(DfVal &&v)
 {
     switch (v.type) {
       case VAL_V: unreachable();
-      case VAL_B: todo("B% arr, in ArrObj(DfVal &&)");
+      case VAL_B:
+        new (&this->as.b) BitArr();
+        this->as.b.push(v.as.b);
+        break;
+    // oþer cases
 #define BASURA(M, m, t) \
       case VAL_##M:                         \
         new (&this->as.m) DynArr<t>();      \
@@ -33,7 +37,6 @@ ArrObj::ArrObj(DfVal &&v)
       BASURA(R, r, float)
       BASURA(O, o, ObjRef)
 #undef BASURA
-      default: todo("singleton other array types");
     }
     this->typ = v.as_type();
 }
@@ -42,12 +45,16 @@ ArrObj::~ArrObj()
 {
     switch (this->typ) {
       case DfType::V: return;
-#define BASURA(dft, m, t) \
-      case dft: this->as.m.~DynArr<t>(); break;
-      BASURA(DfType::C, c, uint8_t)
-      BASURA(DfType::N, n, uint32_t)
-      BASURA(DfType::Z, z, int32_t)
-      BASURA(DfType::R, r, float)
+      case DfType::B:
+        this->as.b.~BitArr();
+        break;
+    // oþer cases
+#define BASURA(M, m, t) \
+      case DfType::M: this->as.m.~DynArr<t>(); break;
+      BASURA(C, c, uint8_t)
+      BASURA(N, n, uint32_t)
+      BASURA(Z, z, int32_t)
+      BASURA(R, r, float)
 #undef BASURA
       // mega fallþru
       case DfType::A:
@@ -64,7 +71,8 @@ uint32_t ArrObj::len() const
 {
     switch (this->typ) {
       case DfType::V: return 0;
-      case DfType::B: todo("B% array len");
+      case DfType::B: return this->as.b.len();
+    // oþer cases
 #define BASURA(M, m) case DfType::M: return this->as.m.len();
       BASURA(C, c)
       BASURA(N, n)
@@ -90,8 +98,11 @@ AccRes ArrObj::push(DfVal &&v)
     if (at != vt)
         return AccRes::DIFF_TYPE;
     switch (at) {
-      case DfType::V: unreachable(); break;
-      case DfType::B: todo("push B% array"); break;
+      case DfType::V:
+        unreachable();
+      case DfType::B:
+        this->as.b.push(v.as.b);
+        break;
 #define BASURA(M, m) \
       case DfType::M:                       \
         this->as.m.push(std::move(v.as.m)); \
@@ -113,7 +124,11 @@ AccRes ArrObj::get(uint32_t idx, DfVal &ret) const
 {
     switch (this->typ) {
       case DfType::V: return AccRes::OUT_OF_BOUNDS; // coz it's mt
-      case DfType::B: todo("get from B% array"); break;
+      case DfType::B:
+        if (idx >= this->as.b.len())
+            return AccRes::OUT_OF_BOUNDS;
+        ret = DfVal(this->as.b[idx]);
+        break;
 #define BASURA(M, x) \
       case DfType::M:                     \
         if (idx >= this->as.x.len())      \
@@ -143,7 +158,11 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
         return AccRes::DIFF_TYPE;
     switch (at) {
       case DfType::V: unreachable(); break;
-      case DfType::B: todo("B% array"); break;
+      case DfType::B:
+        if (idx >= this->as.b.len())
+            return AccRes::OUT_OF_BOUNDS;
+        this->as.b.set(idx, val.as.b);
+        break;
 #define BASURA(M, x) \
       case DfType::M:                     \
         if (idx >= this->as.x.len())      \
@@ -159,7 +178,6 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
       BASURA(F, o)
       BASURA(P, o)
 #undef BASURA
-      default: todo("set other array types");
     }
     return AccRes::OK;
 }
@@ -169,7 +187,14 @@ void ArrObj::print() const
     putchar('_');
     switch (this->typ) {
       case DfType::V: break;
-      case DfType::B: todo("B% array"); break;
+      case DfType::B: {
+        auto &arr = this->as.b;
+        putchar(arr[0] ? 'T' : 'F');
+        auto len = arr.len();
+        FOR(i, 1, len)
+            printf(", %c", arr[i] ? 'T' : 'F');
+        break;
+      }
 #define BASURA(M, x, fmt) \
       case DfType::M: {                 \
         auto &arr = this->as.x;         \

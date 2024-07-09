@@ -9,7 +9,7 @@ CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
 CXXFLAGS = -std=c++17 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
-cxxobjs = disasm.o garcol.o htable.o idents.o loader.o maitre.o native.o norris.o object.o objref.o values.o virmac.o
+cxxobjs = bitarr.o disasm.o garcol.o htable.o idents.o loader.o maitre.o native.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
 cobjs = common.o reader.o
 objs = $(cxxobjs) $(cobjs)
