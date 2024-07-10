@@ -63,9 +63,18 @@ ArrObj::~ArrObj()
       case DfType::P:
         this->as.o.~DynArr<ObjRef>();
         break;
-      default: todo("destruct other arrays");
     }
 }
+
+#define BASURA_CASES \
+    BASURA(C, c) \
+    BASURA(N, n) \
+    BASURA(Z, z) \
+    BASURA(R, r) \
+    BASURA(A, o) \
+    BASURA(T, o) \
+    BASURA(F, o) \
+    BASURA(P, o)
 
 uint32_t ArrObj::len() const
 {
@@ -74,14 +83,7 @@ uint32_t ArrObj::len() const
       case DfType::B: return this->as.b.len();
     // oþer cases
 #define BASURA(M, m) case DfType::M: return this->as.m.len();
-      BASURA(C, c)
-      BASURA(N, n)
-      BASURA(Z, z)
-      BASURA(R, r)
-      BASURA(A, o)
-      BASURA(T, o)
-      BASURA(F, o)
-      BASURA(P, o)
+      BASURA_CASES
 #undef BASURA
     }
 }
@@ -103,18 +105,12 @@ AccRes ArrObj::push(DfVal &&v)
       case DfType::B:
         this->as.b.push(v.as.b);
         break;
+    // oþer cases
 #define BASURA(M, m) \
       case DfType::M:                       \
         this->as.m.push(std::move(v.as.m)); \
         break;
-      BASURA(C, c)
-      BASURA(N, n)
-      BASURA(Z, z)
-      BASURA(R, r)
-      BASURA(A, o)
-      BASURA(T, o)
-      BASURA(F, o)
-      BASURA(P, o)
+      BASURA_CASES
 #undef BASURA
     }
     return AccRes::OK;
@@ -129,20 +125,14 @@ AccRes ArrObj::get(uint32_t idx, DfVal &ret) const
             return AccRes::OUT_OF_BOUNDS;
         ret = DfVal(this->as.b[idx]);
         break;
+    // oþer cases
 #define BASURA(M, x) \
       case DfType::M:                     \
         if (idx >= this->as.x.len())      \
             return AccRes::OUT_OF_BOUNDS; \
         ret = DfVal(this->as.x[idx]);     \
         break;
-      BASURA(C, c)
-      BASURA(N, n)
-      BASURA(Z, z)
-      BASURA(R, r)
-      BASURA(A, o)
-      BASURA(T, o)
-      BASURA(F, o)
-      BASURA(P, o)
+      BASURA_CASES
 #undef BASURA
     }
     return AccRes::OK;
@@ -163,20 +153,14 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
             return AccRes::OUT_OF_BOUNDS;
         this->as.b.set(idx, val.as.b);
         break;
+    // oþer cases
 #define BASURA(M, x) \
       case DfType::M:                     \
         if (idx >= this->as.x.len())      \
             return AccRes::OUT_OF_BOUNDS; \
         this->as.x[idx] = val.as.x;       \
         break;
-      BASURA(C, c)
-      BASURA(N, n)
-      BASURA(Z, z)
-      BASURA(R, r)
-      BASURA(A, o)
-      BASURA(T, o)
-      BASURA(F, o)
-      BASURA(P, o)
+      BASURA_CASES
 #undef BASURA
     }
     return AccRes::OK;
@@ -195,6 +179,7 @@ void ArrObj::print() const
             printf(", %c", arr[i] ? 'T' : 'F');
         break;
       }
+    // oþer cases
 #define BASURA(M, x, fmt) \
       case DfType::M: {                 \
         auto &arr = this->as.x;         \
@@ -209,6 +194,7 @@ void ArrObj::print() const
       BASURA(Z, z, d)
       BASURA(R, r, f)
 #undef BASURA
+    // for "objects"
 #define BASORA(M, xxx) \
       case DfType::M: {         \
         auto &arr = this->as.o; \
@@ -225,7 +211,6 @@ void ArrObj::print() const
       BASORA(F, fun)
       BASORA(P, pro)
 #undef BASORA
-      default: todo("print other array types");
     }
     putchar(';');
 }
@@ -236,7 +221,7 @@ void ArrObj::print_string() const
         unreachable();
     auto len = this->as.c.len();
     TIL(i, len)
-        printf("%c", this->as.c[i]);
+        putchar(this->as.c[i]);
 }
 
 AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const

@@ -82,23 +82,24 @@ case OP_NEG: {
 
 // only used in OP_ADD
 #define ADD_O do { \
-    auto lo = lhs.as.o;                     \
-    auto ro = rhs.as.o;                     \
-    if (lo.get_type() != ro.get_type())     \
-        ERR_BINOP("+");                     \
-    switch (lo.get_type()) {                \
-      case OBJ_ARR: {                       \
+    auto lo = lhs.as.o;                   \
+    auto ro = rhs.as.o;                   \
+    if (lo.get_type() != ro.get_type())   \
+        ERR_BINOP("+");                   \
+    switch (lo.get_type()) {              \
+      case OBJ_ARR: {                     \
         auto a = maitre::alloc(OBJ_ARR);  \
-        a.as_arr()->typ = DfType::V;        \
-        a.as_arr()->is_nat = false;         \
-        auto r = lo.as_arr()->concat(       \
-            *ro.as_arr(), *a.as_arr());     \
-        if (AccRes::OK != r)                \
-            SIMPLE_ERR(accres_what(r));          \
-        this->push(DfVal(a));               \
-        break;                              \
-      }                                     \
-      default: todo("add other objects");   \
+        auto arr = a.as_arr();            \
+        arr->typ = DfType::V;             \
+        arr->is_nat = false;              \
+        auto r = lo.as_arr()->concat(     \
+            *ro.as_arr(), *arr);          \
+        if (AccRes::OK != r)              \
+            SIMPLE_ERR(accres_what(r));   \
+        this->push(DfVal(a));             \
+        break;                            \
+      }                                   \
+      default: todo("add other objects"); \
     } \
 } while (false)
 
@@ -241,11 +242,11 @@ BIT_BINOP(XOR,  ^, ^, "^")
 // compare ----------------------
 
 #define OP_CEX(XX, cmpop) \
-case OP_C ## XX: {                 \
-    DfVal rhs = this->pop();       \
-    DfVal lhs = this->pop();       \
+case OP_C ## XX: {                    \
+    DfVal rhs = this->pop();          \
+    DfVal lhs = this->pop();          \
     this->push(DfVal(lhs cmpop rhs)); \
-    break;                         \
+    break;                            \
 }
 
 // overloaded operators
@@ -257,11 +258,11 @@ OP_CEX(NE, !=)
 // orderings
 
 #define OP_CXX(XX, xx, msg) \
-case OP_C ## XX: {           \
+case OP_C##XX: {             \
+    DfVal rhs = this->pop(); \
+    DfVal lhs = this->pop(); \
     int cmp;                 \
-    DfVal rhs = this->pop(), \
-          lhs = this->pop(); \
-    switch ((cmp = dfval_ ## xx(&lhs, &rhs))) { \
+    switch ((cmp = dfval_##xx(&lhs, &rhs))) { \
       case CMP_ERR:          \
         ERR_BINOP(msg);      \
       default:               \
