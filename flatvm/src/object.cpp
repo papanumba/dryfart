@@ -166,6 +166,8 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
     return AccRes::OK;
 }
 
+#undef BASURA_CASES
+
 void ArrObj::print() const
 {
     putchar('_');

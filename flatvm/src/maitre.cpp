@@ -191,10 +191,9 @@ void MaitreImpl::free(ObjRef r)
 {
     switch (r.get_type()) {
       case OBJ_ARR: this->a.free(r.as_arr()); break;
-/*      case OBJ_TBL: return ObjRef(this->t.alloc());
-      case OBJ_FUN: return ObjRef(this->f.alloc());
-      case OBJ_PRO: return ObjRef(this->p.alloc());*/
-      default: todo("free other");
+      case OBJ_TBL: this->t.free(r.as_tbl()); break;
+      case OBJ_FUN: this->f.free(r.as_fun()); break;
+      case OBJ_PRO: this->p.free(r.as_pro()); break;
     }
 }
 

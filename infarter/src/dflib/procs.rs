@@ -37,18 +37,7 @@ impl NatPc
 
 fn put(args: &[Val])
 {
-    match &args[0] {
-        Val::V    => print!("V"),
-        Val::B(b) => if *b {print!("T");} else {print!("F");},
-        Val::C(c) => print!("{}", char::from(*c)),
-        Val::N(n) => print!("{n}"),
-        Val::Z(z) => print!("{z}"),
-        Val::R(r) => print!("{r}"),
-        Val::A(a) => print!("{}", a.borrow()),
-        Val::P(p) => print!("{:?}", p),
-        //Val::F(_) => print!("#%cannot print func"),
-        _ => panic!("cannot print"),
-    }
+    print!("{}", args[0]);
 }
 
 fn put_ln(args: &[Val])

@@ -3,6 +3,7 @@
 use std::{
     rc::Rc,
     cell::RefCell,
+    fmt,
 };
 use crate::{util, dflib, util::MutRc};
 
@@ -107,9 +108,9 @@ impl PartialEq for DfStr
 
 impl Eq for DfStr {}
 
-impl std::fmt::Display for DfStr
+impl fmt::Display for DfStr
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error>
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
     {
         unsafe {
             write!(f, "{}", std::str::from_utf8_unchecked(&self.s))
@@ -117,19 +118,21 @@ impl std::fmt::Display for DfStr
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Type
 {
-    V, // void
-    B, // bool
-    C, // char
-    N, // natural
-    Z, // zahl
-    R, // real
-    F, // func
-    P, // proc
-    A, // array
-    T, // table
+    #[default]
+    V = b'V', // void
+    B = b'B', // bool
+    C = b'C', // char
+    N = b'N', // natural
+    Z = b'Z', // zahl
+    R = b'R', // real
+    A = b'_', // array
+    T = b'$', // table
+    F = b'#', // func
+    P = b'!', // proc
 }
 
 impl Type
@@ -137,7 +140,9 @@ impl Type
     pub fn is_num(&self) -> bool
     {
         match self {
-            Self::N | Self::Z | Self::R => true,
+            Self::N |
+            Self::Z |
+            Self::R => true,
             _ => false,
         }
     }
@@ -145,13 +150,11 @@ impl Type
     pub fn is_copy(&self) -> bool
     {
         match self {
-            Self::V |
-            Self::B |
-            Self::C |
-            Self::N |
-            Self::Z |
-            Self::R => true,
-            _ => false,
+            Self::A |
+            Self::T |
+            Self::F |
+            Self::P => false,
+            _ => true,
         }
     }
 
@@ -164,10 +167,10 @@ impl Type
             Self::N => Val::N(0),
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
-            Self::F => panic!("cannot default function"),
-            Self::P => panic!("cannot default procedure"),
             Self::A => Val::from_array(Array::default()),
             Self::T => Val::T(Table::new()),
+            Self::F |
+            Self::P => panic!("cannot default subroutine"),
         }
     }
 }
@@ -183,36 +186,26 @@ impl std::convert::From<&Val> for Type
             Val::N(_) => Type::N,
             Val::Z(_) => Type::Z,
             Val::R(_) => Type::R,
-            Val::F(_) => Type::F,
-            Val::P(_) => Type::P,
             Val::A(_) => Type::A,
             Val::T(_) => Type::T,
+            Val::F(_) => Type::F,
+            Val::P(_) => Type::P,
         }
     }
 }
 
-impl std::fmt::Display for Type
+impl fmt::Display for Type
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
     {
-        match self {
-            Self::V => write!(f, "V%"),
-            Self::B => write!(f, "B%"),
-            Self::C => write!(f, "C%"),
-            Self::N => write!(f, "N%"),
-            Self::Z => write!(f, "Z%"),
-            Self::R => write!(f, "R%"),
-            Self::F => write!(f, "#%"),
-            Self::P => write!(f, "!%"),
-            Self::A => write!(f, "_%"),
-            Self::T => write!(f, "$%"),
-        }
+        write!(f, "{}%", char::try_from(*self as u8).unwrap())
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Array
 {
+    #[default]
     E,          // Empty array: unknown type until a val is pushed
     B(Vec<bool>),
     C(Vec<u8>),
@@ -282,11 +275,6 @@ impl Array
             Self::Z(_) => Some(Type::Z),
             Self::R(_) => Some(Type::R),
         }
-    }
-
-    pub fn dim(&self) -> usize
-    {
-        return 1; // TODO: multidim arrs
     }
 
     pub fn get(&self, i: usize) -> Option<Val>
@@ -362,10 +350,6 @@ impl Array
     }
 }
 
-impl Default for Array {
-    fn default() -> Self { Self::E }
-}
-
 impl std::convert::TryFrom<&[Val]> for Array
 {
     type Error = String;
@@ -384,6 +368,8 @@ impl std::convert::TryFrom<&[Val]> for Array
         return Ok(res);
     }
 }
+
+pub const ESC_CH: u8 = b'?';
 
 impl std::convert::TryFrom<&[u8]> for Array
 {
@@ -416,9 +402,9 @@ impl std::convert::TryFrom<&[u8]> for Array
     }
 }
 
-impl std::fmt::Display for Array
+impl fmt::Display for Array
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
     {
         // special case for strings (C)
         if let Self::C(a) = self {
@@ -426,17 +412,21 @@ impl std::fmt::Display for Array
             return Ok(());
         }
         write!(f, "_")?;
-        // TODO: do not print tailing comma?
+        // 1st elem
+        match self.get(0) {
+            None => return write!(f, ";"),
+            Some(v) => write!(f, "{v}")?,
+        }
+        // now all þe oþers
         match self {
-            Self::E => {}, // empty
-            Self::B(a) => for b in a {
-                if *b {write!(f, "T, ",)?;}
-                else  {write!(f, "F, ",)?;}
+            Self::E => unreachable!(),
+            Self::B(a) => for b in &a[1..] {
+                write!(f, ", {}", if *b {'T'} else {'F'})?;
             },
             Self::C(_) => unreachable!(),
-            Self::N(a) => for n in a { write!(f, "{n}, ")?; },
-            Self::Z(a) => for z in a { write!(f, "{z}, ")?; },
-            Self::R(a) => for r in a { write!(f, "{r}, ")?; },
+            Self::N(a) => for n in &a[1..] { write!(f, ", {n}")?; },
+            Self::Z(a) => for z in &a[1..] { write!(f, ", {z}")?; },
+            Self::R(a) => for r in &a[1..] { write!(f, ", {r}")?; },
         }
         write!(f, ";")?;
         return Ok(());
@@ -517,6 +507,22 @@ impl PartialEq for Table
 
 impl Eq for Table {}
 
+impl fmt::Display for Table
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
+        match &self {
+            Self::Nat(n) => write!(f, "{}", n.name()),
+            Self::Usr(u) => {
+                write!(f, "$")?;
+                for p in u.borrow().iter() {
+                    write!(f, "{}={}.", p.0, p.1)?;
+                }
+                write!(f, ";") // return it
+            },
+        }
+    }
+}
 
 // used for procs & funcs
 macro_rules! impl_eq_nat_usr {
@@ -602,8 +608,6 @@ impl Func
     }
 }
 
-pub const ESC_CH: u8 = b'?';
-
 #[derive(Debug, Clone)]
 pub enum Val
 {
@@ -613,16 +617,16 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f32),
-    F(Func), // TODO: add upvalues
-    P(Proc), // TODO: add upvalues
     A(MutRc<Array>),
     T(Table),
+    F(Func), // TODO: add upvalues
+    P(Proc), // TODO: add upvalues
 }
 
 /*
-** Note: Val clone is always "shallow":
+** Note: Val::clone is always "shallow":
 **  - for primitives (VBCNZR) it's just Copy
-**  - for heap objects (FPAT) it's Rc::clone
+**  - for heap objects (ATFP) it's Rc::clone
 */
 
 impl Val
@@ -672,7 +676,7 @@ impl PartialEq for Val
             (Val::C(c), Val::C(d)) => c == d,
             (Val::N(n), Val::N(m)) => n == m,
             (Val::Z(z), Val::Z(a)) => z == a,
-            (Val::F(_), Val::F(_)) => false,//Rc::ptr_eq(f, g),
+            (Val::F(_), Val::F(_)) => false, // FIXME Rc::ptr_eq(f, g),
             (Val::P(p), Val::P(q)) => p == q,
             (Val::A(a), Val::A(b)) => *a.borrow() == *b.borrow(),
             (Val::T(t), Val::T(r)) => t == r,
@@ -696,6 +700,25 @@ impl From<dflib::funcs::NatFn> for Val
     fn from(nf: dflib::funcs::NatFn) -> Val
     {
         Self::F(Func::Nat(nf))
+    }
+}
+
+impl fmt::Display for Val
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
+        match self {
+            Val::V => write!(f, "V"),
+            Val::B(b) => write!(f, "{}", if *b {'T'} else {'F'}),
+            Val::C(c) => write!(f, "{}", char::try_from(*c).unwrap()),
+            Val::N(n) => write!(f, "{n}u"),
+            Val::Z(z) => write!(f, "{z}"),
+            Val::R(r) => write!(f, "{r}"),
+            Val::A(a) => write!(f, "{}", a.borrow()),
+            Val::T(t) => write!(f, "{t}"),
+            Val::F(_) => write!(f, "some #"),
+            Val::P(_) => write!(f, "some !"),
+        }
     }
 }
 
