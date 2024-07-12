@@ -1,4 +1,4 @@
-/* src/asterix.rs */
+/* asterix.rs */
 
 use std::{
     rc::Rc,
@@ -31,7 +31,7 @@ impl DfStr
     fn check_ascii(s: &[u8]) -> bool
     {
         for c in s {
-            if c & (1 << 7) == 1 {
+            if c >> 7 == 1 {
                 return false;
             }
         }
@@ -83,7 +83,7 @@ impl TryFrom<&&[u8]> for DfStr
         if !Self::check_ascii(s) {
             return Err(());
         }
-        let h = Self::hash(*s);
+        let h = Self::hash(s);
         return Ok(Self {h:h, s:(*s).to_owned()});
     }
 }
@@ -137,27 +137,6 @@ pub enum Type
 
 impl Type
 {
-    pub fn is_num(&self) -> bool
-    {
-        match self {
-            Self::N |
-            Self::Z |
-            Self::R => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_copy(&self) -> bool
-    {
-        match self {
-            Self::A |
-            Self::T |
-            Self::F |
-            Self::P => false,
-            _ => true,
-        }
-    }
-
     pub fn default_val(&self) -> Val
     {
         match self {
@@ -168,7 +147,7 @@ impl Type
             Self::Z => Val::Z(0),
             Self::R => Val::R(0.0),
             Self::A => Val::from_array(Array::default()),
-            Self::T => Val::T(Table::new()),
+            Self::T => Val::T(Table::new_empty()),
             Self::F |
             Self::P => panic!("cannot default subroutine"),
         }
@@ -198,7 +177,7 @@ impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
     {
-        write!(f, "{}%", char::try_from(*self as u8).unwrap())
+        write!(f, "{}%", char::from(*self as u8))
     }
 }
 
@@ -327,18 +306,23 @@ impl Array
         }
     }
 
+    #[inline]
+    pub fn is_empty(&self) -> bool
+    {
+        self.len() == 0
+    }
+
     pub fn len_val_n(&self) -> Val
     {
-        if let Ok(u) = u32::try_from(self.len()) {
-            return Val::N(u);
-        } else {
-            panic!("array too long to fit in u32");
+        match u32::try_from(self.len()) {
+            Ok(u) => Val::N(u),
+            _ => panic!("array too long to fit in u32"),
         }
     }
 
     pub fn add(&self, other: &Self) -> Result<Self, String>
     {
-        if self.len() == 0 {
+        if self.is_empty() {
             return Ok(other.clone());
         }
         let mut res = self.clone();
@@ -363,7 +347,7 @@ impl std::convert::TryFrom<&[Val]> for Array
         let arr_type = Type::from(&vals[0]);
         let mut res = Self::with_capacity(&arr_type, vals.len());
         for v in vals {
-            res.try_push(&v)?;
+            res.try_push(v)?;
         }
         return Ok(res);
     }
@@ -442,7 +426,7 @@ pub enum Table
 
 impl Table
 {
-    pub fn new() -> Self
+    pub fn new_empty() -> Self
     {
         Self::Usr(Rc::new(RefCell::new(vec![])))
     }
@@ -710,7 +694,7 @@ impl fmt::Display for Val
         match self {
             Val::V => write!(f, "V"),
             Val::B(b) => write!(f, "{}", if *b {'T'} else {'F'}),
-            Val::C(c) => write!(f, "{}", char::try_from(*c).unwrap()),
+            Val::C(c) => write!(f, "{}", char::from(*c)),
             Val::N(n) => write!(f, "{n}u"),
             Val::Z(z) => write!(f, "{z}"),
             Val::R(r) => write!(f, "{r}"),
@@ -732,69 +716,41 @@ pub enum BinOpcode {
 
 impl BinOpcode
 {
-    pub fn from_str(s: &str) -> Self
-    {
-        return match s {
-            "+" => Self::Add,
-            "-" => Self::Sub,
-            "*" => Self::Mul,
-            "/" => Self::Div,
-            "\\" => Self::Mod,
-            "==" => Self::Eq,
-            "~=" => Self::Ne,
-            "<"  => Self::Lt,
-            ">"  => Self::Gt,
-            "<=" => Self::Le,
-            ">=" => Self::Ge,
-            "&"  => Self::And,
-            "|"  => Self::Or,
-            "&&" => Self::Cand,
-            "||" => Self::Cor,
-            _ => panic!("unknown binop"),
-        }
-    }
-
     pub fn is_num(&self) -> bool
     {
-        match self {
+        matches!(self,
             Self::Add |
             Self::Sub |
             Self::Mul |
             Self::Div |
-            Self::Mod => true,
-            _ => false,
-        }
+            Self::Mod
+        )
     }
 
     pub fn is_bit(&self) -> bool
     {
-        match self {
+        matches!(self,
             Self::And |
             Self::Or  |
-            Self::Xor => true,
-            _ => false,
-        }
+            Self::Xor
+        )
     }
 
     pub fn is_sce(&self) -> bool
     {
-        match self {
-            Self::Cand | Self::Cor => true,
-            _ => false,
-        }
+        matches!(self, Self::Cand | Self::Cor)
     }
 
     pub fn is_cmp(&self) -> bool
     {
-        match self {
+        matches!(self,
             Self::Eq |
             Self::Ne |
             Self::Lt |
             Self::Gt |
             Self::Le |
-            Self::Ge => true,
-            _ => false,
-        }
+            Self::Ge
+        )
     }
 }
 

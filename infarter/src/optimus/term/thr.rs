@@ -1,4 +1,4 @@
-/* src/optimus/term/thr.rs */
+/* optimus/term/thr.rs */
 
 use crate::intrep::*;
 

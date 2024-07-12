@@ -1,4 +1,4 @@
-/* src/dflib/funcs.rs */
+/* dflib/funcs.rs */
 
 use crate::{
     asterix::Val,

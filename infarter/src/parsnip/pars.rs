@@ -1,4 +1,4 @@
-/* src/parsnip/pars.rs */
+/* parsnip/pars.rs */
 
 #![allow(dead_code)]
 
@@ -185,9 +185,7 @@ impl<'src> Nip<'src>
     #[inline]
     fn stmt(&mut self) -> Option<Result<Stmt, String>>
     {
-        let Some(t) = self.peek::<0>() else {
-            return None;
-        };
+        let t = self.peek::<0>()?;
         match t.0.typ() {
             // one of þe few 2-lookahead
             TokTyp::LsqBra  => Some(self.if_stmt()),
@@ -202,8 +200,7 @@ impl<'src> Nip<'src>
     // þese are assigns, operons or pccalls
     fn other_stmt(&mut self) -> Option<Result<Stmt, String>>
     {
-        const MSG: &'static str =
-            "=, !, !$, ++, --, **, //, \\\\, && or ||";
+        const MSG: &str = "=, !, !$, ++, --, **, //, \\\\, && or ||";
         let Ok(lhs) = self.expr() else {
             return None;
         };
@@ -281,7 +278,7 @@ impl<'src> Nip<'src>
         // loop until matching a "]" xor "| =>" (else case)
         let mut elseifs = vec![];
         loop {
-            const MSG: &'static str = "] or |";
+            const MSG: &str = "] or |";
             let Some(tok) = self.peek::<0>() else {
                 return eof_err!(MSG);
             };
@@ -491,7 +488,7 @@ impl<'src> Nip<'src>
 
     fn nucle(&mut self) -> Result<Expr, String>
     {
-        const MSG: &'static str = "(, #, !, _, $, \\[, \\#, ident or literal";
+        const MSG: &str = "(, #, !, _, $, \\[, \\#, ident or literal";
         let Some(tok) = self.peek::<0>() else {
             return eof_err!(MSG);
         };
@@ -589,7 +586,7 @@ impl<'src> Nip<'src>
     // called when $
     fn tbllit(&mut self) -> Result<Expr, String>
     {
-        const MSG: &'static str = "Ident or ;";
+        const MSG: &str = "Ident or ;";
         self.advance(); // $
         let mut tbl_e = vec![];
         loop {
@@ -628,11 +625,11 @@ impl<'src> Nip<'src>
     fn subr(&mut self, line: usize, st: SubrType) -> Result<Expr, String>
     {
         self.advance(); // # or !
-        let name = match self.peek::<0>() {
-            Some((t, _)) => if let Some(s) = t.as_string() {
-                Some(Rc::new(s.try_into().unwrap()))
-            } else { None },
-            _ => None,
+        let name = match self.peek::<0>() { // FIXME: maybe use map?
+            Some((t, _)) => t.as_string().map(
+                |s| Rc::new(s.try_into().unwrap())
+            ),
+            None => None,
         };
         if name.is_some() {
             self.advance(); // string

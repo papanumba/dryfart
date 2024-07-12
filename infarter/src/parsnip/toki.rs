@@ -1,4 +1,4 @@
-/* src/parsnip/toki.rs */
+/* parsnip/toki.rs */
 
 use num_enum;
 use crate::util;
@@ -202,15 +202,14 @@ impl<'src> Token<'src>
 
     pub fn is_cmp(&self) -> bool
     {
-        return match self.typ {
+        matches!(self.typ,
             TokTyp::Equal2
             | TokTyp::Ne
             | TokTyp::Rangle
             | TokTyp::Langle
             | TokTyp::Le
-            | TokTyp::Ge => true,
-            _ => false,
-        }
+            | TokTyp::Ge
+        )
     }
 }
 

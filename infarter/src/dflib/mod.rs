@@ -1,4 +1,4 @@
-/* src/dflib/mod.rs */
+/* dflib/mod.rs */
 
 use crate::asterix::Val;
 

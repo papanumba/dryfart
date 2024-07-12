@@ -1,6 +1,13 @@
-/* src/main.rs */
+/* main.rs */
 
-//#![allow(unused_variables)]
+#![allow(
+    clippy::needless_return,
+    clippy::expect_fun_call,
+    clippy::comparison_chain,
+    clippy::result_unit_err,
+    clippy::wrong_self_convention,
+    clippy::redundant_field_names,
+)]
 
 use std::io::Write;
 

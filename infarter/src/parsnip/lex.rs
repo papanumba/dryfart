@@ -1,9 +1,7 @@
-/* src/parsnip/lex.rs */
+/* parsnip/lex.rs */
 
-use super::toki::new_tok;
-use super::toki::{Token, TokTyp, PrimType};
-use crate::asterix::Val;
-use crate::asterix;
+use super::toki::{new_tok, Token, TokTyp, PrimType};
+use crate::{asterix, asterix::Val};
 
 macro_rules! if_next {
     ($zelf:expr, $c:expr, $tt:ident) => {
@@ -11,7 +9,7 @@ macro_rules! if_next {
             $zelf.advance();
             return Token::simple(TokTyp::$tt, $zelf.lexeme());
         }
-    };
+    }
 }
 
 macro_rules! lex_new_tok {
@@ -175,9 +173,7 @@ impl<'src> Luthor<'src>
     {
         self.skip_whites();
         self.base_pos = self.next_pos;
-        let Some(c) = self.read_char() else {
-           return None;
-        };
+        let c = self.read_char()?;
         Some(match c {
             b'_' => lex_new_tok!(self, Uscore),
             b'.' => lex_new_tok!(self, Period),
@@ -360,12 +356,10 @@ impl<'src> Luthor<'src>
                 ended_string = true;
                 break;
             }
-            if *c == asterix::ESC_CH {
-                if self.read_char().is_none() {
-                    panic!(
-                        "expected escape char but found EOF at line {}",
-                        self.line);
-                }
+            if *c == asterix::ESC_CH && self.read_char().is_none() {
+                panic!(
+                    "expected escape char but found EOF at line {}",
+                    self.line);
                 // will check later if þe escapes are valid
             }
         }

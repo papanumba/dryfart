@@ -1,4 +1,4 @@
-/* src/tarzan.rs */
+/* tarzan.rs */
 
 use std::rc::Rc;
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
 /* MAIN FUNCTION to execute all þe programm */
 pub fn exec_main(prog: &Block)
 {
-    if let Some(_) = exec_block(prog) {
+    if exec_block(prog).is_some() {
         panic!("ERROR: at main script: cannot return, exit or break");
     }
 }
@@ -43,7 +43,7 @@ impl Scope
     {
         println!("\nScope:");
         for (i, v) in self.vars.as_slice() {
-            println!("{} {} = {:?}.", Type::from(v).to_string(), i, v);
+            println!("{} {} = {:?}.", Type::from(v), i, v);
         }
     }
 
@@ -124,29 +124,27 @@ impl Scope
     // a_i = e.
     fn do_arr_ass(&self, a: &Expr, i: &Expr, e: &Expr)
     {
-        if let Val::A(arr) = self.eval_expr(a) {
-            let idx: u32 = match self.eval_expr(i) {
-                Val::N(n) => n,
-                Val::Z(z) => u32::try_from(z)
-                    .expect("ERROR: negative index"),
-                _ => panic!("ERROR: index is not N% or Z%"),
-            };
-            let e_val = self.eval_expr(e);
-            arr.borrow_mut().try_set(idx as usize, e_val).unwrap();
-        } else {
+        let Val::A(arr) = self.eval_expr(a) else {
             panic!("not indexable");
-        }
+        };
+        let idx: u32 = match self.eval_expr(i) {
+            Val::N(n) => n,
+            Val::Z(z) => u32::try_from(z)
+                .expect("ERROR: negative index"),
+            _ => panic!("ERROR: index is not N% or Z%"),
+        };
+        let e_val = self.eval_expr(e);
+        arr.borrow_mut().try_set(idx as usize, e_val).unwrap();
     }
 
     // t$f = e.
     fn do_tbl_ass(&self, t: &Expr, f: &Rc<DfStr>, e: &Expr)
     {
-        if let Val::T(mut t) = self.eval_expr(t) {
-            let e_val = self.eval_expr(e);
-            t.set(&f, e_val);
-        } else {
+        let Val::T(mut t) = self.eval_expr(t) else {
             panic!("not a table");
-        }
+        };
+        let e_val = self.eval_expr(e);
+        t.set(f, e_val);
     }
 
     #[inline]
@@ -200,7 +198,7 @@ impl Scope
         };
         self.clean(pre);
         match ba {
-            Some(b) => b.from_loop(),
+            Some(b) => b.exiting_loop(),
             None => None,
         }
     }
@@ -343,7 +341,7 @@ impl Scope
                 Val::B(b) => b,
                 _ => unreachable!(), // all cmp give B%
             })
-            .fold(true, |acum, e| acum && e)
+            .all(|e| e)
         );
     }
 
@@ -513,7 +511,7 @@ impl Scope
 
     fn eval_table(&self, e: &[(Rc<DfStr>, Expr)]) -> Val
     {
-        let mut t = Table::new();
+        let mut t = Table::new_empty();
         // TODO eke $@
         for (k, ve) in e {
             let v = self.eval_expr(ve);
@@ -694,7 +692,7 @@ pub enum BlockAction
 impl BlockAction
 {
     #[inline]
-    fn from_loop(&self) -> Option<Self>
+    fn exiting_loop(&self) -> Option<Self>
     {
         match self {
             // decrease level by 1, bcoz broke from current loop

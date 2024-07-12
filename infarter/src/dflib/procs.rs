@@ -1,4 +1,4 @@
-/* src/dflib/procs.rs */
+/* dflib/procs.rs */
 
 use crate::asterix::Val;
 

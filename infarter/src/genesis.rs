@@ -1,4 +1,4 @@
-/* src/genesis.rs */
+/* genesis.rs */
 
 use std::rc::Rc;
 use crate::{
@@ -12,7 +12,7 @@ pub fn comp_into_bytes(c: &Compiler) -> Vec<u8>
     return Phil::transfart(c);
 }
 
-const DF_MAGIC: &'static [u8; 8] = b"\xDFDRYFART";
+const DF_MAGIC: &[u8; 8] = b"\xDFDRYFART";
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -238,7 +238,7 @@ impl LowerTerm
     }
 
     // returns serialized jump arg
-    pub fn to_bytes(&self) -> Option<(u8, Option<u8>)>
+    pub fn to_bytes(self) -> Option<(u8, Option<u8>)>
     {
         match self {
             Self::Nop |
@@ -292,25 +292,13 @@ impl LowerBlock
     pub fn shrink_jj_by(&mut self, dx: u8)
     {
         match &mut self.tinf {
-            LowerTerm::Jjs(ref mut d) => {
-                let dx = dx as i8;
-                if *d < 0 {
-                    *d += dx;
-                } else if *d > 0 {
-                    *d -= dx;
-                } else { // 0
-                    panic!("0 jump");
-                }
+            LowerTerm::Jjs(ref mut d) => match *d {
+                0 => panic!("cannot shrink 0 jump"),
+                _ => *d -= d.signum() * (dx as i8),
             },
-            LowerTerm::Jjl(ref mut d) => {
-                let dx = dx as i16;
-                if *d < 0 {
-                    *d += dx;
-                } else if *d > 0 {
-                    *d -= dx;
-                } else { // 0
-                    panic!("0 jump");
-                }
+            LowerTerm::Jjl(ref mut d) => match *d {
+                0 => panic!("cannot shrink 0 jump"),
+                _ => *d -= d.signum() * (dx as i16),
             },
             _ => unreachable!(),
         }
@@ -339,7 +327,7 @@ impl LowerBlock
     // both code and term
     pub fn into_bytes(mut self) -> Vec<u8>
     {
-        let mut code = std::mem::replace(&mut self.code, vec![]);
+        let mut code = std::mem::take(&mut self.code);
         if self.term == Op::NOP {
             return code;
         }
@@ -507,7 +495,7 @@ impl Phil // 'a lifetime of AST
     fn extend_val(&mut self, v: &Val)
     {
         match v {
-            Val::C(c) => self.extend(*c as u8),
+            Val::C(c) => self.extend(*c),
             Val::N(n) => self.extend(*n),
             Val::Z(z) => self.extend(*z),
             Val::R(r) => self.extend(*r),
@@ -519,7 +507,7 @@ impl Phil // 'a lifetime of AST
 
     fn extend_array(&mut self, a: &Array)
     {
-        if a.len() == 0 {
+        if a.is_empty() {
             todo!("empty arrays");
         }
         self.extend(ser_ctn_type(&a.get(0).unwrap()));
@@ -541,8 +529,8 @@ impl Phil // 'a lifetime of AST
                 .expect(&format!("identifier {} too long (max is {})",
                     id, u8::MAX));
             self.extend(id_len_u8);
-            self.extend_bytes(&id.as_u8s());
-            self.extend(0 as u8); // '\0'
+            self.extend_bytes(id.as_u8s());
+            self.extend(b'\0');
         }
     }
 
@@ -575,7 +563,7 @@ impl Phil // 'a lifetime of AST
         self.extend(u8::try_from(pag.uvs).expect("too many upvals"));
         self.push_page_meta(&pag.meta);
         let len_idx = self.at();
-        self.extend(0 as u32); // dummy for len
+        self.extend(0_u32); // dummy for len
         let x0 = self.at();
         // emit all lblocks
         for lb in lblocks.into_iter() {
@@ -584,17 +572,17 @@ impl Phil // 'a lifetime of AST
         let x1 = self.at();
         let len = u32::try_from(x1 as isize - x0 as isize).unwrap();
         self.overwrite_at(&len.to_bytes(), len_idx);
-        self.extend(0 as u8); // final '\0'
+        self.extend(b'\0'); // final NUL
     }
 
     fn push_page_meta(&mut self, pm: &PageMeta)
     {
         self.extend(pm.line as u32);
         if let Some(ii) = pm.name {
-            self.extend(0xFF as u8);
+            self.extend(0xFF_u8);
             self.extend(ii as u16);
         } else {
-            self.extend(0 as u8);
+            self.extend(0_u8);
         }
     }
 }
@@ -665,7 +653,7 @@ fn write_lb_term(
             .map(|lb| lb.code.len()+3) // supose max size (terms can fit in 3b)
             .sum::<usize>())
         .unwrap();
-    lblocks[i].write_jmp(t, dist as isize);
+    lblocks[i].write_jmp(t, dist);
 }
 
 fn check_jumps(
@@ -684,7 +672,7 @@ fn check_jumps(
             .iter()
             .map(|lb| lb.size())
             .sum::<usize>();
-        let jmp_dist = dist.abs() as usize;
+        let jmp_dist = dist.unsigned_abs();
         if blocks_dist != jmp_dist {
             panic!("rrong distance");
         }

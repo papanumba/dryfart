@@ -1,4 +1,4 @@
-/* src/optimus/mod.rs */
+/* optimus/mod.rs */
 
 use crate::intrep::*;
 
@@ -100,13 +100,13 @@ pub fn opt_one_bb(bb: &mut BasicBlock)
     // LZ1 SUB -> DEC
     peephole::<_, 2, 1>(
         bb,
-        |w| if w == &[ImOp::LZ1, ImOp::SUB] {Some([ImOp::DEC])} else {None},
+        |w| if w == [ImOp::LZ1, ImOp::SUB] {Some([ImOp::DEC])} else {None},
     );
 
     // NOT NOT -> Ø // maybe þis 1 should be kept, bcoz i can check types
     peephole::<_, 2, 0>(
         bb,
-        |w| if w == &[ImOp::NOT, ImOp::NOT] {Some([])} else {None},
+        |w| if w == [ImOp::NOT, ImOp::NOT] {Some([])} else {None},
     );
 
     // TODO continue adding crap

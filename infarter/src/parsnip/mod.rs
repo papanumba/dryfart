@@ -1,4 +1,4 @@
-/* src/parsnip/mod.rs */
+/* parsnip/mod.rs */
 
 mod toki;
 mod lex;
@@ -10,7 +10,7 @@ use crate::asterix::Block;
 
 pub fn parse(taco: &str) -> Result<Block, String>
 {
-    let mut lex = lex::Luthor::new(&taco);
+    let mut lex = lex::Luthor::new(taco);
     let toke = lex.tokenize()?;
     let mut p = pars::Nip::new(toke);
     return p.parse();

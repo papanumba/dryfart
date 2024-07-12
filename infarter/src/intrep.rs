@@ -1,4 +1,4 @@
-/* src/intrep.rs */
+/* intrep.rs */
 
 use std::rc::Rc;
 use crate::{util::*, asterix::*};
@@ -94,22 +94,18 @@ impl ImOp
 
     pub fn is_tbl(&self) -> bool
     {
-        match self {
-            ImOp::TGF(_) | ImOp::TSF(_) => true,
-            _ => false,
-        }
+        matches!(self, ImOp::TGF(_) | ImOp::TSF(_))
     }
 
     pub fn is_subr(&self) -> bool
     {
-        match self {
+        matches!(self,
             ImOp::PMN(_) |
             ImOp::PCL(_) |
             ImOp::FMN(_) |
             ImOp::FCL(_) |
-            ImOp::LUV(_) => true,
-            _ => false,
-        }
+            ImOp::LUV(_)
+        )
     }
 }
 
@@ -282,7 +278,7 @@ impl SubrEnv
         self.curr.term = t;
         let last_idx  = self.curr_idx();
         let last_term = self.curr.term;
-        let aux = std::mem::replace(&mut self.curr, BasicBlock::default());
+        let aux = std::mem::take(&mut self.curr);
         self.blocks.push(aux);
         if last_term.can_thru() { // NOP, JF, etc.
             self.curr.pred.add(last_idx);
@@ -349,10 +345,7 @@ impl Compiler
         program.no_env_block(main);
         program.term_curr_bb(Term::HLT);
         // here program.curr will be þe main proc
-        program.subrs[0].code = std::mem::replace(
-            &mut program.curr,
-            SubrEnv::default()
-        ).blocks;
+        program.subrs[0].code = std::mem::take(&mut program.curr).blocks;
         return program;
     }
 
@@ -822,11 +815,11 @@ impl Compiler
             todo!("STD");
             //self.e_new_const(&s.clone());
         }
-        if let Some(i) = self.resolve_local(&id) {
+        if let Some(i) = self.resolve_local(id) {
             self.push_op(ImOp::LLX(*i));
             return;
         }
-        if let Some(i) = self.resolve_upval(&id) {
+        if let Some(i) = self.resolve_upval(id) {
             self.push_op(ImOp::LUV(i));
             return;
         }
@@ -1027,7 +1020,7 @@ impl Compiler
 
     pub fn comp_subr(&mut self, s: &Subr, stype: SubrType) -> PagIdx
     {
-        let outer = std::mem::replace(&mut self.curr, SubrEnv::default());
+        let outer = std::mem::take(&mut self.curr);
         self.declar_upvs(&s.upvs);
         self.incloc(); // !@ xor #@
         for par in &s.pars {
@@ -1038,10 +1031,7 @@ impl Compiler
             SubrType::F => self.term_curr_bb(Term::HLT),
             SubrType::P => self.term_curr_bb(Term::END),
         };
-        let low_name = match &s.meta.name {
-            Some(n) => Some(self.push_ident(n)),
-            None => None,
-        };
+        let low_name = s.meta.name.as_ref().map(|n| self.push_ident(n));
         let m = PageMeta { line: s.meta.line, name: low_name };
         return self.term_subr(s.arity(), s.upvs.len(), m, outer);
     }

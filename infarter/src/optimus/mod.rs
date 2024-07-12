@@ -1,4 +1,4 @@
-/* src/optimus/mod.rs */
+/* optimus/mod.rs */
 
 mod peep; // peephole
 mod term; // BB's terminating op opt

@@ -1,4 +1,4 @@
-/* src/optimus/term/mod.rs */
+/* optimus/term/mod.rs */
 
 mod red; // reduction
 mod thr; // jump threading

@@ -155,12 +155,7 @@ impl UpvAnal
 {
     pub fn init_subr(&mut self)
     {
-        self.pres.push(
-            std::mem::replace(
-                &mut self.curr,
-                UpvEnv::default(),
-            ),
-        );
+        self.pres.push(std::mem::take(&mut self.curr));
     }
 
     // returns the self.curr's detected upvalues
