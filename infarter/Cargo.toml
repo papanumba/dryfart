@@ -3,16 +3,32 @@ name = "infarter"
 version = "0.1.0"
 authors = ["papanumba"]
 edition = "2021"
-description = "DryFart interpreter"
+description = "DryFart interpreter & compiler"
 repository = "https://github.com/papanumba/dryfart"
 license = "GPL-3.0"
 
 [dependencies]
-ascii = "1.1"
 num_enum = "0.7.2"
 
 [profile.release]
 lto = true
 strip = true
-#panic = "abort"
 #debug = false
+
+[lints.clippy]
+needless_return         = "allow"
+expect_fun_call         = "allow"
+comparison_chain        = "allow"
+result_unit_err         = "allow"
+wrong_self_convention   = "allow"
+redundant_field_names   = "allow"
+# warn also pedantics
+pedantic = { level = "warn", priority = -1 }
+# whitelist some pedantics
+missing_panics_doc      = "allow" # it don't even has docs
+must_use_candidate      = "allow" # style preference
+cast_sign_loss          = "allow" # when I use casts, I know what I do
+cast_possible_wrap      = "allow" # same
+cast_possible_truncation = "allow" # same
+trivially_copy_pass_by_ref = "allow"
+wildcard_imports        = "allow"

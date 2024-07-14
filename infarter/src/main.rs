@@ -1,14 +1,5 @@
 /* main.rs */
 
-#![allow(
-    clippy::needless_return,
-    clippy::expect_fun_call,
-    clippy::comparison_chain,
-    clippy::result_unit_err,
-    clippy::wrong_self_convention,
-    clippy::redundant_field_names,
-)]
-
 use std::io::Write;
 
 pub mod parsnip;
@@ -74,11 +65,10 @@ pub fn transfart(ifname: &str, opt: bool)
     let mut ofile = std::fs::File::create(&ofname)
         .expect("could not create file");
     match ofile.write_all(&genesis::comp_into_bytes(&cfg)) {
-        Ok(_) => if opt {
-            println!("Successfully transfarted optimized to {ofname}");
-        } else {
-            println!("Successfully transfarted to {ofname}");
-        },
-        Err(_) => eprintln!("Could not write to binary file"),
+        Ok(()) => println!("Successfully transfarted {} to {}",
+            if opt {"optimized"} else {""},
+            ofname,
+        ),
+        Err(e) => eprintln!("Could not write to binary file because:\n {e}"),
     }
 }

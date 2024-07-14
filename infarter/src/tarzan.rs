@@ -110,7 +110,7 @@ impl Scope
                 self.do_arr_ass(a, i, ex),
             Expr::TblFd(t, f) =>
                 self.do_tbl_ass(t, f, ex),
-            _ => panic!("cannot assign to {:?}", ad),
+            _ => panic!("cannot assign to {ad:?}"),
         }
     }
 
@@ -240,7 +240,7 @@ impl Scope
     {
         let pc_val = self.eval_expr(p);
         let Val::P(p) = pc_val.clone() else {
-            panic!("cannot call procedure {:?}", pc_val);
+            panic!("cannot call procedure {pc_val}");
         };
         if p.arity() != a.len() {
             panic!("not correct arity ({}) calling {:?}", a.len(), p);
@@ -364,10 +364,10 @@ impl Scope
     {
         let fn_val = self.eval_expr(f);
         let Val::F(f) = fn_val.clone() else {
-            panic!("cannot call function {:?}", fn_val);
+            panic!("cannot call a non-function {fn_val}");
         };
         if f.arity() != a.len() {
-            panic!("not correct arity ({}) calling {:?}", a.len(), f);
+            panic!("not correct arity ({}) calling {}", a.len(), fn_val);
         }
         let args = self.eval_args(a);
         match f {
@@ -424,9 +424,9 @@ impl Scope
     // Short Circuit Evaluation: l must be B, r can be any value
     fn eval_sce(&self, l: &Expr, o: &BinOpcode, r: &Expr) -> Val
     {
-        let lval = match self.eval_expr(l) {
-            Val::B(b) => b,
-            _ => panic!("lhs value of {:?} expr is not B", o),
+        let lval = self.eval_expr(l);
+        let Val::B(lval) = lval else {
+            panic!("lhs value of {lval} is not B%");
         };
         match o {
             BinOpcode::Cand => if lval {
@@ -445,15 +445,15 @@ impl Scope
 
     fn eval_arr_idx(&self, a: &Expr, i: &Expr) -> Val
     {
-        let a_val = match self.eval_expr(a) {
-            Val::A(arr) => arr,
-            _ => panic!("ERROR: {:?} is not indexable", a),
+        let Val::A(a_val) = self.eval_expr(a) else {
+            panic!("ERROR: {a:?} is not indexable (must _%)");
         };
-        let i_val = match self.eval_expr(i) {
+        let ival = self.eval_expr(i);
+        let i_val = match ival {
             Val::N(n) => n,
             Val::Z(z) => u32::try_from(z)
                 .expect("ERROR: negative index"),
-            _ => panic!("cannot use {:?} as index", i),
+            _ => panic!("cannot use {ival} as index"),
         };
         let a_ref = a_val.borrow();
         match a_ref.get(i_val as usize) {
@@ -523,13 +523,12 @@ impl Scope
     fn eval_tblfd(&self, t: &Expr, f: &DfStr) -> Val
     {
         let tbl = self.eval_expr(t);
-        if let Val::T(trc) = tbl {
-            match trc.get(f) {
-                Some(v) => return v,
-                None => panic!("{:?} table hasn't ${}", t, f),
-            }
-        } else {
-            panic!("{:?} is not a table", tbl);
+        let Val::T(trc) = tbl else {
+            panic!("{tbl} is not a table");
+        };
+        match trc.get(f) {
+            Some(v) => return v,
+            None => panic!("table hasn't ${f}"),
         }
     }
 
@@ -677,7 +676,7 @@ fn eval_binop_val(l: &Val, o: &BinOpcode, r: &Val) -> Val
             _ => panic!("not valid operation btwin _%"),
 
         },
-        _ => panic!("not valid operation btwin {:?} and {:?}", l, r),
+        _ => panic!("not valid operation btwin {l:?} and {r:?}"),
     }
 }
 

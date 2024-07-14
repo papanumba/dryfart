@@ -1,10 +1,6 @@
 /* asterix.rs */
 
-use std::{
-    rc::Rc,
-    cell::RefCell,
-    fmt,
-};
+use std::{rc::Rc, cell::RefCell, fmt};
 use crate::{util, dflib, util::MutRc};
 
 #[derive(Debug, Clone)]
@@ -42,7 +38,7 @@ impl DfStr
     {
         let mut hash: u32 = 2166136261;
         for c in s {
-            hash ^= *c as u32;
+            hash ^= u32::from(*c);
             hash = hash.wrapping_mul(16777619);
         }
         return hash;
@@ -203,7 +199,7 @@ impl Array
             Val::N(n) => Self::N(vec![*n]),
             Val::Z(z) => Self::Z(vec![*z]),
             Val::R(r) => Self::R(vec![*r]),
-            _ => panic!("cannot create array from {:?}", v),
+            _ => panic!("cannot create array from {v}"),
         }
     }
 

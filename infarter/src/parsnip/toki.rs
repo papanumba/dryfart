@@ -26,6 +26,8 @@ impl TryFrom<&u8> for PrimType
     }
 }
 
+pub type LnToken<'a> = (Token<'a>, usize);
+
 #[derive(Copy, Clone)]
 pub struct Token<'src>
 {

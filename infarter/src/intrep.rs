@@ -506,7 +506,7 @@ impl Compiler
             Stmt::TbPCal(t, f, a) => self.obj_call(t, f, a, SubrType::P),
             Stmt::PcExit          => {self.term_curr_bb(Term::END);},
             Stmt::Return(e)       => self.s_return(e),
-            _ => todo!("oþer stmts {:?}", s),
+            Stmt::BreakL(_)       => todo!("loop break"),
         }
     }
 
@@ -518,7 +518,7 @@ impl Compiler
                 return self.s_arrass(a, i, ex),
             Expr::TblFd(t, f) =>
                 return self.s_tblass(t, f, ex),
-            _ => panic!("cannot assign to {:?}", v),
+            _ => panic!("cannot assign to {v:?}"),
         }
     }
 
@@ -537,7 +537,7 @@ impl Compiler
             Expr::BinOp(a, BinOpcode::Idx, i) =>
                 self.s_operon_arr(a, i, op, ex),
             Expr::TblFd(t, f) => self.s_operon_tbl(t, f, op, ex),
-            _ => panic!("cannot operon to {:?}", lhs),
+            _ => panic!("cannot operon to {lhs:?}"),
         }
     }
 
@@ -673,7 +673,7 @@ impl Compiler
     fn lvv_loop(&mut self, lo: &Loop)
     {
         let block = match lo {
-            Loop::Inf(b) => b,
+            Loop::Inf(b) |
             Loop::Cdt(b, _, _) => b, // will check 2nd block later
         };
         self.lvv_in_block(block);
@@ -761,7 +761,7 @@ impl Compiler
             Expr::Array(a)       => self.e_array(a),
             Expr::Table(v)       => self.e_table(v),
             Expr::TblFd(t, f)    => self.e_tblfd(t, f),
-            Expr::RecsT(l)       => self.e_recst(l),
+            Expr::RecsT(l)       => self.e_recst(*l),
             Expr::FnDef(s)       => self.e_fndef(&s.borrow()),
             Expr::Fcall(f, a)    => self.e_fcall(f, a),
             Expr::TbFcl(t, f, a) => self.obj_call(t, f, a, SubrType::F),
@@ -778,7 +778,6 @@ impl Compiler
         match v {
             Val::V => return self.push_op(ImOp::LVV),
             Val::B(b) => return self.push_op(ImOp::LBX(*b)),
-            Val::C(_) => {},
             Val::N(n) => match n {
                 0 => return self.push_op(ImOp::LN0),
                 1 => return self.push_op(ImOp::LN1),
@@ -793,8 +792,10 @@ impl Compiler
                 2 => return self.push_op(ImOp::LZ2),
                 _ => {},
             },
-            Val::R(_) => {},
-            Val::T(Table::Nat(_)) => {},
+            // oþers must be internalized
+            Val::C(_) |
+            Val::R(_) |
+            Val::T(Table::Nat(_)) |
             Val::A(_) => {},
             _ => todo!("oþer consts {:?}", v),
         }
@@ -811,9 +812,7 @@ impl Compiler
     fn e_ident(&mut self, id: &Rc<DfStr>)
     {
         if id.as_u8s() == b"STD" {
-            //let s = Val::new_nat_tb("STD");
             todo!("STD");
-            //self.e_new_const(&s.clone());
         }
         if let Some(i) = self.resolve_local(id) {
             self.push_op(ImOp::LLX(*i));
@@ -823,7 +822,7 @@ impl Compiler
             self.push_op(ImOp::LUV(i));
             return;
         }
-        panic!("could not resolve symbol {}", id);
+        panic!("could not resolve symbol {id}");
     }
 
     fn e_tcast(&mut self, t: &Type, e: &Expr)
@@ -913,13 +912,12 @@ impl Compiler
         self.push_op(ImOp::TGF(idx));
     }
 
-    fn e_recst(&mut self, level: &u32)
+    fn e_recst(&mut self, level: u32)
     {
-        if let Some(loc) = self.curr.rect.peek(*level as usize) {
-            self.push_op(ImOp::LLX(*loc));
-        } else {
+        let Some(loc) = self.curr.rect.peek(level as usize) else {
             panic!("$@{level} too deep");
-        }
+        };
+        self.push_op(ImOp::LLX(*loc));
     }
 
     pub fn e_fndef(&mut self, subr: &Subr)

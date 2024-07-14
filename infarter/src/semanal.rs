@@ -299,9 +299,9 @@ impl UpvAnal
             }
         }
         let Some(lev) = lev else {
-            panic!("could not resolve name `{}`", i);
+            panic!("could not resolve name `{i}`");
         };
-        println!("found upvalue `{}` at level {}", i, lev);
+        println!("found upvalue `{i}` at level {lev}");
         for lev2 in 0..=lev {
             self.pres.peek_mut(lev2).unwrap().new_upv(i);
         }

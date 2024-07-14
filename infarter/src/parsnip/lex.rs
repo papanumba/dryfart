@@ -1,6 +1,6 @@
 /* parsnip/lex.rs */
 
-use super::toki::{new_tok, Token, TokTyp, PrimType};
+use super::toki::{new_tok, Token, LnToken, TokTyp, PrimType};
 use crate::{asterix, asterix::Val};
 
 macro_rules! if_next {
@@ -40,7 +40,7 @@ pub struct Luthor<'src>
 
 impl<'src> Luthor<'src>
 {
-    pub fn new(s: &'src str) -> Self
+    pub fn from_source(s: &'src str) -> Self
     {
         if !s.is_ascii() {
             panic!("passed string is not ascii");
@@ -53,18 +53,17 @@ impl<'src> Luthor<'src>
         };
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<(Token<'src>, usize)>, String>
+    pub fn tokenize(&mut self) -> Vec<LnToken<'src>>
     {
         self.init();
         let mut res = Vec::new();
         while let Some(t) = self.next_token() {
-            match t.as_comment() {
-                Some(_) => continue,
-                _ => res.push((t, self.line)),
+            if t.as_comment().is_none() { // sþ oþer þan a comment
+                res.push((t, self.line));
             }
         }
         res.push((Token::new_eof(), self.line));
-        return Ok(res);
+        return res;
     }
 
     fn init(&mut self)
@@ -133,11 +132,10 @@ impl<'src> Luthor<'src>
     #[inline]
     fn matches<const LA: usize>(&self, m: u8) -> bool
     {
-        return if let Some(c) = self.peek::<LA>() {
-            *c == m
-        } else {
-            false
-        };
+        match self.peek::<LA>() {
+            Some(c) => *c == m,
+            _ => false,
+        }
     }
 
     #[inline]
@@ -149,24 +147,21 @@ impl<'src> Luthor<'src>
     }
 
     #[inline]
-    fn has_digit_next(&self) -> bool
+    fn is_at_digit(&self) -> bool
     {
-        return if let Some(c) = self.peek::<1>() {
-            c.is_ascii_digit()
-        } else {
-            false
-        };
+        match self.peek::<0>() {
+            Some(c) => c.is_ascii_digit(),
+            _ => false,
+        }
     }
 
-    // checks if current char is == next char
     #[inline]
-    fn is_at_2ble(&self, c0: u8) -> bool
+    fn has_digit_next(&self) -> bool
     {
-        return if let Some(c) = self.peek::<0>() {
-            *c == c0
-        } else {
-            false
-        };
+        match self.peek::<1>() {
+            Some(c) => c.is_ascii_digit(),
+            _ => false,
+        }
     }
 
     fn next_token(&mut self) -> Option<Token<'src>>
@@ -207,7 +202,7 @@ impl<'src> Luthor<'src>
     // gets called when some of +-*/&|~
     pub fn maybe_2ble(&mut self, c: u8) -> Token<'src>
     {
-        if !self.is_at_2ble(c) {
+        if !self.matches::<0>(c) {
             return Token::try_1gle_from(self.lexeme()).unwrap();
         }
         self.advance();
@@ -267,22 +262,17 @@ impl<'src> Luthor<'src>
     #[inline]
     fn from_dollar(&mut self) -> Token<'src>
     {
-        let Some(c) = self.peek::<0>() else {
+        if !self.matches::<0>(b'@') {
             return lex_new_tok!(self, Dollar);
         };
-        if *c != b'@' {
-            return lex_new_tok!(self, Dollar);
-        }
-        if self.has_digit_next() {
-            self.advance(); // @
+        let mut level = 0; // default level
+        self.advance(); // @
+        if self.is_at_digit() {
             self.adv_while(|c| c.is_ascii_digit());
-            let level = std::str::from_utf8(&self.lexeme()[2..])
+            level = std::str::from_utf8(&self.lexeme()[2..])
                 .unwrap().parse::<u32>().unwrap();
-            return Token::new_rect(level, self.lexeme());
-        } else { // default level
-            self.advance(); // @
-            return Token::new_rect(0, self.lexeme());
         }
+        return Token::new_rect(level, self.lexeme());
     }
 
     // gets called when current char is a digit
@@ -312,15 +302,9 @@ impl<'src> Luthor<'src>
             self.advance();
             return Token::new_primtype(pt, self.lexeme());
         }
-        while let Some(c) = self.peek::<0>() {
-            if c.is_ascii_alphanumeric() {
-                self.advance();
-            } else {
-                break;
-            }
-        }
+        self.adv_while(|c| c.is_ascii_alphanumeric());
         let lex = self.lexeme();
-        if lex.len() == 1 { // try boolean keywords
+        if lex.len() == 1 { // try þe only keywords
             match lex[0] {
                 b'V' => return new_tok!(ValV, lex),
                 b'T' => return Token::new_valb(true,  lex),
@@ -340,11 +324,7 @@ impl<'src> Luthor<'src>
             return None;
         }
         let c = self.input[self.base_pos];
-        return if let Ok(pt) = PrimType::try_from(&c) {
-            Some(pt)
-        } else {
-            None
-        };
+        return PrimType::try_from(&c).ok();
     }
 
     // called when '

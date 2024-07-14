@@ -3,7 +3,7 @@
 mod red; // reduction
 mod thr; // jump threading
 
-use crate::intrep::*;
+use crate::intrep::BasicBlock;
 
 pub fn reduce(bb: &mut BasicBlock, bbi: usize)
 {

@@ -217,7 +217,7 @@ enum LowerTerm
 impl LowerTerm
 {
     // how many bytes needs to be written, including the op itself
-    pub fn size(&self) -> usize
+    pub fn size(self) -> usize
     {
         match self {
             Self::Nop    => 0,
@@ -227,13 +227,13 @@ impl LowerTerm
         }
     }
 
-    pub fn jmp_dist(&self) -> Option<isize>
+    pub fn jmp_dist(self) -> Option<isize>
     {
         match self {
             Self::Nop |
             Self::One => None,
-            Self::Jjs(d) => Some(*d as isize),
-            Self::Jjl(d) => Some(*d as isize),
+            Self::Jjs(d) => Some(d as isize),
+            Self::Jjl(d) => Some(d as isize),
         }
     }
 
@@ -321,7 +321,7 @@ impl LowerBlock
             self.tinf = LowerTerm::Jjl(l);
             return false;
         }
-        panic!("jump too long {} to fit in 2 bytes", dist);
+        panic!("jump too long {dist} to fit in 2 bytes");
     }
 
     // both code and term
@@ -375,7 +375,7 @@ impl LowerBlock
             return self.push_subr_op(imop);
         }
         let opnd = imop.get_operand()
-            .expect(&format!("imop {:?}", imop));
+            .expect(&format!("imop {imop:?}"));
         if let Ok(u) = u8::try_from(opnd) { // Short
             self.push_op(match imop {
                 ImOp::LKX(_) => Op::LKS,
@@ -565,8 +565,8 @@ impl Phil // 'a lifetime of AST
         let len_idx = self.at();
         self.extend(0_u32); // dummy for len
         let x0 = self.at();
-        // emit all lblocks
-        for lb in lblocks.into_iter() {
+        // emit all lblocks, consuming þem
+        for lb in lblocks {
             self.extend_bytes(&lb.into_bytes());
         }
         let x1 = self.at();
@@ -670,12 +670,10 @@ fn check_jumps(
         let range = if i < bbi {i+1..bbi} else {bbi..i+1};
         let blocks_dist = lblocks[range]
             .iter()
-            .map(|lb| lb.size())
+            .map(LowerBlock::size)
             .sum::<usize>();
         let jmp_dist = dist.unsigned_abs();
-        if blocks_dist != jmp_dist {
-            panic!("rrong distance");
-        }
+        assert!(blocks_dist == jmp_dist, "rrong distance");
     }
     return true;
 }
@@ -758,11 +756,11 @@ impl ToBytes for f32 {
 impl ToBytes for dflib::tables::NatTb {
     type Bytes = [u8; 4];
     fn to_bytes(&self) -> Self::Bytes {
-        (match self.name() {
-            "STD" => 0,
+        match self.name() {
+            "STD" => 0_u32,
             "STD$io" => 1,
             "STD$a"  => 2,
             _ => todo!(),
-        } as u32).to_be_bytes()
+        }.to_be_bytes()
     }
 }

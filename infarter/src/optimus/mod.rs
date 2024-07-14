@@ -3,7 +3,7 @@
 mod peep; // peephole
 mod term; // BB's terminating op opt
 
-use crate::intrep::*;
+use crate::intrep::Compiler;
 
 const OPT_PASSES: usize = 5;
 
