@@ -1,5 +1,7 @@
 /* util.rs */
 
+use std::fmt;
+
 macro_rules! format_err {
     ($($args:expr),+) => (
         Err(String::from(format!($($args),+)))
@@ -10,6 +12,155 @@ pub(crate) use format_err;
 
 pub type StrRes<T> = Result<T, String>;
 pub type MutRc<T> = std::rc::Rc<std::cell::RefCell<T>>;
+
+#[derive(Debug, Clone)]
+pub struct DfStr
+{
+    s: Vec<u8>, // ascii string
+    h: u32,     // hash, usefull for Eq, Hash, etc.
+}
+
+impl DfStr
+{
+    pub fn as_bytes(&self) -> &[u8]
+    {
+        &self.s
+    }
+
+    pub fn is_ascii(&self) -> bool
+    {
+        self.s.is_ascii()
+    }
+
+    pub fn as_str(&self) -> Option<&str>
+    {
+        if self.is_ascii() {
+            unsafe {
+                Some(std::str::from_utf8_unchecked(&self.s))
+            }
+        } else {
+            None
+        }
+    }
+
+    fn hash(s: &[u8]) -> u32
+    {
+        // 32-bit FNV
+        s.iter().fold(2166136261_u32,
+            |hash, c| (hash ^ *c as u32).wrapping_mul(16777619)
+        )
+    }
+}
+
+impl PartialEq for DfStr
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        return self.h == other.h // faster
+            && self.s == other.s;
+    }
+}
+
+impl Eq for DfStr {}
+
+pub fn can_be_latin1(s: &str) -> bool
+{
+    let b = s.as_bytes();
+    let mut i = 0;
+    while i < s.len() {
+        if b[i].is_ascii() {
+            i += 1;
+            continue;
+        }
+        // else must be 2 byte with value <= 0xFF
+        // utf-8 2 byte is 110xxxyy 10yyzzzz
+        // to have 8 bits only, xxx must = 000
+        // so 110000yy 10yyzzzz
+        if b[i] >> 2 != 0b110000 {
+            return false;
+        }
+        i += 2;
+    }
+    return true;
+}
+
+impl TryFrom<String> for DfStr
+{
+    type Error = (); // only error is non Latin-1 String
+    fn try_from(s: String) -> Result<Self, ()>
+    {
+        if !can_be_latin1(&s) {
+            return Err(());
+        }
+        let mut b = s.into_bytes();
+        let mut latin_i = 0; // þis index will be writing u8s behind
+        let mut bytes_i = 0; // þis index will read utf-8
+        let b_len = b.len();
+        while bytes_i < b_len {
+            if b[bytes_i].is_ascii() {
+                b[latin_i] = b[bytes_i];
+            } else {// must be 2 byte utf-8 char
+                b[latin_i] = (b[bytes_i  ] & 0b11) << 6 |
+                              b[bytes_i+1] & 0b00111111;
+                bytes_i += 1;
+            }
+            latin_i += 1;
+            bytes_i += 1;
+        }
+        b.truncate(latin_i); // bcoz of reduction utf8 -> Latin1
+        return Ok(Self::from(b));
+    }
+}
+
+impl From<Vec<u8>> for DfStr
+{
+    fn from(s: Vec<u8>) -> Self
+    {
+        let h = Self::hash(&s);
+        return Self {h:h, s:s};
+    }
+}
+
+impl From<&[u8]> for DfStr
+{
+    fn from(s: &[u8]) -> Self
+    {
+        Self::from(s.to_owned())
+    }
+}
+
+impl From<&&[u8]> for DfStr
+{
+    fn from(s: &&[u8]) -> Self
+    {
+        Self::from((*s).to_owned())
+    }
+}
+
+impl std::hash::Hash for DfStr
+{
+    fn hash<H>(&self, state: &mut H)
+    where H: std::hash::Hasher
+    {
+        self.h.hash(state);
+    }
+}
+
+impl fmt::Display for DfStr
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
+        if self.is_ascii() {
+            unsafe {
+                return write!(f, "{}", std::str::from_utf8_unchecked(&self.s));
+            }
+        }
+        for b in &self.s {
+            write!(f, "{}", char::from(*b))?;
+        }
+        return Ok(());
+    }
+}
 
 // Set which remembers þe order in which þe elements have been added
 // It's horribly inefficient but it's used only in þe compiler not þe VM

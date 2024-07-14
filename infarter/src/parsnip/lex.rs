@@ -1,11 +1,11 @@
 /* parsnip/lex.rs */
 
 use super::toki::{new_tok, Token, LnToken, TokTyp, PrimType};
-use crate::{asterix, asterix::Val};
+use crate::{asterix, asterix::Val, util};
 
 macro_rules! if_next {
     ($zelf:expr, $c:expr, $tt:ident) => {
-        if $zelf.matches::<0>($c) {
+        if $zelf.matches($c) {
             $zelf.advance();
             return Token::simple(TokTyp::$tt, $zelf.lexeme());
         }
@@ -29,57 +29,39 @@ macro_rules! from_char_fn {
     }
 }
 
-#[derive(Debug)]
 pub struct Luthor<'src>
 {
     input: &'src [u8],
     line:     usize,  // current line
     base_pos: usize,  // first position from which trying to get a token
-    next_pos: usize,  // final position of the trying token
+    next_pos: usize,  // final position of the trying current token
 }
 
 impl<'src> Luthor<'src>
 {
-    pub fn from_source(s: &'src str) -> Self
+    pub fn tokenize(s: &'src util::DfStr) -> Vec<LnToken<'src>>
     {
-        if !s.is_ascii() {
-            panic!("passed string is not ascii");
-        }
-        return Self {
+        let mut lxr = Self {
             input: s.as_bytes(),
             line: 1,
             base_pos: 0,
             next_pos: 0,
         };
-    }
-
-    pub fn tokenize(&mut self) -> Vec<LnToken<'src>>
-    {
-        self.init();
-        let mut res = Vec::new();
-        while let Some(t) = self.next_token() {
+        let mut res = vec![];
+        while let Some(t) = lxr.next_token() {
             if t.as_comment().is_none() { // sþ oþer þan a comment
-                res.push((t, self.line));
+                res.push((t, lxr.line));
             }
         }
-        res.push((Token::new_eof(), self.line));
+        res.push((Token::new_eof(), lxr.line));
         return res;
     }
 
-    fn init(&mut self)
-    {
-        self.line     = 1;
-        self.base_pos = 0;
-        self.next_pos = 0;
-    }
-
-    #[inline]
     fn is_at_end(&self) -> bool
     {
-        return self.next_pos == self.input.len();
+        self.next_pos == self.input.len()
     }
 
-    #[inline]
     fn advance(&mut self)
     {
         if !self.is_at_end() {
@@ -87,12 +69,11 @@ impl<'src> Luthor<'src>
         }
     }
 
-    #[inline]
     fn adv_while<COND>(&mut self, cond: COND)
-    where COND: Fn(u8) -> bool
+    where COND: Fn(&u8) -> bool
     {
-        while let Some(c) = self.peek::<0>() {
-            if cond(*c) {
+        while let Some(c) = self.peek() {
+            if cond(&c) {
                 self.advance();
             } else {
                  break;
@@ -101,67 +82,55 @@ impl<'src> Luthor<'src>
     }
 
     // skips whitespaces and updates self.line when finding '\n'
-    #[inline]
     fn skip_whites(&mut self)
     {
-        while let Some(w) = self.peek::<0>() {
+        while let Some(w) = self.peek() {
             if !w.is_ascii_whitespace() {
                 break;
             }
-            if *w == b'\n' {
+            if w == b'\n' {
                 self.line += 1;
             }
             self.advance();
         }
     }
 
-    // LA: lookahead, 0 -> peek current char, 1 -> peek next
-    #[inline]
-    fn peek<const LA: usize>(&self) -> Option<&'src u8>
+    fn peek(&self) -> Option<u8>
     {
-        return self.input.get(self.next_pos + LA);
+        self.peekn::<0>()
     }
 
-    #[inline]
+    // LA: lookahead, 0 -> peek, 1 -> peek next
+    fn peekn<const LA: usize>(&self) -> Option<u8>
+    {
+        self.input.get(self.next_pos + LA).copied()
+    }
+
     fn lexeme(&self) -> &'src [u8]
     {
-        return &self.input[self.base_pos..self.next_pos];
+        &self.input[self.base_pos..self.next_pos]
     }
 
-    // match a char at LA lookahead
-    #[inline]
-    fn matches<const LA: usize>(&self, m: u8) -> bool
+    fn matches(&self, m: u8) -> bool
     {
-        match self.peek::<LA>() {
-            Some(c) => *c == m,
-            _ => false,
-        }
+        self.peek().map(|c| c == m).unwrap_or(false)
     }
 
-    #[inline]
-    fn read_char(&mut self) -> Option<&'src u8>
+    fn read_char(&mut self) -> Option<u8>
     {
-        let tmp = self.input.get(self.next_pos);
+        let tmp = self.peek();
         self.advance();
         return tmp;
     }
 
-    #[inline]
     fn is_at_digit(&self) -> bool
     {
-        match self.peek::<0>() {
-            Some(c) => c.is_ascii_digit(),
-            _ => false,
-        }
+        self.peek().map(|c| c.is_ascii_digit()).unwrap_or(false)
     }
 
-    #[inline]
     fn has_digit_next(&self) -> bool
     {
-        match self.peek::<1>() {
-            Some(c) => c.is_ascii_digit(),
-            _ => false,
-        }
+        self.peekn::<1>().map(|c| c.is_ascii_digit()).unwrap_or(false)
     }
 
     fn next_token(&mut self) -> Option<Token<'src>>
@@ -179,7 +148,7 @@ impl<'src> Luthor<'src>
             b'{' => lex_new_tok!(self, Lbrace),
             b'}' => lex_new_tok!(self, Rbrace),
             b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' | b'^'
-                 => self.maybe_2ble(*c),
+                 => self.maybe_2ble(c),
             b'&' => self.from_and(),
             b'|' => self.from_vbar(),
             b'#' => self.from_hash(),
@@ -199,17 +168,14 @@ impl<'src> Luthor<'src>
         })
     }
 
-    // gets called when some of +-*/&|~
+    // gets called when some of +-*/@[]^
     pub fn maybe_2ble(&mut self, c: u8) -> Token<'src>
     {
-        if !self.matches::<0>(c) {
+        if !self.matches(c) {
             return Token::try_1gle_from(self.lexeme()).unwrap();
         }
         self.advance();
-        if let Ok(t) = Token::try_2ble_from(self.lexeme()) {
-            return t;
-        }
-        panic!("not a double {0}{0}", char::from(c));
+        return Token::try_2ble_from(self.lexeme()).unwrap();
     }
 
     from_char_fn!{from_and, And,
@@ -259,42 +225,44 @@ impl<'src> Luthor<'src>
     }
 
     // $, $@[0-9]*
-    #[inline]
     fn from_dollar(&mut self) -> Token<'src>
     {
-        if !self.matches::<0>(b'@') {
+        if !self.matches(b'@') {
             return lex_new_tok!(self, Dollar);
         };
         let mut level = 0; // default level
         self.advance(); // @
         if self.is_at_digit() {
-            self.adv_while(|c| c.is_ascii_digit());
-            level = std::str::from_utf8(&self.lexeme()[2..])
-                .unwrap().parse::<u32>().unwrap();
+            self.adv_while(u8::is_ascii_digit);
+            level = unsafe {
+                std::str::from_utf8_unchecked(&self.lexeme()[2..])
+                    .parse::<u32>()
+                    .unwrap()
+            };
         }
         return Token::new_rect(level, self.lexeme());
     }
 
-    // gets called when current char is a digit
+    // gets called when at digit
     fn get_num(&mut self) -> Token<'src>
     {
-        self.adv_while(|c| c.is_ascii_digit());
-        if self.matches::<0>(b'U') || self.matches::<0>(b'u') {
+        self.adv_while(u8::is_ascii_digit);
+        if self.matches(b'U') || self.matches(b'u') {
             let n = Token::parse_valn(self.lexeme());
             self.advance(); // [Uu]
             return n;
         }
         // til here we'll have a "\d+" number
         // þen check weþr it's a R% "\d+\.\d+"
-        if !(self.matches::<0>(b'.') && self.has_digit_next()) {
+        if !(self.matches(b'.') && self.has_digit_next()) {
             return Token::parse_valz(self.lexeme());
         }
-        self.advance(); // get past þe dot '.'
-        self.adv_while(|c| c.is_ascii_digit());
+        self.advance(); // .
+        self.adv_while(u8::is_ascii_digit);
         return Token::parse_valr(self.lexeme());
     }
 
-    // gets called when current char is a letter
+    // gets called when at letter
     // result can be Token::{Ident, PrimType}
     fn get_ident(&mut self) -> Token<'src>
     {
@@ -302,17 +270,14 @@ impl<'src> Luthor<'src>
             self.advance();
             return Token::new_primtype(pt, self.lexeme());
         }
-        self.adv_while(|c| c.is_ascii_alphanumeric());
+        self.adv_while(u8::is_ascii_alphanumeric);
         let lex = self.lexeme();
-        if lex.len() == 1 { // try þe only keywords
-            match lex[0] {
-                b'V' => return new_tok!(ValV, lex),
-                b'T' => return Token::new_valb(true,  lex),
-                b'F' => return Token::new_valb(false, lex),
-                _ => {},
-            }
-        }
-        return Token::new_ident(lex);
+        return match lex {
+            b"V" => new_tok!(ValV, lex),
+            b"T" => Token::new_valb(true,  lex),
+            b"F" => Token::new_valb(false, lex),
+            _    => Token::new_ident(lex),
+        };
     }
 
     // gets called when parsing an Ident
@@ -320,7 +285,7 @@ impl<'src> Luthor<'src>
     // returns Some(PrimType) but does not advance()
     fn try_prim_type(&self) -> Option<PrimType>
     {
-        if !self.matches::<0>(b'%') {
+        if !self.matches(b'%') {
             return None;
         }
         let c = self.input[self.base_pos];
@@ -332,13 +297,12 @@ impl<'src> Luthor<'src>
     {
         let mut ended_string = false;
         while let Some(c) = self.read_char() {
-            if *c == b'\'' {
+            if c == b'\'' {
                 ended_string = true;
                 break;
             }
-            if *c == asterix::ESC_CH && self.read_char().is_none() {
-                panic!(
-                    "expected escape char but found EOF at line {}",
+            if c == asterix::ESC_CH && self.read_char().is_none() {
+                panic!("expected escape char but found EOF at line {}",
                     self.line);
                 // will check later if þe escapes are valid
             }
@@ -357,11 +321,11 @@ impl<'src> Luthor<'src>
         let Some(c) = self.read_char() else {
             panic!("unterminated C% literal at EOF");
         };
-        if *c == asterix::ESC_CH { // escapes
+        if c == asterix::ESC_CH { // escapes
             let Some(d) = self.read_char() else {
                 panic!("unterminated escaped C% at EOF");
             };
-            let Ok(e) = Val::escape_char(*d) else {
+            let Ok(e) = Val::escape_char(d) else {
                 panic!("unknown escape char \"{d}");
             };
             let Some(b'"') = self.read_char() else {
@@ -373,17 +337,14 @@ impl<'src> Luthor<'src>
         let Some(b'"') = self.read_char() else {
             panic!("unterminated C% literal, at line {}", self.line);
         };
-        return Token::new_valc(*c, self.lexeme());
+        return Token::new_valc(c, self.lexeme());
     }
 
     // called when `
     fn comment(&mut self) -> Token<'src>
     {
         self.advance(); // `
-        while !self.matches::<0>(b'\n') {
-            if self.is_at_end() {
-                break;
-            }
+        while !self.matches(b'\n') && !self.is_at_end() {
             self.advance();
         }
         return Token::new_comment(self.lexeme());

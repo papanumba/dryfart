@@ -5,6 +5,7 @@ use crate::{
     asterix::*,
     dflib::tables::NatTb,
     util,
+    util::DfStr,
 };
 
 pub fn check(b: &mut Block)
@@ -64,7 +65,7 @@ fn std_check_loop(l: &mut Loop)
 fn std_check_expr(e: &mut Expr)
 {
     match e {
-        Expr::Ident(i) => if i.as_u8s() == b"STD" {
+        Expr::Ident(i) => if i.as_bytes() == b"STD" {
             *e = Expr::Const(Val::from(NatTb::STD));
         },
         Expr::Tcast(_, b) => std_check_expr(b),

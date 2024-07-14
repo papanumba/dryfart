@@ -811,7 +811,7 @@ impl Compiler
 
     fn e_ident(&mut self, id: &Rc<DfStr>)
     {
-        if id.as_u8s() == b"STD" {
+        if id.as_bytes() == b"STD" {
             todo!("STD");
         }
         if let Some(i) = self.resolve_local(id) {

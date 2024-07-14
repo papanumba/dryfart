@@ -5,6 +5,7 @@ use crate::{
     intrep::*,
     asterix::*,
     dflib,
+    util::DfStr,
 };
 
 pub fn comp_into_bytes(c: &Compiler) -> Vec<u8>
@@ -525,11 +526,11 @@ impl Phil // 'a lifetime of AST
             .expect(&format!("Too many identifiers (max = {})", u16::MAX))
         );
         for id in idents {
-            let id_len_u8 = u8::try_from(id.as_u8s().len())
+            let id_len_u8 = u8::try_from(id.as_bytes().len())
                 .expect(&format!("identifier {} too long (max is {})",
                     id, u8::MAX));
             self.extend(id_len_u8);
-            self.extend_bytes(id.as_u8s());
+            self.extend_bytes(id.as_bytes());
             self.extend(b'\0');
         }
     }

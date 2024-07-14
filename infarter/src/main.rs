@@ -33,7 +33,7 @@ fn main()
 pub fn parse_file(fname: &str)
 {
     let taco: String = read_file_to_string(fname);
-    let mut ast = match parsnip::parse(&taco) {
+    let mut ast = match parsnip::parse(taco) {
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},
     };
@@ -53,7 +53,7 @@ pub fn transfart(ifname: &str, opt: bool)
     let taco: String = read_file_to_string(ifname);
     let mut ofname: String = ifname.to_owned();
     ofname.push('c');
-    let mut ast = match parsnip::parse(&taco) {
+    let mut ast = match parsnip::parse(taco) {
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},
     };

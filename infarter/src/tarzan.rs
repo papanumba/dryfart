@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{
     asterix::*,
     util,
-    util::MutRc,
+    util::{MutRc, DfStr},
 };
 
 /* MAIN FUNCTION to execute all þe programm */
@@ -526,10 +526,7 @@ impl Scope
         let Val::T(trc) = tbl else {
             panic!("{tbl} is not a table");
         };
-        match trc.get(f) {
-            Some(v) => return v,
-            None => panic!("table hasn't ${f}"),
-        }
+        return trc.get(f).expect(&format!("table hasn't ${f}"));
     }
 
     #[inline]

@@ -2,7 +2,7 @@
 
 use std::{rc::Rc, cell::RefCell};
 use super::toki::{Token, LnToken, TokTyp, PrimType};
-use crate::{asterix::*, util, util::StrRes};
+use crate::{asterix::*, util, util::{StrRes, DfStr}};
 
 macro_rules! expected_err {
     ($e:expr, $f:expr) => { util::format_err!(
@@ -23,7 +23,7 @@ macro_rules! left_binop_expr {
         fn $name(&mut self) -> StrRes<Expr>
         {
             let mut e = self.$term()?;
-            while self.matches::<0>(TokTyp::$ttype) {
+            while self.matches(TokTyp::$ttype) {
                 self.advance(); // þe binop
                 let t = self.$term()?;
                 e = Expr::BinOp(
@@ -44,7 +44,7 @@ macro_rules! rite_uniop_expr {
         {
             // count all unary Ops
             let mut n = 0;
-            while self.matches::<0>(TokTyp::$ttype) {
+            while self.matches(TokTyp::$ttype) {
                 self.advance();
                 n += 1;
             }
@@ -78,37 +78,41 @@ pub struct Nip<'src>
 
 impl<'src> Nip<'src>
 {
-    pub fn from_tokens(t: Vec<LnToken<'src>>) -> Self
+    pub fn parse(t: Vec<LnToken<'src>>) -> StrRes<Block>
     {
-        Self {
+        let mut prs = Self {
             cursor: 0,
             tokens: t,
+        };
+        // parse "main" block
+        let res = prs.block()?;
+        // check correctly ended
+        if prs.is_at_end() {
+            Ok(res)
+        } else {
+            expected_err!("EOF", prs.peek().unwrap())
         }
     }
 
-    pub fn parse(&mut self) -> StrRes<Block>
+    /* PRIVATE STUFF */
+
+    fn peek(&self) -> Option<LnToken<'src>>
     {
-        let res = self.block()?;
-        return if self.is_at_end() {
-            Ok(res)
-        } else {
-            eof_err!(format!("{}", self.peek::<0>().unwrap().0))
-        };
+        self.tokens.get(self.cursor).copied()
     }
 
-    #[inline]
-    fn peek<const LA: usize>(&self) -> Option<LnToken<'src>>
+    // peek at `LA` lookahead
+    #[allow(dead_code)] // maybe some future will require LL(k)
+    fn peekn<const LA: usize>(&self) -> Option<LnToken<'src>>
     {
-        return self.tokens.get(self.cursor + LA).copied();
+        self.tokens.get(self.cursor + LA).copied()
     }
 
-    #[inline]
     fn is_at_end(&self) -> bool
     {
-        return self.cursor + 1 == self.tokens.len(); // because of Eof
+        self.cursor + 1 == self.tokens.len() // because of Eof
     }
 
-    #[inline]
     fn advance(&mut self)
     {
         if !self.is_at_end() {
@@ -116,24 +120,16 @@ impl<'src> Nip<'src>
         }
     }
 
-    #[inline]
-    fn matches<const LA: usize>(&self, m: TokTyp) -> bool
+    // see if current token is of type `m`
+    fn matches(&self, m: TokTyp) -> bool
     {
-        match self.peek::<LA>() {
-            Some(t) => t.0.typ() == m,
-            None => false,
-        }
+        self.peek().map(|t| t.0.typ() == m).unwrap_or(false)
     }
 
-    fn read_token(&mut self) -> Option<&LnToken<'src>>
+    fn read_token(&mut self) -> Option<LnToken<'src>>
     {
-        let tmp = self.tokens.get(self.cursor);
-        // should be self.advance(),
-        // but Rust thinks i'm
-        // tryna mutate self.tokens
-        if !self.is_at_end() {
-            self.cursor += 1;
-        }
+        let tmp = self.peek();
+        self.advance();
         return tmp;
     }
 
@@ -143,11 +139,11 @@ impl<'src> Nip<'src>
     #[inline]
     fn exp_adv(&mut self, t: TokTyp) -> StrRes<()>
     {
-        if self.matches::<0>(t) {
+        if self.matches(t) {
             self.advance();
             Ok(())
         } else {
-            expected_err!(format!("{:?}", t), self.peek::<0>().unwrap())
+            expected_err!(format!("{:?}", t), self.peek().unwrap())
         }
     }
 
@@ -155,7 +151,7 @@ impl<'src> Nip<'src>
     #[inline]
     fn print_peek(&self)
     {
-        match self.peek::<0>() {
+        match self.peek() {
             Some((t, ln)) => println!("{t} at line {ln}"),
             None => println!("None"),
         }
@@ -166,25 +162,24 @@ impl<'src> Nip<'src>
     fn block(&mut self) -> StrRes<Block>
     {
         let mut stmts: Vec<Stmt> = vec![];
-        loop {
-            match self.stmt() {
-                Some(st) => stmts.push(st?),
-                None => return Ok(stmts),
-            }
+        while let Some(st) = self.stmt() {
+            stmts.push(st?);
         }
+        return Ok(stmts);
     }
 
     #[inline]
     fn stmt(&mut self) -> Option<StrRes<Stmt>>
     {
-        let t = self.peek::<0>()?;
+        let t = self.peek()?;
         match t.0.typ() {
-            // one of þe few 2-lookahead
             TokTyp::LsqBra  => Some(self.if_stmt()),
             TokTyp::AtSign  => Some(self.loop_stmt()),
             TokTyp::AtSign2 => Some(self.break_stmt()),
             TokTyp::Hash2   => Some(self.return_stmt()),
             TokTyp::Bang2   => Some(self.pc_end()),
+            TokTyp::Unknown => Some(util::format_err!(
+                "unknown token \'{}\'", t.0)),
             _ => self.other_stmt(),
         }
     }
@@ -192,11 +187,11 @@ impl<'src> Nip<'src>
     // þese are assigns, operons or pccalls
     fn other_stmt(&mut self) -> Option<StrRes<Stmt>>
     {
-        const MSG: &str = "=, !, !$, ++, --, **, //, \\\\, && or ||";
+        const MSG: &str = "=, !, !$, ++, --, **, //, \\\\, &&, || or ^^";
         let Ok(lhs) = self.expr() else {
             return None;
         };
-        let Some(t) = self.peek::<0>() else {
+        let Some(t) = self.peek() else {
             return Some(eof_err!(MSG));
         };
         return Some(match t.0.typ() {
@@ -263,7 +258,7 @@ impl<'src> Nip<'src>
         let if_block = self.block()?;
         let if0 = IfCase::new(cond, if_block);
         // check if end
-        if self.matches::<0>(TokTyp::RsqBra) {
+        if self.matches(TokTyp::RsqBra) {
             self.advance(); // ]
             return Ok(Stmt::IfElse(if0, vec![], None));
         }
@@ -271,7 +266,7 @@ impl<'src> Nip<'src>
         let mut elseifs = vec![];
         loop {
             const MSG: &str = "] or |";
-            let Some(tok) = self.peek::<0>() else {
+            let Some(tok) = self.peek() else {
                 return eof_err!(MSG);
             };
             let tt0 = tok.0.typ();
@@ -284,7 +279,7 @@ impl<'src> Nip<'src>
                 return expected_err!(MSG, tok);
             }
             self.advance(); // |
-            if self.matches::<0>(TokTyp::Then) { // Else
+            if self.matches(TokTyp::Then) { // Else
                 self.advance(); // =>
                 let eb = self.block()?;
                 self.exp_adv(TokTyp::RsqBra)?;
@@ -303,7 +298,7 @@ impl<'src> Nip<'src>
     {
         self.advance(); // @
         let pre = self.block()?; // maybe empty
-        if !self.matches::<0>(TokTyp::LsqBra2) { // infinite loop
+        if !self.matches(TokTyp::LsqBra2) { // infinite loop
             self.exp_adv(TokTyp::Period)?;
             return Ok(Stmt::LoopIf(Loop::Inf(pre)));
         }
@@ -321,7 +316,7 @@ impl<'src> Nip<'src>
     {
         self.advance(); // @@
         let mut level: u32 = 0;
-        let Some(t) = self.peek::<0>() else {
+        let Some(t) = self.peek() else {
             return eof_err!("ValN");
         };
         match t.0.typ() {
@@ -365,7 +360,7 @@ impl<'src> Nip<'src>
     {
         let first = self.or_expr()?;
         let mut others: Vec<(BinOpcode, Expr)> = vec![];
-        while let Some(pop) = self.peek::<0>() {
+        while let Some(pop) = self.peek() {
             if !pop.0.is_cmp() {
                 break;
             }
@@ -388,8 +383,8 @@ impl<'src> Nip<'src>
     fn add_expr(&mut self) -> StrRes<Expr>
     {
         let mut ae = self.neg_expr()?;
-        while self.matches::<0>(TokTyp::Plus)
-           || self.matches::<0>(TokTyp::Minus) {
+        while self.matches(TokTyp::Plus)
+           || self.matches(TokTyp::Minus) {
             let op = self.read_token().unwrap().0; // +, -
             let rhs = self.neg_expr()?;
             let op = match op.typ() {
@@ -407,9 +402,9 @@ impl<'src> Nip<'src>
     fn mul_expr(&mut self) -> StrRes<Expr>
     {
         let mut me = self.inv_expr()?;
-        while self.matches::<0>(TokTyp::Asterisk)
-           || self.matches::<0>(TokTyp::Slash)
-           || self.matches::<0>(TokTyp::Bslash) {
+        while self.matches(TokTyp::Asterisk)
+           || self.matches(TokTyp::Slash)
+           || self.matches(TokTyp::Bslash) {
             let op = self.read_token().unwrap().0; // *, /, \
             let rhs = self.inv_expr()?;
             let op = match op.typ() {
@@ -429,7 +424,7 @@ impl<'src> Nip<'src>
 
     fn cast_expr(&mut self) -> StrRes<Expr>
     {
-        let Some(t) = self.peek::<0>() else {
+        let Some(t) = self.peek() else {
             return eof_err!("type%, ident or literal");
         };
         if t.0.typ() != TokTyp::PrimType {
@@ -447,7 +442,7 @@ impl<'src> Nip<'src>
     {
         let mut e = self.nucle()?;
         loop {
-            let Some(t) = self.peek::<0>() else {
+            let Some(t) = self.peek() else {
                 break;
             };
             match t.0.typ() {
@@ -481,7 +476,7 @@ impl<'src> Nip<'src>
     fn nucle(&mut self) -> StrRes<Expr>
     {
         const MSG: &str = "(, #, !, _, $, \\[, \\#, ident or literal";
-        let Some(tok) = self.peek::<0>() else {
+        let Some(tok) = self.peek() else {
             return eof_err!(MSG);
         };
         match tok.0.typ() {
@@ -534,7 +529,7 @@ impl<'src> Nip<'src>
     fn comma_ex(&mut self, end: TokTyp) -> StrRes<Vec<Expr>>
     {
         // check empty
-        if self.matches::<0>(end) {
+        if self.matches(end) {
             self.advance(); // end
             return Ok(vec![]);
         }
@@ -543,7 +538,7 @@ impl<'src> Nip<'src>
         loop {
             let ex = self.expr()?;
             exs.push(ex);
-            let Some(tok) = self.peek::<0>() else {
+            let Some(tok) = self.peek() else {
                 return eof_err!(comma_or_end);
             };
             let tt = tok.0.typ();
@@ -582,7 +577,7 @@ impl<'src> Nip<'src>
         self.advance(); // $
         let mut tbl_e = vec![];
         loop {
-            let Some(t) = self.peek::<0>() else {
+            let Some(t) = self.peek() else {
                 return eof_err!(MSG);
             };
             match t.0.typ() {
@@ -617,7 +612,7 @@ impl<'src> Nip<'src>
     fn subr(&mut self, line: usize, st: SubrType) -> StrRes<Expr>
     {
         self.advance(); // # or !
-        let name = match self.peek::<0>() { // FIXME: maybe use map?
+        let name = match self.peek() { // FIXME: maybe use map?
             Some((t, _)) => t.as_string().map(
                 |s| Rc::new(s.try_into().unwrap())
             ),
@@ -654,14 +649,14 @@ impl<'src> Nip<'src>
     fn pars(&mut self, end: TokTyp) -> StrRes<Vec<&[u8]>>
     {
         let mut res: Vec<&[u8]> = vec![];
-        if self.matches::<0>(end) {
+        if self.matches(end) {
             self.advance();
             return Ok(res);
         }
         if let Ok(i) = self.consume_ident() {
             res.push(i);
         }
-        while !self.matches::<0>(end) {
+        while !self.matches(end) {
             self.exp_adv(TokTyp::Comma)?;
             let id = self.consume_ident()?;
             res.push(id);
@@ -700,17 +695,17 @@ impl<'src> Nip<'src>
         self.advance(); // \[
         let mut cases = vec![];
         loop {
-            if self.matches::<0>(TokTyp::Then) {
+            if self.matches(TokTyp::Then) {
                 todo!("final else =>");
             }
             let e = self.expr()?;
-            if !cases.is_empty() && self.matches::<0>(TokTyp::RsqBra) {
+            if !cases.is_empty() && self.matches(TokTyp::RsqBra) {
                 self.advance(); // ]
                 return Ok(Expr::IfExp(cases, Box::new(e)));
             }
             if self.exp_adv(TokTyp::Then).is_err() {
                 let msg = if cases.is_empty() {"=>"} else {"=> or ]"};
-                return expected_err!(msg, self.peek::<0>().unwrap());
+                return expected_err!(msg, self.peek().unwrap());
             }
             let f = self.expr()?;
             self.exp_adv(TokTyp::Semic)?;
@@ -720,7 +715,7 @@ impl<'src> Nip<'src>
 
     fn consume_ident(&mut self) -> StrRes<&'src [u8]>
     {
-        let Some(tok) = self.peek::<0>() else {
+        let Some(tok) = self.peek() else {
             return eof_err!("Ident");
         };
         let Some(i) = tok.0.as_ident() else {

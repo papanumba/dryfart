@@ -4,14 +4,18 @@ mod toki;
 mod lex;
 mod pars;
 
-use crate::asterix::Block;
+use crate::{asterix::Block, util};
 
 /* ÞA ONE & ONLY pub fn in þis mod */
 
-pub fn parse(taco: &str) -> Result<Block, String>
+pub fn parse(taco: String) -> Result<Block, String>
 {
-    let mut lex = lex::Luthor::from_source(taco);
-    let toke = lex.tokenize();
-    let mut p = pars::Nip::from_tokens(toke);
-    return p.parse();
+    if !util::can_be_latin1(&taco) {
+        return util::format_err!(
+            "Source is contains Unicode chars greater than U+00FF"
+        );
+    }
+    let taco = util::DfStr::try_from(taco).unwrap();
+    let toke = lex::Luthor::tokenize(&taco);
+    return pars::Nip::parse(toke);
 }

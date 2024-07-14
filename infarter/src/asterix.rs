@@ -1,118 +1,7 @@
 /* asterix.rs */
 
 use std::{rc::Rc, cell::RefCell, fmt};
-use crate::{util, dflib, util::MutRc};
-
-#[derive(Debug, Clone)]
-pub struct DfStr
-{
-    s: Vec<u8>, // ascii string
-    h: u32,
-}
-
-impl DfStr
-{
-    pub fn as_u8s(&self) -> &[u8]
-    {
-        return &self.s;
-    }
-
-    pub fn as_str(&self) -> &str
-    {
-        unsafe {
-            return std::str::from_utf8_unchecked(&self.s);
-        }
-    }
-
-    fn check_ascii(s: &[u8]) -> bool
-    {
-        for c in s {
-            if c >> 7 == 1 {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    fn hash(s: &[u8]) -> u32
-    {
-        let mut hash: u32 = 2166136261;
-        for c in s {
-            hash ^= u32::from(*c);
-            hash = hash.wrapping_mul(16777619);
-        }
-        return hash;
-    }
-}
-
-impl TryFrom<Vec<u8>> for DfStr
-{
-    type Error = (); // indicates þat þe vector is not ascii
-    fn try_from(s: Vec<u8>) -> Result<Self, ()>
-    {
-        if !Self::check_ascii(&s) {
-            return Err(());
-        }
-        let h = Self::hash(&s);
-        return Ok(Self {h:h, s:s});
-    }
-}
-
-impl TryFrom<&[u8]> for DfStr
-{
-    type Error = (); // indicates þat þe vector is not ascii
-    fn try_from(s: &[u8]) -> Result<Self, ()>
-    {
-        if !Self::check_ascii(s) {
-            return Err(());
-        }
-        let h = Self::hash(s);
-        return Ok(Self {h:h, s:s.to_owned()});
-    }
-}
-
-impl TryFrom<&&[u8]> for DfStr
-{
-    type Error = (); // indicates þat þe vector is not ascii
-    fn try_from(s: &&[u8]) -> Result<Self, ()>
-    {
-        if !Self::check_ascii(s) {
-            return Err(());
-        }
-        let h = Self::hash(s);
-        return Ok(Self {h:h, s:(*s).to_owned()});
-    }
-}
-
-impl std::hash::Hash for DfStr
-{
-    fn hash<H>(&self, state: &mut H)
-    where H: std::hash::Hasher
-    {
-        self.h.hash(state);
-    }
-}
-
-impl PartialEq for DfStr
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        return self.h == other.h // faster
-            && self.s == other.s;
-    }
-}
-
-impl Eq for DfStr {}
-
-impl fmt::Display for DfStr
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-    {
-        unsafe {
-            write!(f, "{}", std::str::from_utf8_unchecked(&self.s))
-        }
-    }
-}
+use crate::{util, dflib, util::{MutRc, DfStr}};
 
 #[repr(u8)]
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
@@ -388,8 +277,7 @@ impl fmt::Display for Array
     {
         // special case for strings (C)
         if let Self::C(a) = self {
-            write!(f, "{}", std::str::from_utf8(a).unwrap())?;
-            return Ok(());
+            return write!(f, "{}", DfStr::from(&a.as_ref()));
         }
         write!(f, "_")?;
         // 1st elem
@@ -430,22 +318,19 @@ impl Table
     pub fn get(&self, k: &DfStr) -> Option<Val>
     {
         match &self {
-            Self::Nat(n) => n.get(k.as_str()),
-            Self::Usr(u) => {
-                for p in u.borrow().iter() {
-                    if &*p.0 == k {
-                        return Some(p.1.clone());
-                    }
-                }
-                return None;
-            },
+            Self::Nat(n) => n.get(k.as_str()?),
+            Self::Usr(u) => u // 1-liner time!
+                .borrow()
+                .iter()
+                .find(|p| &*p.0 == k)
+                .map(|p| p.1.clone()),
         }
     }
 
     pub fn set(&mut self, k: &Rc<DfStr>, v: Val)
     {
         match &mut *self {
-            Self::Nat(_) => unreachable!("cannot set a native table"),
+            Self::Nat(_) => unreachable!("cannot set a native table yet"),
             Self::Usr(u) => {
                 for p in &mut u.borrow_mut().iter_mut() {
                     if &p.0 == k {
@@ -453,6 +338,7 @@ impl Table
                         return;
                     }
                 }
+                u.borrow_mut().push((k.clone(), v));
             },
         };
     }
@@ -460,7 +346,10 @@ impl Table
     pub fn has(&self, k: &DfStr) -> bool
     {
         match &self {
-            Self::Nat(n) => n.get(k.as_str()).is_some(),
+            Self::Nat(n) => match k.as_str() { // all native key are ASCII
+                Some(k) => n.get(k).is_some(),
+                None => false,
+            },
             Self::Usr(u) => {
                 for p in u.borrow().iter() {
                     if &*p.0 == k {

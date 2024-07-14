@@ -219,7 +219,7 @@ impl<'src> std::fmt::Display for Token<'src>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error>
     {
-        write!(f, "{}", std::str::from_utf8(self.lex).unwrap())
+        write!(f, "{}", util::DfStr::from(&self.lex))
     }
 }
 
