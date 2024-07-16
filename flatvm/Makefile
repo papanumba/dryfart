@@ -11,7 +11,7 @@ CXXFLAGS = -std=c++17 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
 cxxobjs = bitarr.o disasm.o garcol.o htable.o idents.o loader.o maitre.o native.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
-cobjs = common.o reader.o
+cobjs = common.o latin1.o reader.o
 objs = $(cxxobjs) $(cobjs)
 
 #gch := dynarr; idents; values;

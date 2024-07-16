@@ -5,6 +5,7 @@
 #include <new>
 #include "object.h"
 #include "idents.h"
+#include "latin1.h"
 
 /*************************** A R R A Y S ***************************/
 
@@ -221,9 +222,7 @@ void ArrObj::print_string() const
 {
     if (DfType::C != this->typ)
         unreachable();
-    auto len = this->as.c.len();
-    TIL(i, len)
-        putchar(this->as.c[i]);
+    latin1_print(&this->as.c[0], this->as.c.len());
 }
 
 AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
