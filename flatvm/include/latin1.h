@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-void latin1_puchar(uint8_t);
+void latin1_putchar(uint8_t);
 void latin1_print(cbyte_p, size_t);
 
 #ifdef __cplusplus

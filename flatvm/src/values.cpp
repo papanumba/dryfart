@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include "object.h" // includes values.h
+#include "latin1.h"
 
 bool DfVal::operator==(const DfVal &that) const
 {
@@ -40,7 +41,7 @@ void DfVal::print() const
     switch (this->type) {
       case VAL_V: putchar('V');                      break;
       case VAL_B: putchar(this->as.b ? 'T' : 'F');   break;
-      case VAL_C: putchar(this->as.c);               break;
+      case VAL_C: latin1_putchar(this->as.c);        break;
       case VAL_N: printf("%luu", (ulong)this->as.n); break;
       case VAL_Z: printf("%ld",   (long)this->as.z); break;
       case VAL_R: printf("%f", this->as.r);          break;

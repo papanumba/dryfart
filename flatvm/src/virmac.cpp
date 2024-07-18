@@ -205,6 +205,7 @@ static int name(DfVal *lhs, DfVal *rhs) \
     if (lhs->type != rhs->type)         \
         return CMP_ERR;                 \
     switch (lhs->type) {                \
+      BASURA(C, c, cmpop)               \
       BASURA(N, n, cmpop)               \
       BASURA(Z, z, cmpop)               \
       BASURA(R, r, cmpop)               \

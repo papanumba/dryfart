@@ -111,6 +111,7 @@ case OP_ADD: {
     if (lhs.type != rhs.type)
         ERR_BINOP("+");
     switch (lhs.type) {
+      case VAL_C: DO_BINOP(c, +);
       case VAL_N: DO_BINOP(n, +);
       case VAL_Z: DO_BINOP(z, +);
       case VAL_R: DO_BINOP(r, +);
@@ -141,6 +142,7 @@ case OP_MUL: {
     if (lhs.type != rhs.type)
         ERR_BINOP("*");
     switch (lhs.type) {
+      case VAL_C: DO_BINOP(c, *);
       case VAL_N: DO_BINOP(n, *);
       case VAL_Z: DO_BINOP(z, *);
       case VAL_R: DO_BINOP(r, *);
@@ -212,13 +214,17 @@ case OP_MOD: {
 
 case OP_NOT: {
     DfVal &val = this->peek();
-    if (val.type != VAL_B)
-        ERR_OP_TYPE("unary ~", &val);
+    switch (val.type) {
+      case VAL_B: val.as.b = !val.as.b; break;
+      case VAL_C: val.as.c = ~val.as.c; break;
+      case VAL_N: val.as.n = ~val.as.n; break;
+      default: ERR_OP_TYPE("unary ~", &val);
+    }
     val.as.b = !val.as.b;
     break;
 }
 
-// applicable to B% and N%
+// applicable to B%, C% and N%
 #define BIT_BINOP(name, b_op, n_op, msg) \
 case OP_ ## name: {             \
     DfVal rhs = this->pop();    \
@@ -227,6 +233,7 @@ case OP_ ## name: {             \
         ERR_BINOP(msg);         \
     switch (lhs.type) {         \
       case VAL_B: DO_BINOP(b, b_op);    \
+      case VAL_C: DO_BINOP(c, n_op);    \
       case VAL_N: DO_BINOP(n, n_op);    \
       default: ERR_OP_TYPE(msg, &lhs);  \
     }                           \
