@@ -2,22 +2,25 @@
 
 Wellcome to the docs of the DryFart language.
 
+Before reading these documents, make sure you have good understanding about programming languages, paradigms and usual terms.
+
 ## General description
 
 Features:
 * No keywords, only symbols, that's why it's _Dry_
-* Basic control flow: if-else, loops, TODO switch
+* Control flow: if-else, loops, and a (TODO) switch
 * Imperative: both procedural and functional
 * Functional: all subroutines are 1st-class 
-* Closures (by value)
+* Closures with capture by value (only VM)
 * Mutability in functions (only VM)
-* Strong typing: no implicit coercion
-* Dynamic typing
+* Strong typing in operations
+* Dynamically typed values
 * Dynamic homogeneous arrays
-* Tables (dynamic structs)
-* (TODO) modular
+* Tables (proto-OOP)
 * Garbage collected
-* standard library (in construction)
+    * RC in the interpreter
+    * tracing GC in the VM
+* a standard library (in construction)
 
 ## Sources of Inspiration
 
@@ -27,11 +30,11 @@ Features:
 	* (TODO) Case statement syntax. (Note: I **hate** to have to `break;` every `case` in a C switch)
 * Lua, Lox: tables, indexed by identifiers.
 * Python: no declaration, only assignments
-* Bash: gotta love the `[ ]` and `[[ ]]` for conditions
+* Bash: gotta luv da `[ ]` and `[[ ]]` for conditions
 
 ## Hello World
 
-May be broken until a stable version :P but should be something like:
+May be broken until a stable version :stuck_out_tongue: but should be something like:
 
 ```
 STD$io$put!'Hello, world!?N'.

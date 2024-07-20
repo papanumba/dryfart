@@ -1,8 +1,8 @@
-' test many kinds of loops
+` test many kinds of loops
 
 put = STD$io$put.
 
-' initial loop
+` initial loop
 i = 0.
 @
     [[i < 10]]
@@ -10,7 +10,7 @@ i = 0.
     i = i + 1.
 .
 
-' medial loop
+` medial loop
 i = 0.
 @
     put!i.
@@ -18,7 +18,7 @@ i = 0.
     i = i + 1.
 .
 
-' final loop
+` final loop
 i = 0.
 @
     put!i.
@@ -26,10 +26,11 @@ i = 0.
     [[i < 10]]
 .
 
-' infinite loop (with a break)
+` infinite loop (with a break)
 i = 0.
 @
     put!i.
     i = i + 1.
-    [~(i < 10) => @@.]
+    [~(i < 10) => @ .@1. .]
+    @ @@1. .
 .

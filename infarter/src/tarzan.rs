@@ -15,6 +15,21 @@ pub fn exec_main(prog: &Block)
     }
 }
 
+macro_rules! do_loop_block {
+    ($zelf:expr, $block:expr) => {
+        if let Some(ba) = $zelf.no_env_block($block) {
+            let BlockAction::Loo(0, is_again) = ba else {
+                return ba.exiting_loop();
+            };
+            if is_again {
+                continue;
+            } else {
+                break;
+            }
+        }
+    }
+}
+
 fn exec_block(b: &Block) -> Option<BlockAction>
 {
     let mut scope = Scope::new();
@@ -89,7 +104,8 @@ impl Scope
             Stmt::OperOn(l, o, e) => self.do_operon(l, o, e),
             Stmt::IfElse(i, o, e) => return self.do_ifelse(i, o, e),
             Stmt::LoopIf(l)       => return self.do_loopif(l),
-            Stmt::BreakL(l)       => return Some(BlockAction::Brk(*l)),
+            Stmt::AgainL(l)       => return Some(BlockAction::Loo(*l, true)),
+            Stmt::BreakL(l)       => return Some(BlockAction::Loo(*l, false)),
             Stmt::Return(e)       => return Some(BlockAction::Ret(
                 self.eval_expr(e)
             )),
@@ -197,20 +213,15 @@ impl Scope
             Loop::Cdt(b, c, f) => self.do_cdt_loop(b, c, f),
         };
         self.clean(pre);
-        match ba {
-            Some(b) => b.exiting_loop(),
-            None => None,
-        }
+        return ba;
     }
 
     fn do_inf_loop(&mut self, block: &Block) -> Option<BlockAction>
     {
         loop {
-            if let Some(ba) = self.no_env_block(block) {
-                // TODO future check "continue 0"
-                return Some(ba);
-            }
+            do_loop_block!(self, block);
         }
+        return None;
     }
 
     fn do_cdt_loop(
@@ -221,17 +232,11 @@ impl Scope
      -> Option<BlockAction>
     {
         loop {
-            if let Some(ba) = self.no_env_block(blok0) {
-                // TODO future check "continue 0"
-                return Some(ba);
-            }
+            do_loop_block!(self, blok0);
             if !self.eval_cond(condt) {
                 break;
             }
-            if let Some(ba) = self.no_env_block(blok1) {
-                // TODO future check "continue 0"
-                return Some(ba);
-            }
+            do_loop_block!(self, blok1);
         }
         return None;
     }
@@ -682,7 +687,7 @@ pub enum BlockAction
 {
     Ret(Val),
     End,
-    Brk(u32), // level
+    Loo(u32, bool), // level, {Again or Break} as bool
 }
 
 impl BlockAction
@@ -692,9 +697,9 @@ impl BlockAction
     {
         match self {
             // decrease level by 1, bcoz broke from current loop
-            BlockAction::Brk(lev) => match lev {
+            BlockAction::Loo(lev, t) => match lev {
                 0 => None,
-                _ => Some(Self::Brk(lev-1)),
+                _ => Some(Self::Loo(lev-1, *t)),
             },
             // maybe return or endproc
             _ => Some(self.clone()),

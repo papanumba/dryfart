@@ -173,12 +173,13 @@ impl<'src> Nip<'src>
     {
         let t = self.peek()?;
         match t.0.typ() {
-            TokTyp::LsqBra  => Some(self.if_stmt()),
-            TokTyp::AtSign  => Some(self.loop_stmt()),
-            TokTyp::AtSign2 => Some(self.break_stmt()),
-            TokTyp::Hash2   => Some(self.return_stmt()),
-            TokTyp::Bang2   => Some(self.pc_end()),
-            TokTyp::Unknown => Some(util::format_err!(
+            TokTyp::LsqBra   => Some(self.if_stmt()),
+            TokTyp::AtSign   => Some(self.loop_stmt()),
+            TokTyp::AtSign2  => Some(self.again_break_stmt(true)),
+            TokTyp::PeriodAt => Some(self.again_break_stmt(false)),
+            TokTyp::Hash2    => Some(self.return_stmt()),
+            TokTyp::Bang2    => Some(self.pc_end()),
+            TokTyp::Unknown  => Some(util::format_err!(
                 "unknown token \'{}\'", t.0)),
             _ => self.other_stmt(),
         }
@@ -311,24 +312,34 @@ impl<'src> Nip<'src>
         return Ok(Stmt::LoopIf(Loop::Cdt(pre, cond, post)));
     }
 
-    // called when peek: 0 -> @@
-    fn break_stmt(&mut self) -> StrRes<Stmt>
+    // called when peek: 0 -> @@ (true) or .@ (false)
+    // parses ('@@' | '.@') (ValN | ValZ)? '.'
+    fn again_break_stmt(&mut self, ab: bool) -> StrRes<Stmt>
     {
+        const MSG: &str = "N% literal or .";
         self.advance(); // @@
-        let mut level: u32 = 0;
-        let Some(t) = self.peek() else {
-            return eof_err!("ValN");
+        let Some(t) = self.read_token() else {
+            return eof_err!(MSG);
         };
-        match t.0.typ() {
+        let level = match t.0.typ() {
             TokTyp::ValN => {
-                level = t.0.as_valn().unwrap();
-                self.advance();
+                let tmp = t.0.as_valn().unwrap();
+                self.exp_adv(TokTyp::Period)?;
+                tmp
             },
-            TokTyp::Period  => {}, // implicit level 1
-            _ => return expected_err!("ValN or .", t),
-        }
-        self.exp_adv(TokTyp::Period)?;
-        return Ok(Stmt::BreakL(level));
+            TokTyp::ValZ => {
+                let tmp = t.0.as_valz().unwrap();
+                self.exp_adv(TokTyp::Period)?;
+                tmp as u32
+            },
+            TokTyp::Period  => 0, // default
+            _ => return expected_err!(MSG, t),
+        };
+        return Ok(if ab {
+            Stmt::AgainL(level)
+        } else {
+            Stmt::BreakL(level)
+        });
     }
 
     // called when peek: 0 -> ##

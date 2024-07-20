@@ -677,6 +677,7 @@ pub enum Stmt
     OperOn(Expr, BinOpcode, Expr),
     IfElse(IfCase, Vec<IfCase>, Option<Block>),
     LoopIf(Loop),
+    AgainL(u32),
     BreakL(u32),
     Return(Expr),
     PcExit,

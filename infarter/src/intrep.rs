@@ -230,6 +230,10 @@ pub struct SubrEnv // subroutine environment compiler
     pub blocks:   Vec<BasicBlock>,  // graph arena
     pub curr:     BasicBlock,       // current working bblock
     pub rect:     Stack<LocIdx>,    // accumulating $@N
+    pub agn:      Stack<BbIdx>,     // stack of þe loops from outer to inner
+                                    // þe indices are each loop's start
+    pub brk:      Stack<Vec<BbIdx>>,// þis one is a stack for each loop
+                                    // all þe blocks wiþ terms to be patched
 }
 
 impl SubrEnv
@@ -299,9 +303,26 @@ impl SubrEnv
             unreachable!();
         }
     }
+
+    pub fn start_loop(&mut self, start_bbi: BbIdx)
+    {
+        self.agn.push(start_bbi);
+        self.brk.push(vec![]);
+    }
+
+    pub fn end_loop(&mut self, end_bbi: BbIdx)
+    {
+        self.agn.pop();
+        let patches = self.brk.pop_last()
+            .unwrap();
+        let jj = Term::JJX(end_bbi);
+        for p in patches {
+            self.patch_jump(p, jj);
+        }
+    }
 }
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct PageMeta
 {
     pub line: usize,
@@ -320,7 +341,7 @@ pub struct Page
 #[derive(Debug)]
 pub struct Compiler
 {
-    pub consts:  ArraySet<Val>,     // constant pool
+    pub consts:  ArraySet<Val>,       // constant pool
     pub idents:  ArraySet<Rc<DfStr>>, // identifier pool
     pub subrs:   Vec<Page>,
     pub curr:    SubrEnv,
@@ -328,19 +349,9 @@ pub struct Compiler
 
 impl Compiler
 {
-    fn new() -> Self
-    {
-        Self {
-            consts: ArraySet::default(),
-            idents: ArraySet::default(),
-            subrs:  vec![],
-            curr: SubrEnv::default(),
-        }
-    }
-
     pub fn from_asterix(main: &Block) -> Self
     {
-        let mut program = Self::new();
+        let mut program = Self::default();
         program.subrs.push(Page::default()); // dummy main
         program.no_env_block(main);
         program.term_curr_bb(Term::HLT);
@@ -506,7 +517,8 @@ impl Compiler
             Stmt::TbPCal(t, f, a) => self.obj_call(t, f, a, SubrType::P),
             Stmt::PcExit          => {self.term_curr_bb(Term::END);},
             Stmt::Return(e)       => self.s_return(e),
-            Stmt::BreakL(_)       => todo!("loop break"),
+            Stmt::AgainL(l)       => self.s_againl(*l),
+            Stmt::BreakL(l)       => self.s_breakl(*l),
         }
     }
 
@@ -705,8 +717,10 @@ impl Compiler
         */
         self.term_curr_bb(Term::NOP); // start b
         let h = self.curr_idx();
+        self.curr.start_loop(h);
         self.no_env_block(b);
         self.term_curr_bb(Term::JJX(h));
+        self.curr.end_loop(self.curr_idx());
     }
 
     fn s_cdt_loop(&mut self,
@@ -724,12 +738,15 @@ impl Compiler
         */
         self.term_curr_bb(Term::NOP);
         let loop_start = self.curr_idx();
+        self.curr.start_loop(loop_start);
         self.no_env_block(b0);
         self.expr(cond);
         let branch = self.term_curr_bb(Term::PCH(true));
         self.no_env_block(b1);
         self.term_curr_bb(Term::JJX(loop_start));
-        self.curr.patch_jump(branch, Term::JFX(self.curr_idx()));
+        let outside = self.curr_idx();
+        self.curr.end_loop(outside);
+        self.curr.patch_jump(branch, Term::JFX(outside));
     }
 
     fn s_pccall(&mut self, proc: &Expr, args: &[Expr])
@@ -747,6 +764,21 @@ impl Compiler
     {
         self.expr(e);
         self.term_curr_bb(Term::RET);
+    }
+
+    fn s_againl(&mut self, lev: u32)
+    {
+        let loop_start = self.curr.agn.peek(lev as usize)
+            .expect("@@ too deep, þer'r no so many levels");
+        self.term_curr_bb(Term::JJX(*loop_start));
+    }
+
+    fn s_breakl(&mut self, lev: u32)
+    {
+        let here = self.curr_idx();
+        self.curr.brk.peek_mut(lev as usize)
+            .expect(".@ too deep, þer'r no so many levels")
+            .push(here);
     }
 
     fn expr(&mut self, ex: &Expr)
@@ -1032,5 +1064,18 @@ impl Compiler
         let low_name = s.meta.name.as_ref().map(|n| self.push_ident(n));
         let m = PageMeta { line: s.meta.line, name: low_name };
         return self.term_subr(s.arity(), s.upvs.len(), m, outer);
+    }
+}
+
+impl Default for Compiler
+{
+    fn default() -> Self
+    {
+        Self {
+            consts: ArraySet::default(),
+            idents: ArraySet::default(),
+            subrs:  vec![],
+            curr: SubrEnv::default(),
+        }
     }
 }

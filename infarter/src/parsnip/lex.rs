@@ -140,20 +140,20 @@ impl<'src> Luthor<'src>
         let c = self.read_char()?;
         Some(match c {
             b'_' => lex_new_tok!(self, Uscore),
-            b'.' => lex_new_tok!(self, Period),
             b',' => lex_new_tok!(self, Comma),
             b';' => lex_new_tok!(self, Semic),
             b'(' => lex_new_tok!(self, Lparen),
             b')' => lex_new_tok!(self, Rparen),
             b'{' => lex_new_tok!(self, Lbrace),
             b'}' => lex_new_tok!(self, Rbrace),
-            b'+' | b'-' | b'*' | b'/' | b'@' | b'[' | b']' | b'^'
+            b'+' | b'-' | b'*' | b'/' | b'[' | b']' | b'^' | b'@'
                  => self.maybe_2ble(c),
             b'&' => self.from_and(),
             b'|' => self.from_vbar(),
             b'#' => self.from_hash(),
             b'!' => self.from_bang(),
             b'$' => self.from_dollar(),
+            b'.' => self.from_period(), // ., .@
             b'~' => self.from_tilde(),  // ~, ~~, ~=
             b'=' => self.from_equal(),  // =, ==, =>
             b'<' => self.from_langle(), // <, <=
@@ -224,23 +224,37 @@ impl<'src> Luthor<'src>
         b'#' => BsHash,
     }
 
-    // $, $@[0-9]*
+    from_char_fn!{from_period, Period,
+        b'@' => PeriodAt,
+    }
+
+    // $(@\d*)?
     fn from_dollar(&mut self) -> Token<'src>
     {
         if !self.matches(b'@') {
             return lex_new_tok!(self, Dollar);
-        };
-        let mut level = 0; // default level
-        self.advance(); // @
-        if self.is_at_digit() {
-            self.adv_while(u8::is_ascii_digit);
-            level = unsafe {
-                std::str::from_utf8_unchecked(&self.lexeme()[2..])
-                    .parse::<u32>()
-                    .unwrap()
-            };
         }
+        self.advance(); // @
+        let level = self.opt_num();
         return Token::new_rect(level, self.lexeme());
+    }
+
+    // aux fn þat parses a N% number or returns 0 if no digit
+    fn opt_num(&mut self) -> u32
+    {
+        // maybe þer's some oþer parsing, so keep þe lexeme as is
+        let lxm_len = self.lexeme().len();
+        // see if þer's a digit
+        if !self.is_at_digit() {
+            return 0;
+        }
+        // parse þe whole num
+        self.adv_while(u8::is_ascii_digit);
+        return unsafe {
+            std::str::from_utf8_unchecked(&self.lexeme()[lxm_len..])
+                .parse::<u32>()
+                .unwrap() // FIXME is þis actually safe?
+        };
     }
 
     // gets called when at digit

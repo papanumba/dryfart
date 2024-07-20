@@ -93,6 +93,18 @@ macro_rules! kinda_from_str {
     }
 }
 
+macro_rules! level_fn {
+    ($fn_name:ident, $toktyp:ident, $src:lifetime) => {
+        pub fn $fn_name(lev: u32, s: &'src [u8]) -> Self {
+            return Self {
+                typ: TokTyp::$toktyp,
+                val: TokVal{$toktyp: lev},
+                lex: s,
+            };
+        }
+    }
+}
+
 impl<'src> Token<'src>
 {
     // "constructors"
@@ -127,15 +139,6 @@ impl<'src> Token<'src>
         };
     }
 
-    pub fn new_rect(lev: u32, s: &'src [u8]) -> Self
-    {
-        return Self {
-            typ: TokTyp::RecT,
-            val: TokVal{RecT: lev},
-            lex: s,
-        };
-    }
-
     parse_fn!(parse_valn, u32, ValN);
     parse_fn!(parse_valz, i32, ValZ);
     parse_fn!(parse_valr, f32, ValR);
@@ -143,6 +146,8 @@ impl<'src> Token<'src>
     kinda_from_str!(new_comment, Comment, 'src);
     kinda_from_str!(new_ident,   Ident,   'src);
     kinda_from_str!(new_string,  String,  'src);
+
+    level_fn!(new_rect,  RecT,  'src);
 
     pub fn try_1gle_from(s: &'src [u8]) -> Result<Self, String>
     {
@@ -165,8 +170,8 @@ impl<'src> Token<'src>
             b'+' => Plus2,      b'-' => Minus2,     b'*' => Asterisk2,
             b'/' => Slash2,     b'&' => And2,       b'|' => Vbar2,
             b'~' => Tilde2,     b'=' => Equal2,     b'#' => Hash2,
-            b'!' => Bang2,      b'@' => AtSign2,    b'[' => LsqBra2,
-            b']' => RsqBra2,    b'\\'=> Bslash2,    b'^' => Caret2;
+            b'!' => Bang2,      b'[' => LsqBra2,    b']' => RsqBra2,
+            b'\\'=> Bslash2,    b'^' => Caret2,     b'@' => AtSign2;
             _ => util::format_err!(
                 "unknown double char token {0}{0}", char::from(s[0])
             )
@@ -266,7 +271,6 @@ pub enum TokTyp
     Equal2,
     Hash2,
     Bang2,
-    AtSign2,
     LsqBra2,
     RsqBra2,
     // 2 different char
@@ -280,6 +284,8 @@ pub enum TokTyp
     BsHash,     // \#
     AndQu,      // &?
     VbarQu,     // |?
+    AtSign2,    // @@
+    PeriodAt,   // .@
     // literals
     ValV,
     ValB,
@@ -291,9 +297,9 @@ pub enum TokTyp
     // ??
     Ident,
     PrimType, // "[BCNZR]%"
-    RecT,
-    RecF,
-    RecP,
+    RecT,   // $@\d*
+    RecF,   // #@
+    RecP,   // !@
     // oþer
     Comment,
     Unknown,
@@ -318,8 +324,10 @@ pub union TokVal<'src>
     Unknown:  u8,           // u8 as char
 }
 
-impl Default for TokVal<'_> {
-    fn default() -> Self {
-        return Self {Other:()};
+impl Default for TokVal<'_>
+{
+    fn default() -> Self
+    {
+        Self {Other: ()}
     }
 }
