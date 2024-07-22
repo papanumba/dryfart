@@ -173,13 +173,13 @@ impl<'src> Nip<'src>
     {
         let t = self.peek()?;
         match t.0.typ() {
-            TokTyp::LsqBra   => Some(self.if_stmt()),
-            TokTyp::AtSign   => Some(self.loop_stmt()),
-            TokTyp::AtSign2  => Some(self.again_break_stmt(true)),
-            TokTyp::PeriodAt => Some(self.again_break_stmt(false)),
-            TokTyp::Hash2    => Some(self.return_stmt()),
-            TokTyp::Bang2    => Some(self.pc_end()),
-            TokTyp::Unknown  => Some(util::format_err!(
+            TokTyp::LsqBra  => Some(self.if_stmt()),
+            TokTyp::AtSign  => Some(self.loop_stmt()),
+            TokTyp::AtSign2 => Some(self.again_break_stmt(true)),
+            TokTyp::DotAt   => Some(self.again_break_stmt(false)),
+            TokTyp::DotHash => Some(self.return_stmt()),
+            TokTyp::DotBang => Some(self.pc_end()),
+            TokTyp::Unknown => Some(util::format_err!(
                 "unknown token \'{}\'", t.0)),
             _ => self.other_stmt(),
         }
@@ -249,7 +249,7 @@ impl<'src> Nip<'src>
         return Ok(Stmt::TbPCal(lhs, name, args));
     }
 
-    // called when: peek 0 -> LsqBra
+    // called when [
     fn if_stmt(&mut self) -> StrRes<Stmt>
     {
         self.advance(); // [
@@ -294,7 +294,7 @@ impl<'src> Nip<'src>
         }
     }
 
-    // called when peek: 0 -> @
+    // called when @
     fn loop_stmt(&mut self) -> StrRes<Stmt>
     {
         self.advance(); // @
@@ -312,11 +312,11 @@ impl<'src> Nip<'src>
         return Ok(Stmt::LoopIf(Loop::Cdt(pre, cond, post)));
     }
 
-    // called when peek: 0 -> @@ (true) or .@ (false)
+    // called when @@ (true) or .@ (false)
     // parses ('@@' | '.@') (ValN | ValZ)? '.'
     fn again_break_stmt(&mut self, ab: bool) -> StrRes<Stmt>
     {
-        const MSG: &str = "N% literal or .";
+        const MSG: &str = ". or N% or Z% literal";
         self.advance(); // @@
         let Some(t) = self.read_token() else {
             return eof_err!(MSG);
@@ -342,19 +342,19 @@ impl<'src> Nip<'src>
         });
     }
 
-    // called when peek: 0 -> ##
+    // called when .#
     fn return_stmt(&mut self) -> StrRes<Stmt>
     {
-        self.advance(); // ##
+        self.advance(); // .#
         let ret = self.expr()?;
         self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::Return(ret));
     }
 
-    // called when !!
+    // called when .!
     fn pc_end(&mut self) -> StrRes<Stmt>
     {
-        self.advance(); // !!
+        self.advance(); // .!
         self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::PcExit);
     }

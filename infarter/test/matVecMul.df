@@ -13,7 +13,7 @@ matVecMul = #m, v;
     mv ++ _elem;.
     i ++ 1u.
   .
-  ##(mv).
+  .#(mv).
 ..
 
 STD$io$put!matVecMul#

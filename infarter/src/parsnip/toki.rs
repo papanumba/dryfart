@@ -169,9 +169,9 @@ impl<'src> Token<'src>
         return_match!(s,
             b'+' => Plus2,      b'-' => Minus2,     b'*' => Asterisk2,
             b'/' => Slash2,     b'&' => And2,       b'|' => Vbar2,
-            b'~' => Tilde2,     b'=' => Equal2,     b'#' => Hash2,
-            b'!' => Bang2,      b'[' => LsqBra2,    b']' => RsqBra2,
-            b'\\'=> Bslash2,    b'^' => Caret2,     b'@' => AtSign2;
+            b'~' => Tilde2,     b'=' => Equal2,     b'[' => LsqBra2,
+            b']' => RsqBra2,    b'\\'=> Bslash2,    b'^' => Caret2,
+            b'@' => AtSign2;
             _ => util::format_err!(
                 "unknown double char token {0}{0}", char::from(s[0])
             )
@@ -269,8 +269,8 @@ pub enum TokTyp
     Caret2,
     Tilde2,
     Equal2,
-    Hash2,
-    Bang2,
+//    Hash2,
+//    Bang2,
     LsqBra2,
     RsqBra2,
     // 2 different char
@@ -285,7 +285,9 @@ pub enum TokTyp
     AndQu,      // &?
     VbarQu,     // |?
     AtSign2,    // @@
-    PeriodAt,   // .@
+    DotAt,      // .@
+    DotHash,    // .#
+    DotBang,    // .!
     // literals
     ValV,
     ValB,

@@ -207,13 +207,11 @@ impl<'src> Luthor<'src>
     }
 
     from_char_fn!{from_bang, Bang,
-        b'!' => Bang2,
         b'@' => RecP,
         b'$' => BangDollar,
     }
 
     from_char_fn!{from_hash, Hash,
-        b'#' => Hash2,
         b'@' => RecF,
         b'$' => HashDollar,
     }
@@ -225,7 +223,9 @@ impl<'src> Luthor<'src>
     }
 
     from_char_fn!{from_period, Period,
-        b'@' => PeriodAt,
+        b'@' => DotAt,
+        b'#' => DotHash,
+        b'!' => DotBang,
     }
 
     // $(@\d*)?
