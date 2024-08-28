@@ -4,6 +4,8 @@ use std::{rc::Rc, cell::RefCell};
 use super::toki::{Token, LnToken, TokTyp, PrimType};
 use crate::{asterix::*, util, util::{StrRes, DfStr}};
 
+// TODO: make a custom Result for parsnip
+
 macro_rules! expected_err {
     ($e:expr, $f:expr) => { util::format_err!(
         "ParsnipError: Expected {} but found {} at line {}",
@@ -78,12 +80,14 @@ pub struct Nip<'src>
 
 impl<'src> Nip<'src>
 {
+    fn from_tokens(t: Vec<LnToken<'src>>) -> Self
+    {
+        Self {cursor: 0, tokens: t}
+    }
+
     pub fn parse(t: Vec<LnToken<'src>>) -> StrRes<Block>
     {
-        let mut prs = Self {
-            cursor: 0,
-            tokens: t,
-        };
+        let mut prs = Self::from_tokens(t);
         // parse "main" block
         let res = prs.block()?;
         // check correctly ended
@@ -189,8 +193,14 @@ impl<'src> Nip<'src>
     fn other_stmt(&mut self) -> Option<StrRes<Stmt>>
     {
         const MSG: &str = "=, !, !$, ++, --, **, //, \\\\, &&, || or ^^";
-        let Ok(lhs) = self.expr() else {
-            return None;
+        let lhs = match self.expr() {
+            Ok(x) => x,
+            Err(s) =>
+                if s.contains("found EOF") {
+                    return Some(Err(s));
+                } else {
+                    return None;
+                },
         };
         let Some(t) = self.peek() else {
             return Some(eof_err!(MSG));

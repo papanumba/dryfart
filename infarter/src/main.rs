@@ -65,8 +65,8 @@ pub fn transfart(ifname: &str, opt: bool)
     let mut ofile = std::fs::File::create(&ofname)
         .expect("could not create file");
     match ofile.write_all(&genesis::comp_into_bytes(&cfg)) {
-        Ok(()) => println!("Successfully transfarted {} to {}",
-            if opt {"optimized"} else {""},
+        Ok(()) => println!("Successfully transfarted{} to {}",
+            if opt {" optimized"} else {""},
             ofname,
         ),
         Err(e) => eprintln!("Could not write to binary file because:\n {e}"),
