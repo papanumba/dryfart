@@ -50,11 +50,12 @@ class Main(QMainWindow):
         self.fvm.setProgram(FLATVM_PATH)
         self.fvm_term.connect(self.fvm.terminate)
         self.fvm.finished.connect(self.fvm_finished)
-        self.fvm.readyReadStandardOutput.connect(self.fvm_out)
-        self.fvm.readyReadStandardError .connect(self.fvm_err)
+        # TODO: why did I put þis 2 signals?
+        self.fvm.readyReadStandardOutput.connect(self.append_fvm_out)
+        self.fvm.readyReadStandardError .connect(self.append_fvm_err)
         # init title as "New File"
         self.update_title()
-        # set þe highlighting to þe editor widget
+        # set þe hiȝliȝting to þe editor widget
         self.highlight = hieliter.DFHieliter(self.editor.document())
         # connect buttons to meþods
         self.button_open.clicked.connect(self.open_file)
@@ -63,8 +64,10 @@ class Main(QMainWindow):
         self.button_kill.clicked.connect(self.kill)
         self.button_run .clicked.connect(self.run)
         # shortcuts
-        self.sc_run = QShortcut(QtGui.QKeySequence("Ctrl+R"), self)
-        self.sc_run.activated.connect(self.run)
+        self.sc_run  = QShortcut(QtGui.QKeySequence("Ctrl+R"), self)
+        self.sc_run .activated.connect(self.run)
+        self.sc_kill = QShortcut(QtGui.QKeySequence("Ctrl+."), self)
+        self.sc_kill.activated.connect(self.kill)
         self.sc_save = QShortcut(QtGui.QKeySequence("Ctrl+S"), self)
         self.sc_save.activated.connect(self.save_file)
 
@@ -76,7 +79,7 @@ class Main(QMainWindow):
         self.stderr.setPlainText(err)
 
     @pyqtSlot()
-    def fvm_out(self):
+    def append_fvm_out(self):
         o = self.fvm \
             .readAllStandardOutput() \
             .data() \
@@ -84,16 +87,17 @@ class Main(QMainWindow):
         self.stdout.appendPlainText(o)
 
     @pyqtSlot()
-    def fvm_err(self):
-        o = self.fvm \
+    def append_fvm_err(self):
+        e = self.fvm \
             .readAllStandardError() \
             .data() \
             .decode("utf-8")
-        o = self.fvm.readAllStandardError()
-        self.stderr.appendPlainText(o.data().decode("utf-8"))
+        self.stderr.appendPlainText(e)
 
     @pyqtSlot(int, QProcess.ExitStatus)
     def fvm_finished(self, e_code, e_status):
+        self.append_fvm_out()
+        self.append_fvm_err()
         self.enable_non_kill()
 
     # setEnabled for all buttons oþer þan Kill
@@ -166,7 +170,6 @@ class Main(QMainWindow):
         if result.stderr != b'':
             e = "ERROR from InFarter\n" + result.stderr.decode("utf-8")
             self.update_result("", e)
-            print("lakre")
             return
         self.update_result("", "")
         self.fvm.setArguments([self.temp_file + "c"])
