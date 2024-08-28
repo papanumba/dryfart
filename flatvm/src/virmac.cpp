@@ -13,17 +13,10 @@
 #endif
 
 #define READ_BYTE() (read_u8(&this->ip))
-#define CMP_ERR     2
 
 /* static functions */
 void err_cant_op  (const char *, DfVal *);
 void err_dif_types(const char *, DfType, DfType);
-
-// TODO move þis to values.h
-static int dfval_lt(DfVal *, DfVal *);
-static int dfval_le(DfVal *, DfVal *);
-static int dfval_gt(DfVal *, DfVal *);
-static int dfval_ge(DfVal *, DfVal *);
 
 VirMac::VirMac()
 {
@@ -193,32 +186,6 @@ void err_dif_types(const char *op, DfType t1, DfType t2)
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
         op, (char)t1, (char)t2);
 }
-
-/* see C99's §6.5.8 Relational Operators ¶6 */
-
-#define BASURA(M, m, c) \
-      case VAL_ ## M: return lhs->as.m c rhs->as.m;
-
-#define DFVAL_CMP_FN(name, cmpop) \
-static int name(DfVal *lhs, DfVal *rhs) \
-{                                       \
-    if (lhs->type != rhs->type)         \
-        return CMP_ERR;                 \
-    switch (lhs->type) {                \
-      BASURA(C, c, cmpop)               \
-      BASURA(N, n, cmpop)               \
-      BASURA(Z, z, cmpop)               \
-      BASURA(R, r, cmpop)               \
-      default: return CMP_ERR;          \
-    }                                   \
-}
-
-DFVAL_CMP_FN(dfval_lt, <)
-DFVAL_CMP_FN(dfval_le, <=)
-DFVAL_CMP_FN(dfval_gt, >)
-DFVAL_CMP_FN(dfval_ge, >=)
-
-#undef DFVAL_CMP_FN
 
 #define VM_JX_IF(x, read_size, adv_size) \
 void VirMac::j ## x ## _if(bool cond) \

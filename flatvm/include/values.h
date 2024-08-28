@@ -44,6 +44,8 @@ enum ValType {
 
 class DfVal {
   public:
+    static const int CMP_ERR = -1;
+  public:
     enum ValType type;
     union _as {
         bool     b;
@@ -91,6 +93,10 @@ class DfVal {
     // operators
     bool operator==(const DfVal &) const;
     bool operator!=(const DfVal &) const;
+    int  operator< (const DfVal &) const; // 0 -> false, 1 -> true, -1 -> err
+    int  operator<=(const DfVal &) const;
+    int  operator> (const DfVal &) const;
+    int  operator>=(const DfVal &) const;
     DfVal & operator=(const DfVal &that) {
         this->type = that.type;
         this->as.o = that.as.o;

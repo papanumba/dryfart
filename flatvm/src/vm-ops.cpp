@@ -264,24 +264,22 @@ OP_CEX(NE, !=)
 
 // orderings
 
-#define OP_CXX(XX, xx, msg) \
-case OP_C##XX: {             \
-    DfVal rhs = this->pop(); \
-    DfVal lhs = this->pop(); \
-    int cmp;                 \
-    switch ((cmp = dfval_##xx(&lhs, &rhs))) { \
-      case CMP_ERR:          \
-        ERR_BINOP(msg);      \
-      default:               \
-        this->push(DfVal((bool)cmp)); \
-    }                        \
-    break;                   \
+#define OP_CXX(XX, op) \
+case OP_C##XX: {                \
+    DfVal rhs = this->pop();    \
+    DfVal lhs = this->pop();    \
+    int cmp = lhs op rhs;       \
+    if (cmp == DfVal::CMP_ERR)  \
+        ERR_BINOP(#op);         \
+    else                        \
+        this->push(DfVal((bool) cmp)); \
+    break;                      \
 }
 
-OP_CXX(LT, lt, "<")
-OP_CXX(LE, le, "<=")
-OP_CXX(GT, gt, ">")
-OP_CXX(GE, ge, ">=")
+OP_CXX(LT, < )
+OP_CXX(LE, <=)
+OP_CXX(GT, > )
+OP_CXX(GE, >=)
 
 #undef OP_CXX
 
@@ -377,23 +375,22 @@ OP_JXY(N, !=, L, l)
 
 // J[LG][TE]
 
-#define OP_J_CMP(CMP, cmp, msg) \
-case OP_J ## CMP: {          \
-    DfVal rhs = this->pop(); \
-    DfVal lhs = this->pop(); \
-    int cmp = dfval_ ## cmp(&lhs, &rhs); \
-    if (CMP_ERR == cmp) {    \
-        ERR_BINOP(msg);      \
-    } else {                 \
-        this->jl_if(cmp);    \
-    }                        \
-    break;                   \
+#define OP_J_CMP(XX, op) \
+case OP_J##XX: {               \
+    DfVal rhs = this->pop();   \
+    DfVal lhs = this->pop();   \
+    int cmp = lhs op rhs;      \
+    if (cmp == DfVal::CMP_ERR) \
+        ERR_BINOP(#op);        \
+    else                       \
+        this->jl_if(cmp);      \
+    break;                     \
 }
 
-OP_J_CMP(LT, lt, ">=")
-OP_J_CMP(LE, le, ">")
-OP_J_CMP(GT, gt, "<=")
-OP_J_CMP(GE, ge, "<")
+OP_J_CMP(LT, >=)
+OP_J_CMP(LE, > )
+OP_J_CMP(GT, <=)
+OP_J_CMP(GE, < )
 
 #undef OP_J_CMP
 

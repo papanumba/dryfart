@@ -4,6 +4,36 @@
 #include "object.h" // includes values.h
 #include "latin1.h"
 
+void DfVal::print() const
+{
+    switch (this->type) {
+      case VAL_V: putchar('V');                      break;
+      case VAL_B: putchar(this->as.b ? 'T' : 'F');   break;
+      case VAL_C: latin1_putchar(this->as.c);        break;
+      case VAL_N: printf("%luu", (ulong)this->as.n); break;
+      case VAL_Z: printf("%ld",   (long)this->as.z); break;
+      case VAL_R: printf("%f", this->as.r);          break;
+      case VAL_O: this->as.o.print();                break;
+    }
+}
+
+DfType DfVal::as_type() const
+{
+    DfType t = DfType::V;
+    switch (this->type) {
+#define BASURA(X) case VAL_##X: t = DfType::X; break;
+      BASURA(V)
+      BASURA(B)
+      BASURA(C)
+      BASURA(N)
+      BASURA(Z)
+      BASURA(R)
+#undef BASURA
+      case VAL_O: t = objt2dft(this->as.o.get_type()); break;
+    }
+    return t;
+}
+
 bool DfVal::operator==(const DfVal &that) const
 {
     if (this->type != that.type)
@@ -36,32 +66,29 @@ bool DfVal::operator!=(const DfVal &that) const
     unreachable();
 }
 
-void DfVal::print() const
-{
-    switch (this->type) {
-      case VAL_V: putchar('V');                      break;
-      case VAL_B: putchar(this->as.b ? 'T' : 'F');   break;
-      case VAL_C: latin1_putchar(this->as.c);        break;
-      case VAL_N: printf("%luu", (ulong)this->as.n); break;
-      case VAL_Z: printf("%ld",   (long)this->as.z); break;
-      case VAL_R: printf("%f", this->as.r);          break;
-      case VAL_O: this->as.o.print();                break;
-    }
+/* see C99's §6.5.8 Relational Operators ¶6 */
+
+#define BASURA(M, m, c) \
+case VAL_ ## M: return this->as.m c that.as.m;
+
+#define DFVAL_CMP_FN(op) \
+int DfVal::operator op (const DfVal &that) const \
+{                                   \
+    if (this->type != that.type)    \
+        return CMP_ERR;             \
+    switch (that.type) {            \
+      BASURA(C, c, op)              \
+      BASURA(N, n, op)              \
+      BASURA(Z, z, op)              \
+      BASURA(R, r, op)              \
+      default: return CMP_ERR;      \
+    }                               \
 }
 
-DfType DfVal::as_type() const
-{
-    DfType t = DfType::V;
-    switch (this->type) {
-#define BASURA(X) case VAL_##X: t = DfType::X; break;
-      BASURA(V)
-      BASURA(B)
-      BASURA(C)
-      BASURA(N)
-      BASURA(Z)
-      BASURA(R)
+DFVAL_CMP_FN(<)
+DFVAL_CMP_FN(<=)
+DFVAL_CMP_FN(>)
+DFVAL_CMP_FN(>=)
+
 #undef BASURA
-      case VAL_O: t = objt2dft(this->as.o.get_type()); break;
-    }
-    return t;
-}
+#undef DFVAL_CMP_FN
