@@ -387,10 +387,10 @@ case OP_J##XX: {               \
     break;                     \
 }
 
-OP_J_CMP(LT, >=)
-OP_J_CMP(LE, > )
-OP_J_CMP(GT, <=)
-OP_J_CMP(GE, < )
+OP_J_CMP(LT, < )
+OP_J_CMP(LE, <=)
+OP_J_CMP(GT, > )
+OP_J_CMP(GE, >=)
 
 #undef OP_J_CMP
 
