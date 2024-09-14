@@ -52,20 +52,21 @@ void NatFactory::mark_all()
 NatTbl::NatTbl(NatTblTag tag)
 {
     this->tag = tag;
-    this->priv = nullptr;
+    this->priv = nullptr; // for non-static stuff
 }
 
 NatTbl::NatTbl(NatTbl &&that)
 {
     this->priv = that.priv;
     this->tag  = that.tag;
-    // TODO: set tag or priv to prevent destruction
+    // priv to prevent destruction
     that.priv = nullptr;
 }
 
 NatTbl::~NatTbl()
 {
-    // pass
+    if (this->priv != nullptr)
+        todo("Destroy non-static native tbl");
 }
 
 void NatTbl::print() const
