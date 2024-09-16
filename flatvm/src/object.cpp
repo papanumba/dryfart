@@ -18,13 +18,15 @@ const char * accres_what(AccRes ar)
     }
 }
 
-// copy ctor
 ArrObj::ArrObj(const ArrObj &that)
     : typ(that.typ)
 {
     switch (dft2valt(this->typ)) {
       case VAL_V: return;
-      case VAL_B: todo("copy ctor for bitarr");
+      case VAL_B:
+        new (&this->as.b) BitArr(that.as.b);
+        break;
+    // oþer cases
 #define BASURA(M, m, t) \
       case VAL_##M: \
         new (&this->as.m) DynArr<t>(that.as.m); \
@@ -268,7 +270,8 @@ AccRes ArrObj::extend(const ArrObj &that)
         new (this) ArrObj(that); // clone þat into þis
         break;
       case DfType::B:
-        todo("BitArr::extend");
+        this->as.b.extend(that.as.b);
+        break;
 #define BASURA(M, m) \
       case DfType::M: \
         this->as.m.extend(that.as.m); \

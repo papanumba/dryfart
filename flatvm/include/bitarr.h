@@ -12,7 +12,7 @@ class BitArr {
   public:
     BitArr() = default;
     BitArr(BitArr &&) = default;
-    BitArr(das_t);
+    BitArr(const BitArr &);
     ~BitArr() = default;
     // getters
     das_t len() const;
@@ -21,6 +21,7 @@ class BitArr {
     void push(bool);
     bool pop();
     void set(das_t, bool);
+    void extend(const BitArr &);
     // operators
     bool operator[](das_t i) const;
     BitArr & operator=(BitArr &&that) = default;
