@@ -42,6 +42,22 @@ enum ValType {
     VAL_O = 0x0C /* any heap stuff */
 };
 
+static inline ValType dft2valt(DfType t)
+{
+    switch (t) {
+#define BASURA(X) case DfType::X: return VAL_##X;
+      BASURA(V)
+      BASURA(B)
+      BASURA(C)
+      BASURA(N)
+      BASURA(Z)
+      BASURA(R)
+#undef BASURA
+      default: // ATFP
+        return VAL_O;
+    }
+}
+
 class DfVal {
   public:
     static const int CMP_ERR = -1;

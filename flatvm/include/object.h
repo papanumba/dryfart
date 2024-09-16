@@ -49,15 +49,20 @@ class ArrObj : public Object {
     } as;
   public:
     ArrObj() : typ(DfType::V) {};
+    ArrObj(const ArrObj &); // copy
     ~ArrObj();
     ArrObj(DfVal &&); // array from single element, type inferred
     uint32_t len() const;
+    bool is_empty() const;
     AccRes push(DfVal &&);
     AccRes get(uint32_t, DfVal &) const;
     AccRes set(uint32_t, DfVal &&);
     AccRes concat(const ArrObj &, ArrObj &) const;
+    AccRes extend(const ArrObj &);
     void print() const;
     void print_string() const;
+  private:
+    bool can_concat(const ArrObj &) const; // checking concat compat
 };
 
 class TblObj : public Object {

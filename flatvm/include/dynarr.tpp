@@ -40,6 +40,17 @@ DynArr<T>::DynArr(DynArr<T> &&that) :  // move
     that.init();
 }
 
+// copy ctor w/o copying each element
+template <typename T>
+DynArr<T>::DynArr(const DynArr<T> &that)
+{
+    // reserve
+    new (this) DynArr<T>(that._cap);
+    // copy elements & len
+    memcpy(this->_arr, that._arr, that._len * sizeof(T));
+    this->_len = that._len;
+}
+
 template <typename T>
 DynArr<T>::DynArr(das_t c) // with reserved capacity
 {
@@ -94,6 +105,15 @@ T && DynArr<T>::pop()
         panic("popping empty DynArr");
     this->_len--;
     return std::move((*this)[this->_len]);
+}
+
+template <typename T>
+void DynArr<T>::extend(const DynArr<T> &that)
+{
+    auto newlen = this->_len + that._len;
+    this->set_cap(newlen);
+    memcpy(&this->_arr[this->_len], that._arr, that._len * sizeof(T));
+    this->_len = newlen;
 }
 
 template <typename T>

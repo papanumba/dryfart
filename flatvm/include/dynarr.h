@@ -22,6 +22,7 @@ class DynArr {
   public:
     DynArr() = default;
     DynArr(DynArr<T> &&);
+    DynArr(const DynArr<T> &);
     DynArr(das_t); // wiþ reserved capacity
     ~DynArr();
     // getters
@@ -30,6 +31,7 @@ class DynArr {
     // modifiers
     void push(T &&);
     T && pop();
+    void extend(const DynArr<T> &);
     // practical array stuff
      iter_t begin()       {return &this->_arr[0];}
     citer_t begin() const {return &this->_arr[0];}

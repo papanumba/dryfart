@@ -18,6 +18,26 @@ const char * accres_what(AccRes ar)
     }
 }
 
+// copy ctor
+ArrObj::ArrObj(const ArrObj &that)
+    : typ(that.typ)
+{
+    switch (dft2valt(this->typ)) {
+      case VAL_V: return;
+      case VAL_B: todo("copy ctor for bitarr");
+#define BASURA(M, m, t) \
+      case VAL_##M: \
+        new (&this->as.m) DynArr<t>(that.as.m); \
+        break;
+      BASURA(C, c, uint8_t)
+      BASURA(N, n, uint32_t)
+      BASURA(Z, z, int32_t)
+      BASURA(R, r, float)
+      BASURA(O, o, ObjRef)
+#undef BASURA
+    }
+}
+
 ArrObj::ArrObj(DfVal &&v)
 {
     switch (v.type) {
@@ -87,6 +107,11 @@ uint32_t ArrObj::len() const
       BASURA_CASES
 #undef BASURA
     }
+}
+
+bool ArrObj::is_empty() const
+{
+    return DfType::V == this->typ;
 }
 
 // returns true if OK, returns false if are different types
@@ -167,8 +192,6 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
     return AccRes::OK;
 }
 
-#undef BASURA_CASES
-
 void ArrObj::print() const
 {
     putchar('_');
@@ -227,26 +250,46 @@ void ArrObj::print_string() const
 
 AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
 {
-    new (&res) ArrObj();
-    // TODO: more efficient, idea: extend from slice
-    // push 1st array (*this)
-    TIL(i, this->len()) {
-        DfVal elem;
-        (void) this->get(i, elem);
-        (void) res.push(std::move(elem));
-    }
-    // push 2nd array (that)
-    TIL(i, that.len()) {
-        DfVal elem;
-        (void) that.get(i, elem);
-        auto r = res.push(std::move(elem));
-        if (r != AccRes::OK) {
-            res.~ArrObj();
-            return r;
-        }
+    if (!this->can_concat(that))
+        return AccRes::DIFF_TYPE;
+    new (&res) ArrObj(*this);
+    (void) res.extend(that); // already checked
+    return AccRes::OK;
+}
+
+AccRes ArrObj::extend(const ArrObj &that)
+{
+    if (!this->can_concat(that))
+        return AccRes::DIFF_TYPE;
+    if (that.is_empty())
+        return AccRes::OK;
+    switch (this->typ) {
+      case DfType::V: // þis is_empty
+        new (this) ArrObj(that); // clone þat into þis
+        break;
+      case DfType::B:
+        todo("BitArr::extend");
+#define BASURA(M, m) \
+      case DfType::M: \
+        this->as.m.extend(that.as.m); \
+        break;
+      BASURA_CASES
+#undef BASURA
     }
     return AccRes::OK;
 }
+
+#undef BASURA_CASES
+
+// helper for checking compatibility before concating
+bool ArrObj::can_concat(const ArrObj &that) const
+{
+    return (this->is_empty() || that.is_empty())
+        ? true
+        : this->typ == that.typ;
+}
+
+/*************************** T A B L E S ***************************/
 
 TblObj::~TblObj()
 {
