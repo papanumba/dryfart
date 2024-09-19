@@ -375,12 +375,10 @@ void FunObj::set(NatFun &&f)
 
 void FunObj::print() const
 {
-    if (this->is_nat) {
-        printf("some nat fun");
-        return;
-    }
-    // usr fun
-    this->as.usr.print();
+    if (this->is_nat)
+        this->as.nat.print();
+    else
+        this->as.usr.print();
 }
 
 ProObj::~ProObj()
@@ -404,10 +402,8 @@ void ProObj::set(NatPro &&p)
 
 void ProObj::print() const
 {
-    if (this->is_nat) {
-        printf("some nat proc");
-        return;
-    }
-    // usr pro
-    this->as.usr.print();
+    if (this->is_nat)
+        this->as.nat.print();
+    else
+        this->as.usr.print();
 }

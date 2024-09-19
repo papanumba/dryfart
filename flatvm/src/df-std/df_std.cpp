@@ -6,8 +6,6 @@
 #include "virmac.h"
 #include "object.h"
 #include "idents.h"
-//#include "garcol.h"
-//#include "df-lib.h"
 
 #define CHECK_ARGC(name, a) do { \
     if (argc != a) { \
@@ -82,7 +80,7 @@ static bool a_get(const DfIdf *i, DfVal &v)
 
 static int a_len(VirMac &vm, DfVal *argv, size_t argc, DfVal &ret)
 {
-    (void)vm;
+    (void) vm;
     CHECK_ARGC("STD$a$len#", 1);
     auto &a = argv[0];
     if (!a.is_arr()) {
@@ -90,6 +88,29 @@ static int a_len(VirMac &vm, DfVal *argv, size_t argc, DfVal &ret)
         return 0;
     }
     ret = DfVal(a.as.o.as_arr()->len());
+    return 1;
+}
+
+static int a_eke(VirMac &vm, DfVal *argv, size_t argc)
+{
+    (void) vm;
+    CHECK_ARGC("STD$a$eke!", 2);
+    auto &a = argv[0]; // þe array
+    if (!a.is_arr()) {
+        eputln("argument passed to STD$a$eke is not array");
+        return 0;
+    }
+    ObjRef a_o = a.as.o;
+    if (!a_o.mut()) {
+        eputln("cannot eke to immutable array");
+        return 0;
+    }
+    auto &e = argv[1]; // þe elem to be eked
+    auto res = a_o.as_arr()->push(std::move(e));
+    if (AccRes::OK != res) {
+        eputln(accres_what(res));
+        return 0;
+    }
     return 1;
 }
 

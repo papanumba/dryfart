@@ -104,9 +104,16 @@ NatFun::NatFun(NatFunTag t)
 void NatPro::print() const
 {
     switch (this->tag) {
-      case DF_STD_IO_PUT: printf("! \"STD$io$put\""); break;
-      case DF_STD_GC: printf("! STD$gc"); break;
-      case DF_STD_A_EKE: printf("! STD$a$eke"); break;
+      case DF_STD_IO_PUT: printf("! STD$io$put"); break;
+      case DF_STD_GC:     printf("! STD$gc");     break;
+      case DF_STD_A_EKE:  printf("! STD$a$eke");  break;
+    }
+}
+
+void NatFun::print() const
+{
+    switch (this->tag) {
+      case DF_STD_A_LEN: printf("# STD$a$len"); break;
     }
 }
 
@@ -116,26 +123,6 @@ NatPro::NatPro(NatProTag t)
     switch (t) {
       case DF_STD_IO_PUT: this->exec = df_std::io_put; break;
       case DF_STD_GC:     this->exec = df_std::gc;     break;
-      case DF_STD_A_EKE:  todo("eke");//this->exec = df_std_a_eke;   break;
+      case DF_STD_A_EKE:  this->exec = df_std::a_eke;   break;
     }
 }
-
-#if 0
-void nat_fn_print(enum NatFnTag t)
-{
-    switch (t) {
-      case DF_STD_A_LEN: printf("\"STD$a$eke#\""); break;
-    }
-}
-
-struct NatFn nat_fn_from(enum NatFnTag t)
-{
-    struct NatFn nf;
-    nf.tag = t;
-    switch (t) {
-      case DF_STD_A_LEN: nf.eval = df_std_a_len; break;
-    }
-    return nf;
-}
-
-#endif
