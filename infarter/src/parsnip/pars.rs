@@ -193,13 +193,14 @@ impl<'src> Nip<'src>
     fn other_stmt(&mut self) -> Option<StrRes<Stmt>>
     {
         const MSG: &str = "=, !, !$, ++, --, **, //, \\\\, &&, || or ^^";
+        let start = self.cursor;
         let lhs = match self.expr() {
             Ok(x) => x,
-            Err(s) =>
-                if s.contains("found EOF") {
-                    return Some(Err(s));
+            Err(s) => // has advanced & some error
+                return if self.cursor != start && s.contains("found EOF") {
+                    Some(Err(s))
                 } else {
-                    return None;
+                    None
                 },
         };
         let Some(t) = self.peek() else {
