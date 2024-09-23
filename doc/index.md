@@ -8,7 +8,7 @@ Before reading these documents, make sure you have good understanding about prog
 
 Features:
 * No keywords, only symbols, that's why it's _Dry_
-* Control flow: if-else, loops, and a (TODO) switch
+* Control flow: if-else, switch and loops
 * Imperative: both procedural and functional
 * Functional: all subroutines are 1st-class 
 * Closures with capture by value (only VM)
@@ -27,8 +27,9 @@ Features:
 * Pascal:
 	* distinction between functions vs procedures.
 	* strong typing
-	* (TODO) Case statement syntax. (Note: I **hate** to have to `break;` every `case` in a C switch)
-* Lua, Lox: tables, indexed by identifiers.
+	* Case statement semantics
+* Lua, Lox: tables, indexed by identifiers
+
 * Python: no declaration, only assignments
 * Bash: gotta luv da `[ ]` and `[[ ]]` for conditions
 

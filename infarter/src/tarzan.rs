@@ -103,6 +103,7 @@ impl Scope
             Stmt::Assign(v, e)    => self.do_assign(v, e),
             Stmt::OperOn(l, o, e) => self.do_operon(l, o, e),
             Stmt::IfElse(i, o, e) => return self.do_ifelse(i, o, e),
+            Stmt::Switch(..)      => todo!(),
             Stmt::LoopIf(l)       => return self.do_loopif(l),
             Stmt::AgainL(l)       => return Some(BlockAction::Loo(*l, true)),
             Stmt::BreakL(l)       => return Some(BlockAction::Loo(*l, false)),

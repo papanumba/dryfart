@@ -491,6 +491,9 @@ impl Compiler
 
     fn block(&mut self, b: &Block)
     {
+        if b.is_empty() {
+            return;
+        }
         let presize = self.locsize();
         self.curr.enter_scope();
         self.no_env_block(b);
@@ -512,6 +515,7 @@ impl Compiler
             Stmt::Assign(v, e)    => self.s_assign(v, e),
             Stmt::OperOn(l, o, e) => self.s_operon(l, o, e),
             Stmt::IfElse(i, o, e) => self.s_ifelse(i, o, e),
+            Stmt::Switch(m, c, d) => self.s_switch(m, c, d),
             Stmt::LoopIf(l)       => self.s_loopif(l),
             Stmt::PcCall(p, a)    => self.s_pccall(p, a),
             Stmt::TbPCal(t, f, a) => self.obj_call(t, f, a, SubrType::P),
@@ -628,7 +632,6 @@ impl Compiler
         self.push_op(ImOp::POP);
     }
 
-    // FIXME: else block is not tied correctly
     fn s_ifelse(
         &mut self,
         if_0: &IfCase,
@@ -654,19 +657,71 @@ impl Compiler
             jjx_idxs.push(self.term_curr_bb(Term::PCH(false)));
         }
         // opt else
-        let last_patch;
-        if let Some(eb) = elze {
+        let last_patch = if let Some(eb) = elze {
             self.block(eb);
-            last_patch = self.term_curr_bb(Term::NOP);
+            self.term_curr_bb(Term::NOP)
         } else { // connect last if to the end
-            last_patch = self.curr_idx();
-        }
+            self.curr_idx()
+        };
+        // join last If to Else
         self.curr.patch_jump(last_if_idx, Term::JFX(last_patch));
         // close all
         let eo_if = self.curr_idx();
         for i in jjx_idxs {
             self.curr.patch_jump(i, Term::JJX(eo_if));
         }
+    }
+
+    fn s_switch(&mut self,
+        mat: &Expr,
+        cas: &[SwCase],
+        def: &Block)
+    {
+        // prepare þe matchee
+        self.expr(mat);
+        // early optimization
+        if cas.is_empty() {
+            self.push_op(ImOp::POP);
+            self.block(def);
+            return;
+        }
+        // code following, very similar to s_ifstmt
+        // do þe cases
+        let mut last_case_idx;
+        let mut jjx_idxs = vec![];
+        // 0st case, coz `cas` is !mt here
+        self.push_op(ImOp::DUP);
+        self.expr(&cas[0].comp);
+        last_case_idx = self.term_curr_bb(Term::PCH(true)); // JNX
+        self.block(&cas[0].blok);
+        jjx_idxs.push(self.term_curr_bb(Term::PCH(false))); // JJX
+        // oþer if cases
+        for c in cas {
+            self.curr.patch_jump(
+                last_case_idx, Term::JNX(self.curr_idx()));
+            // DUP (mat mat)
+            // [c.comp]
+            // JNX next case
+            // [c.blok]
+            // JJX default
+            self.push_op(ImOp::DUP);
+            self.expr(&c.comp);
+            last_case_idx = self.term_curr_bb(Term::PCH(true));
+            self.block(&c.blok);
+            jjx_idxs.push(self.term_curr_bb(Term::PCH(false)));
+        }
+        // default case, even if mt, it will be optimized away
+        self.block(def);
+        let last_patch = self.term_curr_bb(Term::NOP);
+        // join last case to default
+        self.curr.patch_jump(last_case_idx, Term::JNX(last_patch));
+        // patch all jjx's
+        let end = self.curr_idx();
+        for i in jjx_idxs {
+            self.curr.patch_jump(i, Term::JJX(end));
+        }
+        // POP þe matchee
+        self.push_op(ImOp::POP);
     }
 
     fn s_loopif(&mut self, lo: &Loop)

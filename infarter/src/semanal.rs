@@ -32,6 +32,14 @@ fn std_check_stmt(s: &mut Stmt)
             for c in o {std_check_ifcase(c);}
             if let Some(m) = e {std_check_block(m);}
         },
+        Stmt::Switch(m, c, d) => {
+            std_check_expr(m);
+            for x in c {
+                std_check_expr(&mut x.comp);
+                std_check_block(&mut x.blok);
+            }
+            std_check_block(d);
+        },
         Stmt::LoopIf(l) => std_check_loop(l),
         Stmt::Return(e) => std_check_expr(e),
         Stmt::PcCall(p, a) => {

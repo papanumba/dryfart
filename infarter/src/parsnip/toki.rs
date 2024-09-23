@@ -157,7 +157,7 @@ impl<'src> Token<'src>
             b'|' => Vbar,       b'~' => Tilde,      b'=' => Equal,
             b'#' => Hash,       b'!' => Bang,       b'@' => AtSign,
             b'[' => LsqBra,     b']' => RsqBra,     b'_' => Uscore,
-            b'.' => Period,     b',' => Comma;
+            b'.' => Period,     b',' => Comma,      b':' => Colon;
             _ => util::format_err!(
                 "unknown single char token {}", char::from(s[0])
             )
@@ -246,6 +246,7 @@ pub enum TokTyp
     Uscore,
     Period,
     Comma,
+    Colon,
     Semic,
     Hash,
     Bang,

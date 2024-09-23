@@ -6,7 +6,7 @@ use crate::{asterix::*, util, util::{StrRes, DfStr}};
 
 // TODO: make a custom Result for parsnip
 
-macro_rules! expected_err {
+macro_rules! exp_err {
     ($e:expr, $f:expr) => { util::format_err!(
         "ParsnipError: Expected {} but found {} at line {}",
         $e, $f.0, $f.1
@@ -94,7 +94,7 @@ impl<'src> Nip<'src>
         if prs.is_at_end() {
             Ok(res)
         } else {
-            expected_err!("EOF", prs.peek().unwrap())
+            exp_err!("EOF", prs.peek().unwrap())
         }
     }
 
@@ -147,7 +147,7 @@ impl<'src> Nip<'src>
             self.advance();
             Ok(())
         } else {
-            expected_err!(format!("{:?}", t), self.peek().unwrap())
+            exp_err!(format!("{:?}", t), self.peek().unwrap())
         }
     }
 
@@ -177,7 +177,7 @@ impl<'src> Nip<'src>
     {
         let t = self.peek()?;
         match t.0.typ() {
-            TokTyp::LsqBra  => Some(self.if_stmt()),
+            TokTyp::LsqBra  => Some(self.branch_stmt()),
             TokTyp::AtSign  => Some(self.loop_stmt()),
             TokTyp::AtSign2 => Some(self.again_break_stmt(true)),
             TokTyp::DotAt   => Some(self.again_break_stmt(false)),
@@ -218,7 +218,7 @@ impl<'src> Nip<'src>
             TokTyp::And2      |
             TokTyp::Vbar2     |
             TokTyp::Caret2    => self.operon(lhs, t.0),
-            _ => expected_err!(MSG, t),
+            _ => exp_err!(MSG, t),
         });
     }
 
@@ -261,12 +261,27 @@ impl<'src> Nip<'src>
     }
 
     // called when [
-    fn if_stmt(&mut self) -> StrRes<Stmt>
+    fn branch_stmt(&mut self) -> StrRes<Stmt>
     {
+        const MSG: &str = "=> or :";
         self.advance(); // [
-        // parse mandatory 1st case of þe if
-        let cond = self.expr()?;
-        self.exp_adv(TokTyp::Then)?;
+        // Expr, þen see if If or Switch
+        let e1 = self.expr()?;
+        let Some(t) = self.read_token() else {
+            return eof_err!(MSG);
+        };
+        // return
+        match t.0.typ() {
+            TokTyp::Then  => self.if_stmt(e1),
+            TokTyp::Colon => self.sw_stmt(e1),
+            _ => exp_err!(MSG, t),
+        }
+    }
+
+    // called when parsed [ Expr =>
+    fn if_stmt(&mut self, cond: Expr) -> StrRes<Stmt>
+    {
+        // end parsing þe 1st (mandatory) case
         let if_block = self.block()?;
         let if0 = IfCase::new(cond, if_block);
         // check if end
@@ -288,7 +303,7 @@ impl<'src> Nip<'src>
             }
             // now must be an Elseif or an Else
             if tt0 != TokTyp::Vbar {
-                return expected_err!(MSG, tok);
+                return exp_err!(MSG, tok);
             }
             self.advance(); // |
             if self.matches(TokTyp::Then) { // Else
@@ -303,6 +318,49 @@ impl<'src> Nip<'src>
             let blok = self.block()?;
             elseifs.push(IfCase::new(cond, blok));
         }
+    }
+
+    // called when parsed [ Expr :
+    fn sw_stmt(&mut self, matchee: Expr) -> StrRes<Stmt>
+    {
+        let mut cases = vec![];
+        let def = loop { // default case's block
+            match self.sw_case()? {
+                (Some(e), d) => cases.push(SwCase{comp:e, blok:d}),
+                (None,    d) => break d, // found end
+            }
+        };
+        return Ok(Stmt::Switch(matchee, cases, def));
+    }
+
+    // helper for sw_stmt, returns (inside Ok):
+    // Some => Block, for a normal case
+    // None => Block, for þe default case
+    fn sw_case(&mut self) -> StrRes<(Option<Expr>, Block)>
+    {
+        const MSG: &str = "| or ]";
+        // expect | or ]
+        let Some(tok) = self.read_token() else {
+            return eof_err!(MSG);
+        };
+        match tok.0.typ() {
+            TokTyp::Vbar => {}, // continue below wiþ þe case
+            TokTyp::RsqBra => // end wiþout default case
+                return Ok((None, vec![])),
+            _ => return exp_err!(MSG, tok),
+        }
+        // after |, expect Expr or =>
+        if self.matches(TokTyp::Then) { // found default case
+            self.advance();
+            let def = self.block()?;
+            self.exp_adv(TokTyp::RsqBra)?;
+            return Ok((None, def));
+        }
+        // expect "Expr => Block"
+        let comp = self.expr()?;
+        self.exp_adv(TokTyp::Then)?;
+        let blok = self.block()?;
+        return Ok((Some(comp), blok));
     }
 
     // called when @
@@ -344,7 +402,7 @@ impl<'src> Nip<'src>
                 tmp as u32
             },
             TokTyp::Period  => 0, // default
-            _ => return expected_err!(MSG, t),
+            _ => return exp_err!(MSG, t),
         };
         return Ok(if ab {
             Stmt::AgainL(level)
@@ -536,7 +594,7 @@ impl<'src> Nip<'src>
             TokTyp::ValZ => Ok(self.valz(tok.0.as_valz().unwrap())),
             TokTyp::ValR => Ok(self.valr(tok.0.as_valr().unwrap())),
             TokTyp::String =>  self.string(tok.0.as_string().unwrap()),
-            _ => expected_err!(MSG, tok),
+            _ => exp_err!(MSG, tok),
         }
     }
 
@@ -569,7 +627,7 @@ impl<'src> Nip<'src>
                 return Ok(exs);
             }
             if tt != TokTyp::Comma {
-                return expected_err!(comma_or_end, tok);
+                return exp_err!(comma_or_end, tok);
             }
             self.advance();
         }
@@ -605,7 +663,7 @@ impl<'src> Nip<'src>
             match t.0.typ() {
                 TokTyp::Ident => {}, // ok, continue reading
                 TokTyp::Semic => break,
-                _ => return expected_err!(MSG, t),
+                _ => return exp_err!(MSG, t),
             }
             let i = self.consume_ident()?;
             self.exp_adv(TokTyp::Equal)?;
@@ -727,7 +785,7 @@ impl<'src> Nip<'src>
             }
             if self.exp_adv(TokTyp::Then).is_err() {
                 let msg = if cases.is_empty() {"=>"} else {"=> or ]"};
-                return expected_err!(msg, self.peek().unwrap());
+                return exp_err!(msg, self.peek().unwrap());
             }
             let f = self.expr()?;
             self.exp_adv(TokTyp::Semic)?;
@@ -741,7 +799,7 @@ impl<'src> Nip<'src>
             return eof_err!("Ident");
         };
         let Some(i) = tok.0.as_ident() else {
-            return expected_err!("Ident", tok);
+            return exp_err!("Ident", tok);
         };
         self.advance(); // ident
         return Ok(i);

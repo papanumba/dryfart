@@ -1,4 +1,3 @@
-
 # Control flow
 
 Generally speaking, a "condition" is an expression that evaluates to `B%` values.
@@ -54,6 +53,26 @@ example:
     b = 0.
 ]
 ```
+
+## Switch
+
+It has a similar syntax to the If-Esle, example:
+
+```
+a = 3.
+b = 4.
+c = V.
+op = "+".
+[ op :
+| "+" => c = a + b.
+| "-" => c = a - b.
+| "*" => c = a * b.
+| "/" => c = a / b.
+|     => c = V. `unknown
+]
+```
+
+As it is inspired by Pascal, it doesn't need a `break;` like C. Note that the expressions in each case do not need to be constants, and they're eval'd as needed successively.
 
 ## While loop
 
@@ -153,5 +172,3 @@ Syntactically, the level must be a `N%` or `Z%` literal but NOT an expression, e
 *Actually, I found that [PHP](https://www.slingacademy.com/article/php-using-break-and-continue-in-loops) does something similar, but it's the only one afaik.
 
 [Next ch.](funcs_n_procs.md)
-
-

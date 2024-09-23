@@ -50,7 +50,7 @@ make release
 
 You'll need python3 and PyQt5. It is important that InFarter and FlatVM are built on release mode, so the `dfarted.py` can find their path.
 
-Just `cd dfarted` and run `dfarted.py` either by `chmod`ing it or with `python` or `python3`.
+Just `cd dfarted` and run `dfarted.py` either by `chmod u+x`'ing it or running it with `python3` (or `python`).
 
 ## Usage
 
@@ -64,5 +64,7 @@ With `infarter` being the binary, located in the current folder.
 
 ## License
 
-This project is licensed under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html). All images/icons under [CC0](https://creativecommons.org/publicdomain/zero/1.0/?ref=chooser-v1).
+This project is licensed under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html).
+
+All images and icons under [CC0](https://creativecommons.org/publicdomain/zero/1.0/?ref=chooser-v1).
 

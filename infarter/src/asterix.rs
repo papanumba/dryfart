@@ -671,11 +671,19 @@ impl IfCase
 }
 
 #[derive(Debug, Clone)]
+pub struct SwCase
+{
+    pub comp: Expr, // þis may be expanded in þe futur
+    pub blok: Block,
+}
+
+#[derive(Debug, Clone)]
 pub enum Stmt
 {
     Assign(Expr, Expr),
     OperOn(Expr, BinOpcode, Expr),
     IfElse(IfCase, Vec<IfCase>, Option<Block>),
+    Switch(Expr,   Vec<SwCase>, Block),
     LoopIf(Loop),
     AgainL(u32),
     BreakL(u32),
