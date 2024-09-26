@@ -6,6 +6,8 @@
 #include "virmac.h"
 #include "object.h"
 #include "idents.h"
+#include "reader.h"
+#include "latin1.h"
 
 #define CHECK_ARGC(name, a) do { \
     if (argc != a) { \
@@ -44,6 +46,8 @@ static bool io_get(const DfIdf *i, DfVal &v)
 {
     if (i->eq("put"))
         RET_V(DF_STD_IO_PUT);
+    if (i->eq("readFile"))
+        RET_V(DF_STD_IO_READFILE);
     return false;
 }
 
@@ -58,6 +62,38 @@ static int io_put(VirMac &vm, DfVal *argv, size_t argc)
         else
             a.print();
     }
+    return 1;
+}
+
+static int io_readFile(VirMac &vm, DfVal *argv, size_t argc, DfVal &ret)
+{
+    (void) vm;
+    CHECK_ARGC("STD$a$len#", 1);
+    auto &a = argv[0];
+    if (!a.is_arr() || a.as.o.as_arr()->typ != DfType::C) {
+        eputln("argument passed to STD$a$len is not a C% array");
+        return 0;
+    }
+    // read_file
+    Reader r;
+    // FIXME also read Latin-1 paþs
+    ReadRes res = reader_open(a.as.o.as_arr()->as_ascii_string(), &r);
+    if (READRES_OK != res) {
+        eputln(readres_what(res));
+        reader_free(&r);
+        return 0;
+    }
+    // copy it into a new C% array
+    auto arr = maitre::alloc(OBJ_ARR);
+    auto *res_arr = arr.as_arr();
+    res_arr->typ = DfType::V;
+    res_arr->is_nat = false;
+    TIL(i, r.len)
+        res_arr->push(DfVal(r.buf[i]));
+    // free
+    reader_free(&r);
+    // "return"
+    ret = DfVal(arr);
     return 1;
 }
 

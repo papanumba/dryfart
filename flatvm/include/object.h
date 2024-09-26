@@ -61,6 +61,7 @@ class ArrObj : public Object {
     AccRes extend(const ArrObj &);
     void print() const;
     void print_string() const;
+    const char * as_ascii_string() const;
   private:
     bool can_concat(const ArrObj &) const; // checking concat compat
 };

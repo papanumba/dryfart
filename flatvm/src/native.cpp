@@ -97,16 +97,8 @@ NatFun::NatFun(NatFunTag t)
 {
     this->tag = t;
     switch (t) {
-      case DF_STD_A_LEN: this->eval = df_std::a_len; break;
-    }
-}
-
-void NatPro::print() const
-{
-    switch (this->tag) {
-      case DF_STD_IO_PUT: printf("! STD$io$put"); break;
-      case DF_STD_GC:     printf("! STD$gc");     break;
-      case DF_STD_A_EKE:  printf("! STD$a$eke");  break;
+      case DF_STD_A_LEN:       this->eval = df_std::a_len;       break;
+      case DF_STD_IO_READFILE: this->eval = df_std::io_readFile; break;
     }
 }
 
@@ -114,6 +106,7 @@ void NatFun::print() const
 {
     switch (this->tag) {
       case DF_STD_A_LEN: printf("# STD$a$len"); break;
+      case DF_STD_IO_READFILE: printf("# STD$io$readFile"); break;
     }
 }
 
@@ -124,5 +117,14 @@ NatPro::NatPro(NatProTag t)
       case DF_STD_IO_PUT: this->exec = df_std::io_put; break;
       case DF_STD_GC:     this->exec = df_std::gc;     break;
       case DF_STD_A_EKE:  this->exec = df_std::a_eke;   break;
+    }
+}
+
+void NatPro::print() const
+{
+    switch (this->tag) {
+      case DF_STD_IO_PUT: printf("! STD$io$put"); break;
+      case DF_STD_GC:     printf("! STD$gc");     break;
+      case DF_STD_A_EKE:  printf("! STD$a$eke");  break;
     }
 }

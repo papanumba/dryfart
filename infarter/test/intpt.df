@@ -1,0 +1,3 @@
+put = STD$io$put.
+f = STD$io$readFile#'/home/danilo/Desktop/prog/dryfart/lines.sh';.
+put!f.

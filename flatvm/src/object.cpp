@@ -194,6 +194,46 @@ AccRes ArrObj::set(uint32_t idx, DfVal &&val)
     return AccRes::OK;
 }
 
+AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
+{
+    if (!this->can_concat(that))
+        return AccRes::DIFF_TYPE;
+    new (&res) ArrObj(*this);
+    (void) res.extend(that); // already checked
+    return AccRes::OK;
+}
+
+AccRes ArrObj::extend(const ArrObj &that)
+{
+    if (!this->can_concat(that))
+        return AccRes::DIFF_TYPE;
+    if (that.is_empty())
+        return AccRes::OK;
+    switch (this->typ) {
+      case DfType::V: // þis is_empty
+        new (this) ArrObj(that); // clone þat into þis
+        break;
+      case DfType::B:
+        this->as.b.extend(that.as.b);
+        break;
+#define BASURA(M, m) \
+      case DfType::M: \
+        this->as.m.extend(that.as.m); \
+        break;
+      BASURA_CASES
+#undef BASURA
+    }
+    return AccRes::OK;
+}
+
+// helper for checking compatibility before concating
+bool ArrObj::can_concat(const ArrObj &that) const
+{
+    return (this->is_empty() || that.is_empty())
+        ? true
+        : this->typ == that.typ;
+}
+
 void ArrObj::print() const
 {
     putchar('_');
@@ -243,6 +283,8 @@ void ArrObj::print() const
     putchar(';');
 }
 
+#undef BASURA_CASES
+
 void ArrObj::print_string() const
 {
     if (DfType::C != this->typ)
@@ -250,46 +292,12 @@ void ArrObj::print_string() const
     latin1_print(&this->as.c[0], this->as.c.len());
 }
 
-AccRes ArrObj::concat(const ArrObj &that, ArrObj &res) const
+const char * ArrObj::as_ascii_string() const
 {
-    if (!this->can_concat(that))
-        return AccRes::DIFF_TYPE;
-    new (&res) ArrObj(*this);
-    (void) res.extend(that); // already checked
-    return AccRes::OK;
-}
-
-AccRes ArrObj::extend(const ArrObj &that)
-{
-    if (!this->can_concat(that))
-        return AccRes::DIFF_TYPE;
-    if (that.is_empty())
-        return AccRes::OK;
-    switch (this->typ) {
-      case DfType::V: // þis is_empty
-        new (this) ArrObj(that); // clone þat into þis
-        break;
-      case DfType::B:
-        this->as.b.extend(that.as.b);
-        break;
-#define BASURA(M, m) \
-      case DfType::M: \
-        this->as.m.extend(that.as.m); \
-        break;
-      BASURA_CASES
-#undef BASURA
-    }
-    return AccRes::OK;
-}
-
-#undef BASURA_CASES
-
-// helper for checking compatibility before concating
-bool ArrObj::can_concat(const ArrObj &that) const
-{
-    return (this->is_empty() || that.is_empty())
-        ? true
-        : this->typ == that.typ;
+    if (DfType::C != this->typ ||
+        !latin1_is_ascii_string(&this->as.c[0], this->as.c.len()))
+        return nullptr;
+    return (const char *) &this->as.c[0];
 }
 
 /*************************** T A B L E S ***************************/

@@ -44,7 +44,8 @@ class NatPro {
 };
 
 enum NatFunTag {
-    DF_STD_A_LEN
+    DF_STD_A_LEN,
+    DF_STD_IO_READFILE,
 };
 
 class NatFun {
