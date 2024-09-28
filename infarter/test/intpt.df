@@ -1,3 +1,93 @@
 put = STD$io$put.
-f = STD$io$readFile#'/home/danilo/Desktop/prog/dryfart/lines.sh';.
+eke = STD$a$eke.
+
+Node = $;.
+
+
+f = '1+31'.
+`STD$io$readFile#'/home/danilo/Desktop/prog/dryfart/lines.sh';.
 put!f.
+
+Token = $
+  new = \#tt; $type = tt.;..
+;.
+
+TokTyp = $
+  PLUS = "+".
+  MINUS = "-".
+  UNKNOWN = "U".
+;.
+
+isDigit = \#c; "0" < c &? c < "9"..
+
+CA2Z = #s; ` parse string (C%arr) to Z%
+  res = 0.
+  sLen = STD$a$len#s;.
+  i = 0. @[[i < sLen]]
+    c = s_i.
+    [~isDigit#c; => .#V.] ` error
+    d = 0.
+    [c:
+    |"0" => d = 0.
+    |"1" => d = 1.
+    |"2" => d = 2.
+    |"3" => d = 3.
+    |"4" => d = 4.
+    |"5" => d = 5.
+    |"6" => d = 6.
+    |"7" => d = 7.
+    |"8" => d = 8.
+    |"9" => d = 9.
+    ]
+    res = res * 10 + d.
+    i ++ 1.
+  .
+  .#res.
+..
+
+tokenize = #f;
+  fLen = Z%STD$a$len#f;.
+  Lexer = $
+    bi = 0.
+    ci = 0.
+    tokens = _;.
+  ;.
+  advance = !.
+    Lexer$ci ++ 1.
+  ..
+  pushToken = !tok.
+    Lexer$bi = Lexer$ci.
+    eke!Lexer$tokens, tok.
+  ..
+  pushSimple = !tt.
+    pushToken!Token$new#tt;.
+  ..
+  readNumber = !d0. ` d0: þe starting digit
+    number = _;. `empty string
+    @ lci = Lexer$ci.
+      [[isDigit#f_lci;]] ` TODO and is at end
+      eke!number, f_lci.
+      advance!.
+    .
+    value = CA2Z#number;.
+  ..
+  @ ci = Lexer$ci.
+    [[ci < fLen]]
+    c = f_ci. ` read char
+    ci ++ 1.
+    Lexer$ci = ci.
+    [c:
+    |"+" => pushSimple!TokTyp$PLUS.
+    |"-" => pushSimple!TokTyp$MINUS.
+    | => ` oþer stuff
+      [isDigit#c; => readNumber!c.
+      | => pushSimple!TokTyp$UNKNOWN.
+      ]
+    ]
+  .
+  .#Lexer$tokens.
+..
+
+put!"?N".
+put!tokenize#f;.
+

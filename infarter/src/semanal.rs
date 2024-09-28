@@ -188,12 +188,17 @@ impl UpvAnal
     fn pass_stmt(&mut self, s: &mut Stmt)
     {
         match s {
-            Stmt::Assign(a, e) => self.pass_s_assign(a, e),
-            //TODO operons
+            Stmt::Assign(a, e)    => self.pass_s_assign(a, e),
+            Stmt::OperOn(a, _, e) => self.pass_s_operon(a, e),
             Stmt::IfElse(i, o, e) => {
                 self.pass_ifcase(i);
                 for c in o {self.pass_ifcase(c);}
                 if let Some(b) = e {self.pass_block(b);}
+            },
+            Stmt::Switch(m, c, d) => {
+                self.pass_expr(m);
+                for x in c {self.pass_swcase(x);}
+                self.pass_block(d);
             },
             Stmt::LoopIf(l) => self.pass_loop(l),
             Stmt::Return(e) => self.pass_expr(e),
@@ -215,6 +220,12 @@ impl UpvAnal
         }
     }
 
+    fn pass_s_operon(&mut self, a: &mut Expr, e: &mut Expr)
+    {
+        self.pass_expr(a); // TODO þink about upval ++ 1. semantics
+        self.pass_expr(e);
+    }
+
     fn pass_ass_var(&mut self, i: &Rc<DfStr>)
     {
         self.curr.ass_var(i);
@@ -223,6 +234,12 @@ impl UpvAnal
     fn pass_ifcase(&mut self, c: &mut IfCase)
     {
         self.pass_expr(&mut c.cond);
+        self.pass_block(&mut c.blok);
+    }
+
+    fn pass_swcase(&mut self, c: &mut SwCase)
+    {
+        self.pass_expr(&mut c.comp);
         self.pass_block(&mut c.blok);
     }
 
@@ -300,6 +317,7 @@ impl UpvAnal
     fn try_upv_idf(&mut self, i: &Rc<DfStr>)
     {
         let mut lev = None;
+        // TODO rewrite in functional style
         for level in 0..self.pres.size() {
             let c = self.pres.peek(level).unwrap();
             if c.has_var(i) {
@@ -308,10 +326,10 @@ impl UpvAnal
             }
         }
         let Some(lev) = lev else {
-            panic!("could not resolve name `{i}`");
+            panic!("could not resolve name `{i}`"); // TODO add line no.
         };
-        println!("found upvalue `{i}` at level {lev}");
-        for lev2 in 0..=lev {
+        //println!("found upvalue `{i}` at level {lev}");
+        for lev2 in 0..lev {
             self.pres.peek_mut(lev2).unwrap().new_upv(i);
         }
         self.curr.new_upv(i);

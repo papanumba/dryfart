@@ -225,7 +225,7 @@ pub struct SubrEnv // subroutine environment compiler
     pub scpdpt:   usize,
     pub presize:  usize,
     pub locsize:  usize,
-    pub locals:   VecMap<DfStrIdx, LocIdx>,
+    pub locals:   VecMap<DfStrIdx, LocIdx>, // name, stack index
     pub upvals:   ArraySet<DfStrIdx>, // upvalue names
     pub blocks:   Vec<BasicBlock>,  // graph arena
     pub curr:     BasicBlock,       // current working bblock
