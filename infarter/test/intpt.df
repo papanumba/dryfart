@@ -4,30 +4,33 @@ eke = STD$a$eke.
 Node = $;.
 
 
-f = '1+31'.
+f = '1+3111?0?0'.
 `STD$io$readFile#'/home/danilo/Desktop/prog/dryfart/lines.sh';.
-put!f.
 
-Token = $
-  new = \#tt; $type = tt.;..
-;.
+
+` L E X E R ----------------
+
 
 TokTyp = $
   PLUS = "+".
   MINUS = "-".
+  NUMBER = "0".
   UNKNOWN = "U".
+;.
+
+Token = $
+  new = \#tt; $type = tt.;..
+  newNumber = \#n; $type = TokTyp$NUMBER. val = n.;..
 ;.
 
 isDigit = \#c; "0" < c &? c < "9"..
 
 CA2Z = #s; ` parse string (C%arr) to Z%
   res = 0.
-  sLen = STD$a$len#s;.
+  sLen = Z%STD$a$len#s;.
   i = 0. @[[i < sLen]]
-    c = s_i.
-    [~isDigit#c; => .#V.] ` error
     d = 0.
-    [c:
+    [s_i:
     |"0" => d = 0.
     |"1" => d = 1.
     |"2" => d = 2.
@@ -38,6 +41,7 @@ CA2Z = #s; ` parse string (C%arr) to Z%
     |"7" => d = 7.
     |"8" => d = 8.
     |"9" => d = 9.
+    | => .#V. ` error
     ]
     res = res * 10 + d.
     i ++ 1.
@@ -52,42 +56,45 @@ tokenize = #f;
     ci = 0.
     tokens = _;.
   ;.
-  advance = !.
-    Lexer$ci ++ 1.
-  ..
+  advance = !. Lexer$ci ++ 1...
+  isAtEnd = \#; Lexer$ci + 1 == fLen..
+  currChar = \#; f_Lexer$ci..
   pushToken = !tok.
     Lexer$bi = Lexer$ci.
     eke!Lexer$tokens, tok.
   ..
-  pushSimple = !tt.
-    pushToken!Token$new#tt;.
-  ..
-  readNumber = !d0. ` d0: þe starting digit
-    number = _;. `empty string
-    @ lci = Lexer$ci.
-      [[isDigit#f_lci;]] ` TODO and is at end
-      eke!number, f_lci.
+  pushSimple = !tt. pushToken!Token$new#tt;...
+  readNumber = !'readNumber' d0. ` d0: þe starting digit
+    number = _d0;. `empty string
+    put!'?Nstarting number with '.
+    put!d0.
+    put!'?N'.
+    @ put!(~T).`isAtEnd#;.` &? isDigit#currChar#;;.
+      [[isDigit#currChar#;;]]
+      eke!number, currChar#;.
       advance!.
     .
     value = CA2Z#number;.
+    pushToken!Token$newNumber#value;.
   ..
-  @ ci = Lexer$ci.
-    [[ci < fLen]]
-    c = f_ci. ` read char
-    ci ++ 1.
-    Lexer$ci = ci.
+  @
+    c = currChar#;.
+    advance!.
     [c:
+    |"?0" => .@. `EOF
     |"+" => pushSimple!TokTyp$PLUS.
     |"-" => pushSimple!TokTyp$MINUS.
-    | => ` oþer stuff
-      [isDigit#c; => readNumber!c.
-      | => pushSimple!TokTyp$UNKNOWN.
-      ]
     ]
+    [isDigit#c; => readNumber!c.]
+    `| => pushSimple!TokTyp$UNKNOWN.
   .
   .#Lexer$tokens.
 ..
 
-put!"?N".
-put!tokenize#f;.
+tokens = tokenize#f;.
+
+
+`put!f.
+`put!"?N".
+put!tokens.
 

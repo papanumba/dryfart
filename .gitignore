@@ -4,6 +4,7 @@ infarter/*.dfc
 infarter/*/*.dfc
 infarter/*.df
 infarter/*.py
+flatvm/*.o
 flatvm/flatvm
 flatvm/clang-build.sh
 flatvm/prof.sh

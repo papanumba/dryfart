@@ -64,16 +64,17 @@ class DFHieliter(QSyntaxHighlighter):
             # parens
             (r'[()]',           0, STYLES['string']),
             # control flow symbols
-            (r'(=>|@|\\?(\[|\]))',   0, STYLES['control']),
+            (r'(=>|\.?@|\\?(\[|\]))', 0, STYLES['control']),
             # type casts
             (r'(\b|_)[BCNZR]%', 0, STYLES['type']),
             # "keywords"
             (r'\b[TFV]\b',      0, STYLES['table']),
             # funcs
             (r'#(@[0-9]*)?',    0, STYLES['func']),
-            (r'\\#',    0, STYLES['func']),
+            (r'[\\.]#',         0, STYLES['func']),
             (r'(\b|_)[A-Za-z][A-Za-z\d]* *#',  0, STYLES['func']),
             # procs
+            (r'\.!',            0, STYLES['proc']),
             (r'!(@[0-9]*)?',    0, STYLES['proc']),
             (r'[A-Za-z][A-Za-z\d]* *!',        0, STYLES['proc']),
             # tables
