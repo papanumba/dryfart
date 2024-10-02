@@ -10,7 +10,7 @@ import sys, os, subprocess
 from subprocess import Popen, PIPE
 from PyQt5 import uic, QtGui
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QProcess, QObject, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QProcess, QLibrary, QObject, pyqtSignal, pyqtSlot
 import hieliter
 
 INFARTER_PATH = "../infarter/target/release/infarter"
@@ -22,12 +22,14 @@ class Main(QMainWindow):
     edit_file   = None
     temp_file   = None
     saved       = False
+    df_lib      = QLibrary("df-lib")
     fvm         = QProcess()
     fvm_term    = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, cwd):
         super().__init__()
-        uic.loadUi("main.ui", self) # load the qt5 gui
+        self.cwd = cwd + "/"
+        uic.loadUi(self.cwd + "main.ui", self) # load the qt5 gui
         self.editor.setStyleSheet("""QPlainTextEdit{
             font-family:'Monospace';
             font-size: 16pt;
@@ -46,8 +48,15 @@ class Main(QMainWindow):
             color: #ef8070;
             background-color: #1b1b1b;}"""
         )
+        # paþs
+        self.infarter_path = os.path.abspath(self.cwd + INFARTER_PATH)
+        self.flatvm_path   = os.path.abspath(self.cwd + FLATVM_PATH)
+        # load DF-lib
+        if not self.df_lib.load():
+            print(self.df_lib.errorString(), file=sys.stderr)
+            sys.exit(1)
         # FlatVM worker & its þread
-        self.fvm.setProgram(FLATVM_PATH)
+        self.fvm.setProgram(self.flatvm_path)
         self.fvm_term.connect(self.fvm.terminate)
         self.fvm.finished.connect(self.fvm_finished)
         # TODO: why did I put þis 2 signals?
@@ -70,6 +79,18 @@ class Main(QMainWindow):
         self.sc_kill.activated.connect(self.kill)
         self.sc_save = QShortcut(QtGui.QKeySequence("Ctrl+S"), self)
         self.sc_save.activated.connect(self.save_file)
+        # check
+        self.check_fvm_exists()
+
+    def check_fvm_exists(self):
+        if os.path.isfile(self.flatvm_path):
+            return # OK
+        # WARN
+        self.button_run.setEnabled(False)
+        self.update_result(
+            "",
+            "FlatVM binary not found\nexpected at " + self.flatvm_path,
+        )
 
     def update_title(self):
         self.setWindowTitle("DFartEd - " + get_name(self.edit_file))
@@ -149,7 +170,7 @@ class Main(QMainWindow):
                 return
             self.edit_file = name[0]
             self.setWindowTitle("DFartEd - " + get_name(self.edit_file))
-        savefile = open(self.edit_file,'w')
+        savefile = open(self.edit_file, 'w')
         savefile.write(self.editor.toPlainText())
         savefile.close()
         self.saved = True
@@ -164,7 +185,7 @@ class Main(QMainWindow):
         tempfile.close()
         # compile it, þis should be fast, so no need to þread
         result = subprocess.run(
-            [INFARTER_PATH, "to", self.temp_file],
+            [self.infarter_path, "to", self.temp_file],
             capture_output=True
         )
         if result.stderr != b'':
@@ -183,8 +204,11 @@ class Main(QMainWindow):
         self.update_result("", "successfully killed")
 
 
-if __name__=='__main__':
-    app = QApplication(sys.argv)
-    gui = Main()
+if __name__ == "__main__":
+    argv = sys.argv
+    app = QApplication(argv)
+    cwd = os.path.abspath(os.path.dirname(argv[0]))
+    gui = Main(cwd)
     gui.show()
-    sys.exit(app.exec())
+    status = app.exec()
+    sys.exit(status)

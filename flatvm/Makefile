@@ -1,15 +1,15 @@
 CC = clang
 CXX = clang++
-CPPFLAGS = -Iinclude -DSAFE
+CPPFLAGS = -Iinclude -Idf-lib -DSAFE
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
-LDFLAGS = 
+LDFLAGS = -L. -ldf-lib # -Wl,-rpath=.
 CXXNOWARN := -Wno-unused-private-field -Wno-unused-parameter
 # -Wno-mismatched-tags
 CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
 CXXFLAGS = -std=c++17 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
-cxxobjs = bitarr.o disasm.o garcol.o htable.o idents.o loader.o maitre.o native.o norris.o object.o objref.o values.o virmac.o
+cxxobjs = bitarr.o disasm.o garcol.o htable.o idents.o loader.o maitre.o norris.o object.o objref.o values.o virmac.o
 cxxobjs := $(cxxobjs) main.o
 cobjs = common.o latin1.o reader.o
 objs = $(cxxobjs) $(cobjs)
@@ -32,6 +32,7 @@ install: LDFLAGS += -O3 -flto
 install: CPPFLAGS += -O3 -flto
 install: flatvm
 	cp flatvm ~/.local/bin/
+	cp libdf-lib.so ~/.local/lib/
 	clear
 
 flatvm: $(objs)
@@ -50,9 +51,6 @@ main.o: src/main.cpp
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 virmac.o: src/virmac.cpp src/vm-ops.cpp include/virmac.h
-	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
-
-native.o: src/native.cpp src/df-std/df_std.cpp include/native.h
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 %.o: src/%.c

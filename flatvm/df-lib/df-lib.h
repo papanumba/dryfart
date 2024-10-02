@@ -3,6 +3,8 @@
 #ifndef FLATVM_NATIVE_H
 #define FLATVM_NATIVE_H
 
+#include "objref.h"
+
 class DfVal;
 class DfIdf;
 class VirMac;

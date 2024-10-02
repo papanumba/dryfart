@@ -6,8 +6,8 @@
 #include "values.h"
 #include "htable.h"
 #include "norris.h"
-#include "native.h"
 #include "bitarr.h"
+#include "df-lib.h"
 
 class Object {
   public:

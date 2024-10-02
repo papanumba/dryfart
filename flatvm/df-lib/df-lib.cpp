@@ -3,11 +3,13 @@
 #include <cstdio>
 #include <cstring>
 #include <utility>
+#include "df-lib.h"
 #include "virmac.h"
-#include "native.h"
 #include "object.h"
 #include "garcol.h"
 #include "maitre.h"
+
+// Singleton factories, as namespaced meþods, not a class
 
 #define FAC_MET(Ttt, ttt, TTT) \
 \
@@ -32,7 +34,7 @@ ObjRef NatFactory::get(Nat##Ttt##Tag tag)   \
     return new_obj;                         \
 }
 
-//FAC_MET(Arr, arr, ARR)
+//FAC_MET(Arr, arr, ARR) // uncoment when needed
 FAC_MET(Tbl, tbl, TBL)
 FAC_MET(Fun, fun, FUN)
 FAC_MET(Pro, pro, PRO)
@@ -78,7 +80,7 @@ void NatTbl::print() const
     }
 }
 
-#include "df-std/df_std.cpp"
+#include "df_std.cpp"
 
 bool NatTbl::get(key_t k, DfVal &v) const
 {
