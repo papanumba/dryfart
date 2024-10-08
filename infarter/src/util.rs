@@ -361,41 +361,39 @@ where K: Eq + std::fmt::Debug,
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Stack<T>(Vec<T>);
+
+pub type StackIter   <'a, T> = std::iter::Rev<std::slice::Iter   <'a, T>>;
+pub type StackIterMut<'a, T> = std::iter::Rev<std::slice::IterMut<'a, T>>;
 
 impl<T> Stack<T>
 {
-    pub fn new() -> Self
-    {
-        Self(vec![])
-    }
-
     pub fn is_empty(&self) -> bool
     {
         return self.0.is_empty();
     }
 
-    pub fn size(&self) -> usize
+    pub fn len(&self) -> usize
     {
         return self.0.len();
     }
 
-    pub fn peek(&self, n: usize) -> Option<&T>
+    pub fn peek(&self, deep: usize) -> Option<&T>
     {
-        let len = self.0.len();
-        if n < len {
-            Some(&self.0[len-n-1])
+        let len = self.len();
+        if deep < len {
+            Some(&self.0[len-deep-1])
         } else {
             None
         }
     }
 
-    pub fn peek_mut(&mut self, n: usize) -> Option<&mut T>
+    pub fn peek_mut(&mut self, deep: usize) -> Option<&mut T>
     {
-        let len = self.0.len();
-        if n < len {
-            Some(&mut self.0[len-n-1])
+        let len = self.len();
+        if deep < len {
+            Some(&mut self.0[len-deep-1])
         } else {
             None
         }
@@ -406,13 +404,36 @@ impl<T> Stack<T>
         self.0.push(e);
     }
 
-    pub fn pop(&mut self)
-    {
-        self.0.pop();
-    }
-
-    pub fn pop_last(&mut self) -> Option<T>
+    pub fn pop(&mut self) -> Option<T>
     {
         return self.0.pop();
+    }
+
+    pub fn iter(&self) -> StackIter<'_, T>
+    {
+        return self.0.iter().rev();
+    }
+
+    pub fn iter_mut(&mut self) -> StackIterMut<'_, T>
+    {
+        return self.0.iter_mut().rev();
+    }
+
+    // iter_muts till a specified depþ, excluding it
+    pub fn iter_mut_till(&mut self, deep: usize) -> StackIterMut<'_, T>
+    {
+        let len = self.len();
+        if len < deep {
+            panic!("depth too deep");
+        }
+        return self.0[(len - deep)..].iter_mut().rev();
+    }
+}
+
+impl<T> Default for Stack<T>
+{
+    fn default() -> Self
+    {
+        Self(vec![])
     }
 }

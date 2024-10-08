@@ -172,7 +172,8 @@ impl UpvAnal
     {
         let aux = std::mem::replace(
             &mut self.curr,
-            self.pres.pop_last()
+            self.pres
+                .pop()
                 .expect("used UpvAnal.exit_subr rrongly")
         );
         return aux.die_to_upvs();
@@ -314,24 +315,18 @@ impl UpvAnal
         s.upvs = self.exit_subr();
     }
 
+    #[inline]
     fn try_upv_idf(&mut self, i: &Rc<DfStr>)
     {
-        let mut lev = None;
-        // TODO rewrite in functional style
-        for level in 0..self.pres.size() {
-            let c = self.pres.peek(level).unwrap();
-            if c.has_var(i) {
-                lev = Some(level);
-                break;
-            }
-        }
-        let Some(lev) = lev else {
-            panic!("could not resolve name `{i}`"); // TODO add line no.
-        };
-        //println!("found upvalue `{i}` at level {lev}");
-        for lev2 in 0..lev {
-            self.pres.peek_mut(lev2).unwrap().new_upv(i);
-        }
+        // try to resolve `i` by looking into all parent UpvEnvs
+        let lev = self.pres
+            .iter() // from þe innermost
+            .position(|env| env.has_var(i))
+            .expect(&format!("could not resolve name `{i}`"));
+        // add `i` as upvalue to all UpvEnvs from current till level
         self.curr.new_upv(i);
+        for c in self.pres.iter_mut_till(lev) {
+            c.new_upv(i);
+        }
     }
 }

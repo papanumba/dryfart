@@ -313,8 +313,7 @@ impl SubrEnv
     pub fn end_loop(&mut self, end_bbi: BbIdx)
     {
         self.agn.pop();
-        let patches = self.brk.pop_last()
-            .unwrap();
+        let patches = self.brk.pop().unwrap();
         let jj = Term::JJX(end_bbi);
         for p in patches {
             self.patch_jump(p, jj);
