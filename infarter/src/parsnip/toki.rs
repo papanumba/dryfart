@@ -141,7 +141,7 @@ impl<'src> Token<'src>
 
     parse_fn!(parse_valn, u32, ValN);
     parse_fn!(parse_valz, i32, ValZ);
-    parse_fn!(parse_valr, f32, ValR);
+    parse_fn!(parse_valr, f64, ValR);
 
     kinda_from_str!(new_comment, Comment, 'src);
     kinda_from_str!(new_ident,   Ident,   'src);
@@ -197,7 +197,7 @@ impl<'src> Token<'src>
     acc_fn!(as_valc,     ValC,     u8);
     acc_fn!(as_valn,     ValN,     u32);
     acc_fn!(as_valz,     ValZ,     i32);
-    acc_fn!(as_valr,     ValR,     f32);
+    acc_fn!(as_valr,     ValR,     f64);
     acc_fn!(as_string,   String,   &'src [u8]);
     acc_fn!(as_ident,    Ident,    &'src [u8]);
     acc_fn!(as_primtype, PrimType, PrimType);
@@ -318,7 +318,7 @@ pub union TokVal<'src>
     ValC:     u8,
     ValN:     u32,
     ValZ:     i32,
-    ValR:     f32,
+    ValR:     f64,
     String:   &'src [u8],
     Ident:    &'src [u8],
     PrimType: PrimType,

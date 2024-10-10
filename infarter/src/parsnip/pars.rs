@@ -177,12 +177,12 @@ impl<'src> Nip<'src>
     {
         let t = self.peek()?;
         match t.0.typ() {
-            TokTyp::LsqBra  => Some(self.branch_stmt()),
-            TokTyp::AtSign  => Some(self.loop_stmt()),
-            TokTyp::AtSign2 => Some(self.again_break_stmt(true)),
-            TokTyp::DotAt   => Some(self.again_break_stmt(false)),
-            TokTyp::DotHash => Some(self.return_stmt()),
-            TokTyp::DotBang => Some(self.pc_end()),
+//            TokTyp::LsqBra  => Some(self.branch_stmt()),
+//            TokTyp::AtSign  => Some(self.loop_stmt()),
+//            TokTyp::AtSign2 => Some(self.again_break_stmt(true)),
+//            TokTyp::DotAt   => Some(self.again_break_stmt(false)),
+//            TokTyp::DotHash => Some(self.return_stmt()),
+//            TokTyp::DotBang => Some(self.pc_end()),
             TokTyp::Unknown => Some(util::format_err!(
                 "unknown token \'{}\'", t.0)),
             _ => self.other_stmt(),
@@ -208,16 +208,16 @@ impl<'src> Nip<'src>
         };
         return Some(match t.0.typ() {
             TokTyp::Equal => self.assign(lhs),
-            TokTyp::Bang => self.pccall(lhs),
-            TokTyp::BangDollar => self.tbpcal(lhs),
-            TokTyp::Plus2     |
+//            TokTyp::Bang => self.pccall(lhs),
+//            TokTyp::BangDollar => self.tbpcal(lhs),
+/*            TokTyp::Plus2     |
             TokTyp::Minus2    |
             TokTyp::Asterisk2 |
             TokTyp::Slash2    |
             TokTyp::Bslash2   |
             TokTyp::And2      |
             TokTyp::Vbar2     |
-            TokTyp::Caret2    => self.operon(lhs, t.0),
+            TokTyp::Caret2    => self.operon(lhs, t.0),*/
             _ => exp_err!(MSG, t),
         });
     }
@@ -231,7 +231,7 @@ impl<'src> Nip<'src>
         Ok(Stmt::Assign(lhs, e))
     }
 
-    #[inline]
+/*    #[inline]
     fn operon(&mut self, lhs: Expr, op: Token<'_>) -> StrRes<Stmt>
     {
         self.advance(); // op
@@ -239,28 +239,9 @@ impl<'src> Nip<'src>
         let ex = self.expr()?;
         self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::OperOn(lhs, binop, ex));
-    }
+    }*/
 
-    #[inline]
-    fn pccall(&mut self, lhs: Expr) -> StrRes<Stmt>
-    {
-        self.advance(); // !
-        let args = self.comma_ex(TokTyp::Period)?;
-        return Ok(Stmt::PcCall(lhs, args));
-    }
-
-    #[inline]
-    fn tbpcal(&mut self, lhs: Expr) -> StrRes<Stmt>
-    {
-        self.advance(); // !$
-        let name = self.consume_ident()?;
-        self.exp_adv(TokTyp::Bang)?; // !
-        let args = self.comma_ex(TokTyp::Period)?;
-        let name = Rc::new(name.try_into().unwrap());
-        return Ok(Stmt::TbPCal(lhs, name, args));
-    }
-
-    // called when [
+/*    // called when [
     fn branch_stmt(&mut self) -> StrRes<Stmt>
     {
         const MSG: &str = "=> or :";
@@ -276,9 +257,9 @@ impl<'src> Nip<'src>
             TokTyp::Colon => self.sw_stmt(e1),
             _ => exp_err!(MSG, t),
         }
-    }
+    }*/
 
-    // called when parsed [ Expr =>
+/*    // called when parsed [ Expr =>
     fn if_stmt(&mut self, cond: Expr) -> StrRes<Stmt>
     {
         // end parsing þe 1st (mandatory) case
@@ -318,9 +299,9 @@ impl<'src> Nip<'src>
             let blok = self.block()?;
             elseifs.push(IfCase::new(cond, blok));
         }
-    }
+    }*/
 
-    // called when parsed [ Expr :
+/*    // called when parsed [ Expr :
     fn sw_stmt(&mut self, matchee: Expr) -> StrRes<Stmt>
     {
         let mut cases = vec![];
@@ -331,9 +312,9 @@ impl<'src> Nip<'src>
             }
         };
         return Ok(Stmt::Switch(matchee, cases, def));
-    }
+    }*/
 
-    // helper for sw_stmt, returns (inside Ok):
+/*    // helper for sw_stmt, returns (inside Ok):
     // Some => Block, for a normal case
     // None => Block, for þe default case
     fn sw_case(&mut self) -> StrRes<(Option<Expr>, Block)>
@@ -361,9 +342,9 @@ impl<'src> Nip<'src>
         self.exp_adv(TokTyp::Then)?;
         let blok = self.block()?;
         return Ok((Some(comp), blok));
-    }
+    }*/
 
-    // called when @
+/*    // called when @
     fn loop_stmt(&mut self) -> StrRes<Stmt>
     {
         self.advance(); // @
@@ -379,9 +360,9 @@ impl<'src> Nip<'src>
         let post = self.block()?;
         self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::LoopIf(Loop::Cdt(pre, cond, post)));
-    }
+    }*/
 
-    // called when @@ (true) or .@ (false)
+/*    // called when @@ (true) or .@ (false)
     // parses ('@@' | '.@') (ValN | ValZ)? '.'
     fn again_break_stmt(&mut self, ab: bool) -> StrRes<Stmt>
     {
@@ -409,24 +390,24 @@ impl<'src> Nip<'src>
         } else {
             Stmt::BreakL(level)
         });
-    }
+    }*/
 
-    // called when .#
+/*    // called when .#
     fn return_stmt(&mut self) -> StrRes<Stmt>
     {
         self.advance(); // .#
         let ret = self.expr()?;
         self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::Return(ret));
-    }
+    }*/
 
-    // called when .!
+/*    // called when .!
     fn pc_end(&mut self) -> StrRes<Stmt>
     {
         self.advance(); // .!
         self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::PcExit);
-    }
+    }*/
 
     fn expr(&mut self) -> StrRes<Expr>
     {
@@ -500,9 +481,9 @@ impl<'src> Nip<'src>
 
     rite_uniop_expr!(inv_expr,  not_expr,  Slash, Inv);
     rite_uniop_expr!(not_expr,  idx_expr,  Tilde, Not);
-    left_binop_expr!(idx_expr, cast_expr, Uscore, Idx);
+    left_binop_expr!(idx_expr,     nucle, Uscore, Idx);
 
-    fn cast_expr(&mut self) -> StrRes<Expr>
+/*    fn cast_expr(&mut self) -> StrRes<Expr>
     {
         let Some(t) = self.peek() else {
             return eof_err!("type%, ident or literal");
@@ -516,9 +497,9 @@ impl<'src> Nip<'src>
             t.0.as_primtype().unwrap().into(),
             Box::new(casted)
         ));
-    }
+    }*/
 
-    fn fn_acc_ex(&mut self) -> StrRes<Expr>
+/*    fn fn_acc_ex(&mut self) -> StrRes<Expr>
     {
         let mut e = self.nucle()?;
         loop {
@@ -551,7 +532,7 @@ impl<'src> Nip<'src>
             }
         }
         return Ok(e);
-    }
+    }*/
 
     fn nucle(&mut self) -> StrRes<Expr>
     {
@@ -560,11 +541,10 @@ impl<'src> Nip<'src>
             return eof_err!(MSG);
         };
         match tok.0.typ() {
-            TokTyp::Lparen => self.parented(),
-            TokTyp::Hash => self.func(tok.1),
-            TokTyp::BsLsb => self.if_expr(),
-            TokTyp::BsHash => self.short_fn(tok.1),
-            TokTyp::RecF => {
+//            TokTyp::Hash => self.func(tok.1),
+//            TokTyp::BsLsb => self.if_expr(),
+//            TokTyp::BsHash => self.short_fn(tok.1),
+/*            TokTyp::RecF => {
                 self.advance();
                 Ok(Expr::RecFn)
             },
@@ -578,7 +558,8 @@ impl<'src> Nip<'src>
             TokTyp::RecT => {
                 self.advance();
                 Ok(Expr::RecsT(tok.0.as_rect().unwrap()))
-            },
+            },*/
+            TokTyp::Lparen => self.parented(),
             TokTyp::Ident => {
                 self.advance();
                 let id = tok.0.as_ident().unwrap();
@@ -593,7 +574,7 @@ impl<'src> Nip<'src>
             TokTyp::ValN => Ok(self.valn(tok.0.as_valn().unwrap())),
             TokTyp::ValZ => Ok(self.valz(tok.0.as_valz().unwrap())),
             TokTyp::ValR => Ok(self.valr(tok.0.as_valr().unwrap())),
-            TokTyp::String =>  self.string(tok.0.as_string().unwrap()),
+//            TokTyp::String =>  self.string(tok.0.as_string().unwrap()),
             _ => exp_err!(MSG, tok),
         }
     }
@@ -602,7 +583,7 @@ impl<'src> Nip<'src>
     valx_fn!(valc, C, u8);
     valx_fn!(valn, N, u32);
     valx_fn!(valz, Z, i32);
-    valx_fn!(valr, R, f32);
+    valx_fn!(valr, R, f64);
 
     // parses comma separated exprs which end in a specific token
     // it also consumes þe end token, so no need to exp_adv after
@@ -642,7 +623,7 @@ impl<'src> Nip<'src>
         return Ok(e);
     }
 
-    // called when _
+/*    // called when _
     fn arrlit(&mut self) -> StrRes<Expr>
     {
         self.advance(); // _
@@ -674,9 +655,9 @@ impl<'src> Nip<'src>
         }
         self.advance(); // ;
         Ok(Expr::Table(tbl_e))
-    }
+    }*/
 
-    // called when #
+/*    // called when #
     fn func(&mut self, line: usize) -> StrRes<Expr>
     {
         self.subr(line, SubrType::F)
@@ -686,9 +667,9 @@ impl<'src> Nip<'src>
     fn proc(&mut self, line: usize) -> StrRes<Expr>
     {
         self.subr(line, SubrType::P)
-    }
+    }*/
 
-    // helper for func & proc
+/*    // helper for func & proc
     fn subr(&mut self, line: usize, st: SubrType) -> StrRes<Expr>
     {
         self.advance(); // # or !
@@ -723,9 +704,9 @@ impl<'src> Nip<'src>
             SubrType::F => Expr::FnDef(mrs),
             SubrType::P => Expr::PcDef(mrs),
         });
-    }
+    }*/
 
-    // matches (Ident (Comma Ident)*)? END
+/*    // matches (Ident (Comma Ident)*)? END
     fn pars(&mut self, end: TokTyp) -> StrRes<Vec<&[u8]>>
     {
         let mut res: Vec<&[u8]> = vec![];
@@ -743,10 +724,10 @@ impl<'src> Nip<'src>
         }
         self.advance(); // END
         return Ok(res);
-    }
+    }*/
 
     // called when \#
-    #[inline]
+/*    #[inline]
     fn short_fn(&mut self, line: usize) -> StrRes<Expr>
     {
         self.advance(); // \#
@@ -766,10 +747,10 @@ impl<'src> Nip<'src>
         };
         let mrs = Rc::new(RefCell::new(subr));
         return Ok(Expr::FnDef(mrs));
-    }
+    }*/
 
     // called when \[
-    #[inline]
+/*    #[inline]
     fn if_expr(&mut self) -> StrRes<Expr>
     {
         self.advance(); // \[
@@ -791,7 +772,7 @@ impl<'src> Nip<'src>
             self.exp_adv(TokTyp::Semic)?;
             cases.push((e, f));
         }
-    }
+    }*/
 
     fn consume_ident(&mut self) -> StrRes<&'src [u8]>
     {
@@ -805,13 +786,13 @@ impl<'src> Nip<'src>
         return Ok(i);
     }
 
-    // called when curr tok is String
+/*    // called when curr tok is String
     fn string(&mut self, b: &[u8]) -> StrRes<Expr>
     {
         let a = Array::try_from(b)?;
         self.advance();
         return Ok(Expr::Const(Val::from_array(a)));
-    }
+    }*/
 }
 
 impl From<PrimType> for Type

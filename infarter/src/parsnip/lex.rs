@@ -310,7 +310,8 @@ impl<'src> Luthor<'src>
     // called when '
     fn get_string(&mut self) -> Token<'src>
     {
-        let mut ended_string = false;
+        todo!()
+/*        let mut ended_string = false;
         while let Some(c) = self.read_char() {
             if c == b'\'' {
                 ended_string = true;
@@ -327,7 +328,7 @@ impl<'src> Luthor<'src>
         }
         let lxm = self.lexeme();
         let raw = &lxm[1..lxm.len()-1];
-        return Token::new_string(raw);
+        return Token::new_string(raw);*/
     }
 
     // called when "

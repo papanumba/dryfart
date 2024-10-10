@@ -4,12 +4,12 @@ use std::io::Write;
 
 pub mod parsnip;
 pub mod asterix;
-pub mod tarzan;
+/*pub mod tarzan;
 pub mod dflib;
 pub mod semanal;
 pub mod intrep;
 pub mod optimus;
-pub mod genesis;
+pub mod genesis;*/
 pub mod util;
 
 fn main()
@@ -37,8 +37,8 @@ pub fn parse_file(fname: &str)
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},
     };
-    semanal::check(&mut ast);
-    tarzan::exec_main(&ast);
+/*    semanal::check(&mut ast);
+    tarzan::exec_main(&ast);*/
 }
 
 #[inline]
@@ -57,7 +57,7 @@ pub fn transfart(ifname: &str, opt: bool)
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},
     };
-    semanal::check(&mut ast);
+/*    semanal::check(&mut ast);
     let mut cfg = intrep::Compiler::from_asterix(&ast);
     if opt {
         optimus::opt_bblocks(&mut cfg);
@@ -70,5 +70,5 @@ pub fn transfart(ifname: &str, opt: bool)
             ofname,
         ),
         Err(e) => eprintln!("Could not write to binary file because:\n {e}"),
-    }
+    }*/
 }
