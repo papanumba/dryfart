@@ -7,74 +7,30 @@ use crate::{util::*, asterix::*};
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ImOp
 {
-    LVV,
-    LBX(bool),
-    LN0,
-    LN1,
-    LN2,
-    LN3,
-    LM1,
-    LZ0,
-    LZ1,
-    LZ2,
-    LR0,
-    LR1,
+    // load/store
     LKX(CtnIdx),
-
-    NEG,
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    INV,
-    INC,
-    DEC,
-    MOD,
-
-    CEQ,
-    CNE,
-    CLT,
-    CLE,
-    CGT,
-    CGE,
-
-    NOT,
-    AND,
-    IOR,
-    XOR,
-
-    LGX(DfStrIdx),
-    SGX(DfStrIdx),
     LLX(LocIdx),
     SLX(LocIdx),
     ULX(LocIdx),
 
-    AMN,
-    APE,
-    AGE,
-    ASE,
+    // operations
+    UNO(UniOpWt),
+    BIO(BinOpWt),
 
-    TMN,
-    TSF(DfStrIdx),
-    TGF(DfStrIdx),
+    // comparison
+    CMP(CmpOpWt),
 
-    FMN(PagIdx),
-    FCL(u8),
+    // cast
+/*    C2N,
+    N2Z,
+    Z2R,
+    N2R,*/
 
-    PMN(PagIdx),
-    PCL(u8), // called arity
-
-    LUV(UpvIdx), // Load UpValue (from current norris)
-
-    CAN,
-    CAZ,
-    CAR,
-
-    DUP,
-    SWP,
-    ROT,
-    POP,
-    // TODO: add opcodes
+    // stack stuff
+    DUP,  // … a]     -> … a a]
+    SWP,  // … a b]   -> … b a]
+    ROT,  // … a b c] -> … c a b]
+    POP,  // … a]     -> …]
 }
 
 impl ImOp
@@ -83,29 +39,11 @@ impl ImOp
     {
         match self {
             ImOp::LKX(i) |
-            ImOp::LGX(i) |
-            ImOp::SGX(i) |
             ImOp::LLX(i) |
             ImOp::SLX(i) |
             ImOp::ULX(i) => return Some(*i),
             _ => None,
         }
-    }
-
-    pub fn is_tbl(&self) -> bool
-    {
-        matches!(self, ImOp::TGF(_) | ImOp::TSF(_))
-    }
-
-    pub fn is_subr(&self) -> bool
-    {
-        matches!(self,
-            ImOp::PMN(_) |
-            ImOp::PCL(_) |
-            ImOp::FMN(_) |
-            ImOp::FCL(_) |
-            ImOp::LUV(_)
-        )
     }
 }
 
@@ -113,9 +51,18 @@ impl ImOp
 type    CtnIdx = usize; // in constant pool
 type  DfStrIdx = usize; // in identifier pool
 type    LocIdx = usize; // in þe stack
-type    UpvIdx = usize; // in þe curr subr's upv arr
+//type    UpvIdx = usize; // in þe curr subr's upv arr
 pub type BbIdx = usize; // in Cfg's BasicBlock vec
-type    PagIdx = usize; // in bytecode pages for subroutines
+//type    PagIdx = usize; // in bytecode pages for subroutines
+
+// jumps
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Jmp
+{
+    JX,       // unconditional
+    BY(bool), // BT & BF
+    YX(bool), // TX & FX
+}
 
 // terminators
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
@@ -123,19 +70,9 @@ pub enum Term
 {
     #[default]
     NOP,        // just inc þe bbidx for þe next block
-    JJX(BbIdx), // contain a index for a basic block target
-    JBT(BbIdx),
-    JBF(BbIdx),
-    JTX(BbIdx),
-    JFX(BbIdx),
-    JEX(BbIdx),
-    JNX(BbIdx),
-    JLT(BbIdx),
-    JLE(BbIdx),
-    JGT(BbIdx),
-    JGE(BbIdx),
-    RET,
-    END,
+    JMP(Jmp, BbIdx),
+//    RET,
+//    END,
     HLT,
     PCH(bool), // patch indicator, should not end up in þe resultant Cfg
                // true if þe patch will be a can-þrouȝ
@@ -149,18 +86,9 @@ impl Term
     pub fn can_thru(&self) -> bool
     {
         match self {
-            Term::PCH(b) => *b,
-            Term::NOP    |
-            Term::JBT(_) |
-            Term::JBF(_) |
-            Term::JTX(_) |
-            Term::JFX(_) |
-            Term::JEX(_) |
-            Term::JNX(_) |
-            Term::JLT(_) |
-            Term::JLE(_) |
-            Term::JGT(_) |
-            Term::JGE(_) => true,
+            Self::PCH(b) => *b,
+            Self::NOP    => true,
+            Self::JMP(j, _) => matches!(j, Jmp::BY(_) | Jmp::YX(_)),
             _ => false,
         }
     }
@@ -168,17 +96,7 @@ impl Term
     pub fn jmp_target(&self) -> Option<BbIdx>
     {
         match self {
-            Term::JJX(i) |
-            Term::JBT(i) |
-            Term::JBF(i) |
-            Term::JTX(i) |
-            Term::JFX(i) |
-            Term::JEX(i) |
-            Term::JNX(i) |
-            Term::JLT(i) |
-            Term::JLE(i) |
-            Term::JGT(i) |
-            Term::JGE(i) => Some(*i),
+            Self::JMP(_, i) => Some(*i),
             _ => None,
         }
     }
@@ -187,18 +105,8 @@ impl Term
     pub fn set_jmp_target(&mut self, new_i: BbIdx)
     {
         match &mut *self {
-            Term::JJX(i) |
-            Term::JBT(i) |
-            Term::JBF(i) |
-            Term::JTX(i) |
-            Term::JFX(i) |
-            Term::JEX(i) |
-            Term::JNX(i) |
-            Term::JLT(i) |
-            Term::JLE(i) |
-            Term::JGT(i) |
-            Term::JGE(i) => *i = new_i,
-            _ => panic!(),
+            Self::JMP(_, i) => *i = new_i,
+            _ => unreachable!(),
         }
     }
 }
@@ -207,8 +115,10 @@ impl Term
 pub struct BasicBlock
 {
     pub code: Vec<ImOp>,       // non-terminating ops
-    pub term: Term,            // successors
-    pub pred: ArraySet<BbIdx>, // predecessors, used in optimus
+    pub term: Term,            // þe Term Op
+    pub pred: ArraySet<BbIdx>, // predecessors
+                               // i.e. blocks wiþ a Term pointing to þis
+                               // mainly used in optimus, to navigate þe graφ
 }
 
 impl BasicBlock
@@ -225,8 +135,8 @@ pub struct SubrEnv // subroutine environment compiler
     pub scpdpt:   usize,
     pub presize:  usize,
     pub locsize:  usize,
-    pub locals:   VecMap<DfStrIdx, LocIdx>, // name, stack index
-    pub upvals:   ArraySet<DfStrIdx>, // upvalue names
+    pub locals:   VecMap<Rc<DfStr>, LocIdx>, // var name, stack index
+//    pub upvals:   ArraySet<DfStrIdx>, // upvalue names (intern'd by comp)
     pub blocks:   Vec<BasicBlock>,  // graph arena
     pub curr:     BasicBlock,       // current working bblock
     pub rect:     Stack<LocIdx>,    // accumulating $@N
@@ -266,13 +176,13 @@ impl SubrEnv
         return self.blocks.len();
     }
 
-    fn assign(&mut self, idx: DfStrIdx)
+    fn assign(&mut self, id: &Rc<DfStr>)
     {
         // if exists local, it's an assign
-        if let Some(i) = self.locals.get(&idx) {
+        if let Some(i) = self.locals.get(id) {
             self.push_op(ImOp::SLX(*i));
         } else { // it's a declar, even if þer's an upvale, it will shadow
-            self.locals.set(idx, self.locsize);
+            self.locals.set(id.clone(), self.locsize);
             self.locsize += 1;
         }
     }
@@ -292,15 +202,12 @@ impl SubrEnv
 
     fn patch_jump(&mut self, from: BbIdx, term: Term)
     {
-        if let Some(t) = term.jmp_target() {
-            self.blocks[from].term = term;
-            if t == self.curr_idx() {
-                self.curr.pred.add(from);
-            } else {
-                self.blocks[t].pred.add(from);
-            }
+        let t = term.jmp_target().unwrap(); // should be responsible
+        self.blocks[from].term = term;
+        if t == self.curr_idx() {
+            self.curr.pred.add(from);
         } else {
-            unreachable!();
+            self.blocks[t].pred.add(from);
         }
     }
 
@@ -314,14 +221,14 @@ impl SubrEnv
     {
         self.agn.pop();
         let patches = self.brk.pop().unwrap();
-        let jj = Term::JJX(end_bbi);
+        let jj = Term::JMP(Jmp::JX, end_bbi);
         for p in patches {
             self.patch_jump(p, jj);
         }
     }
 }
 
-#[derive(Debug, Default, Copy, Clone)]
+/*#[derive(Debug, Default, Copy, Clone)]
 pub struct PageMeta
 {
     pub line: usize,
@@ -335,60 +242,55 @@ pub struct Page
     pub arity: usize,
     pub uvs: usize, // # of upvals
     pub code: Vec<BasicBlock>,
-}
+}*/
 
 #[derive(Debug)]
 pub struct Compiler
 {
     pub consts:  ArraySet<Val>,       // constant pool
     pub idents:  ArraySet<Rc<DfStr>>, // identifier pool
-    pub subrs:   Vec<Page>,
-    pub curr:    SubrEnv,
+//    pub subrs:   Vec<Page>,
+    pub curr: SubrEnv,
 }
 
 impl Compiler
 {
-    pub fn from_asterix(main: &Block) -> Self
+    pub fn from_asterix(main: &BlockWt) -> Self
     {
         let mut program = Self::default();
-        program.subrs.push(Page::default()); // dummy main
+//        program.subrs.push(Page::default()); // dummy main
         program.no_env_block(main);
         program.term_curr_bb(Term::HLT);
         // here program.curr will be þe main proc
-        program.subrs[0].code = std::mem::take(&mut program.curr).blocks;
+//        program.subrs[0].code = std::mem::take(&mut program.curr).blocks;
         return program;
     }
 
-    #[inline]
     fn locsize(&self) -> usize
     {
         return self.curr.locsize;
     }
 
-    #[inline]
     fn incloc(&mut self)
     {
         self.curr.locsize += 1;
     }
 
-    #[inline]
     fn decloc(&mut self)
     {
         assert!(self.curr.locsize != 0);
         self.curr.locsize -= 1;
     }
 
-    #[inline]
-    fn push_ident(&mut self, id: &Rc<DfStr>) -> DfStrIdx
+/*    fn push_ident(&mut self, id: &Rc<DfStr>) -> DfStrIdx
     {
-        if let Some(i) = self.idents.index_of(id) {
+        match Some(i) = self.idents.index_of(id) {
             i
         } else {
             self.idents.add(id.clone()) // return þe new index
         }
-    }
+    }*/
 
-    #[inline]
     fn push_const(&mut self, v: &Val) -> CtnIdx
     {
         if let Some(i) = self.consts.index_of(v) {
@@ -398,8 +300,7 @@ impl Compiler
         }
     }
 
-    #[inline]
-    fn term_subr(&mut self,
+/*    fn term_subr(&mut self,
         arity: usize,
         uvsiz: usize,
         metad: PageMeta,
@@ -414,81 +315,51 @@ impl Compiler
         let idx = self.subrs.len();
         self.subrs.push(pag);
         return idx;
-    }
+    }*/
 
-    #[inline]
     fn push_op(&mut self, op: ImOp)
     {
         self.curr.push_op(op);
     }
 
-    #[inline]
-    fn push_uniop(&mut self, o: &UniOpcode)
+    fn push_uniop(&mut self, o: UniOpWt)
     {
-        self.push_op(match o {
-            UniOpcode::Neg => ImOp::NEG,
-            UniOpcode::Not => ImOp::NOT,
-            UniOpcode::Inv => ImOp::INV,
-        });
+        self.push_op(ImOp::UNO(o));
     }
 
-    #[inline]
-    fn push_binop(&mut self, o: &BinOpcode)
+    fn push_binop(&mut self, o: BinOpWt)
     {
-        self.push_op(match o {
-            BinOpcode::Add => ImOp::ADD,
-            BinOpcode::Sub => ImOp::SUB,
-            BinOpcode::Mul => ImOp::MUL,
-            BinOpcode::Div => ImOp::DIV,
-            BinOpcode::Mod => ImOp::MOD,
-            BinOpcode::And => ImOp::AND,
-            BinOpcode::Or  => ImOp::IOR,
-            BinOpcode::Xor => ImOp::XOR,
-            BinOpcode::Eq  => ImOp::CEQ,
-            BinOpcode::Ne  => ImOp::CNE,
-            BinOpcode::Lt  => ImOp::CLT,
-            BinOpcode::Le  => ImOp::CLE,
-            BinOpcode::Gt  => ImOp::CGT,
-            BinOpcode::Ge  => ImOp::CGE,
-            BinOpcode::Idx => ImOp::AGE,
-            _ => unreachable!(),
-        });
+        self.push_op(ImOp::BIO(o));
     }
 
-    #[inline]
     fn term_curr_bb(&mut self, t: Term) -> BbIdx
     {
         return self.curr.term_curr_bb(t);
     }
 
-    #[inline]
     fn curr_idx(&self) -> BbIdx
     {
         return self.curr.curr_idx();
     }
 
-    #[inline]
     fn resolve_local(&self, id: &Rc<DfStr>) -> Option<&LocIdx>
     {
-        let idx = self.idents.index_of(id)?;
-        return self.curr.locals.get(&idx);
+        return self.curr.locals.get(id);
     }
 
-    #[inline]
-    fn resolve_upval(&self, id: &Rc<DfStr>) -> Option<UpvIdx>
+/*    fn resolve_upval(&self, id: &Rc<DfStr>) -> Option<UpvIdx>
     {
         let idx = self.idents.index_of(id)?;
         return self.curr.upvals.index_of(&idx);
-    }
+    }*/
 
-    #[inline]
     fn exists_var(&self, id: &Rc<DfStr>) -> bool
     {
-        return self.resolve_local(id).is_some()
-            || self.resolve_upval(id).is_some();
+        return self.resolve_local(id).is_some();
+        //    || self.resolve_upval(id).is_some();
     }
 
-    fn block(&mut self, b: &Block)
+    fn block(&mut self, b: &BlockWt)
     {
         if b.is_empty() {
             return;
@@ -500,44 +371,27 @@ impl Compiler
         self.curr.exit_scope();
     }
 
-    #[inline]
-    fn no_env_block(&mut self, b: &Block) //-> Patches
+    fn no_env_block(&mut self, b: &BlockWt) //-> Patches
     {
         for s in b {
             self.stmt(s);
         }
     }
 
-    fn stmt(&mut self, s: &Stmt)
+    fn stmt(&mut self, s: &StmtWt)
     {
         match s {
-            Stmt::Assign(v, e)    => self.s_assign(v, e),
-            Stmt::OperOn(l, o, e) => self.s_operon(l, o, e),
-            Stmt::IfElse(i, o, e) => self.s_ifelse(i, o, e),
-            Stmt::Switch(m, c, d) => self.s_switch(m, c, d),
-            Stmt::LoopIf(l)       => self.s_loopif(l),
-            Stmt::PcCall(p, a)    => self.s_pccall(p, a),
-            Stmt::TbPCal(t, f, a) => self.obj_call(t, f, a, SubrType::P),
-            Stmt::PcExit          => {self.term_curr_bb(Term::END);},
-            Stmt::Return(e)       => self.s_return(e),
-            Stmt::AgainL(l)       => self.s_againl(*l),
-            Stmt::BreakL(l)       => self.s_breakl(*l),
+            StmtWt::VarAss(i, e)    => self.s_varass(i, e),
         }
     }
 
-    fn s_assign(&mut self, v: &Expr, ex: &Expr)
+    fn s_varass(&mut self, id: &Rc<DfStr>, ex: &ExprWt)
     {
-        match v {
-            Expr::Ident(s) => self.s_varass(s, ex),
-            Expr::BinOp(a, BinOpcode::Idx, i) =>
-                return self.s_arrass(a, i, ex),
-            Expr::TblFd(t, f) =>
-                return self.s_tblass(t, f, ex),
-            _ => panic!("cannot assign to {v:?}"),
-        }
+        self.expr(ex);
+        self.curr.assign(id); // it will decide if declar or assign
     }
 
-    #[inline]
+/*    #[inline]
     fn s_operon(&mut self, lhs: &Expr, op: &BinOpcode, ex: &Expr)
     {
         match lhs {
@@ -554,9 +408,9 @@ impl Compiler
             Expr::TblFd(t, f) => self.s_operon_tbl(t, f, op, ex),
             _ => panic!("cannot operon to {lhs:?}"),
         }
-    }
+    }*/
 
-    #[inline]
+/*    #[inline]
     fn s_operon_arr( // a_i oo e.
         &mut self,
         a: &Expr,
@@ -573,9 +427,9 @@ impl Compiler
         self.expr(e);            // a, i, a_i, e
         self.push_binop(o);      // a, i, a_i o e
         self.push_op(ImOp::ASE); // Ø
-    }
+    }*/
 
-    #[inline]
+/*    #[inline]
     fn s_operon_tbl( // t$f oo e.
         &mut self,
         t: &Expr,
@@ -591,22 +445,9 @@ impl Compiler
         self.push_binop(o);           // t, t$f o e
         self.push_op(ImOp::TSF(idx)); // t with f=t$f o e
         self.push_op(ImOp::POP);      // Ø
-    }
+    }*/
 
-    #[inline]
-    fn new_local(&mut self, id: &Rc<DfStr>)
-    {
-        let idx = self.push_ident(id);
-        self.curr.assign(idx);
-    }
-
-    fn s_varass(&mut self, id: &Rc<DfStr>, ex: &Expr)
-    {
-        self.expr(ex);
-        self.new_local(id);
-    }
-
-    fn s_arrass(
+/*    fn s_arrass(
         &mut self,
         arr: &Expr,
         idx: &Expr,
@@ -616,9 +457,9 @@ impl Compiler
         self.expr(idx);
         self.expr(exp);
         self.push_op(ImOp::ASE);
-    }
+    }*/
 
-    fn s_tblass(
+/*    fn s_tblass(
         &mut self,
         t: &Expr,
         f: &Rc<DfStr>,
@@ -629,9 +470,9 @@ impl Compiler
         let idx = self.push_ident(f);
         self.push_op(ImOp::TSF(idx));
         self.push_op(ImOp::POP);
-    }
+    }*/
 
-    fn s_ifelse(
+    /*fn s_ifelse(
         &mut self,
         if_0: &IfCase,
         eifs: &[IfCase],
@@ -669,9 +510,9 @@ impl Compiler
         for i in jjx_idxs {
             self.curr.patch_jump(i, Term::JJX(eo_if));
         }
-    }
+    }*/
 
-    fn s_switch(&mut self,
+/*    fn s_switch(&mut self,
         mat: &Expr,
         cas: &[SwCase],
         def: &Block)
@@ -721,9 +562,9 @@ impl Compiler
         }
         // POP þe matchee
         self.push_op(ImOp::POP);
-    }
+    }*/
 
-    fn s_loopif(&mut self, lo: &Loop)
+/*    fn s_loopif(&mut self, lo: &Loop)
     {
         self.curr.enter_scope();
         self.lvv_loop(lo);
@@ -733,8 +574,9 @@ impl Compiler
         }
         self.curr.exit_scope();
     }
+*/
 
-    // assigns all loop's locals to Void
+/*    // assigns all loop's locals to Void
     // so as not to enter & exit its scope at every
     fn lvv_loop(&mut self, lo: &Loop)
     {
@@ -746,10 +588,10 @@ impl Compiler
         if let Loop::Cdt(_, _, b) = lo {
             self.lvv_in_block(b);
         }
-    }
+    }*/
 
     // helper
-    fn lvv_in_block(&mut self, block: &Block)
+/*    fn lvv_in_block(&mut self, block: &Block)
     {
         for s in block {
             if let Stmt::Assign(v, _) = s {
@@ -760,9 +602,9 @@ impl Compiler
                 }
             }
         }
-    }
+    }*/
 
-    fn s_inf_loop(&mut self, b: &Block)
+/*    fn s_inf_loop(&mut self, b: &Block)
     {
         /*
         **  [b]<-+ (h)
@@ -775,9 +617,9 @@ impl Compiler
         self.no_env_block(b);
         self.term_curr_bb(Term::JJX(h));
         self.curr.end_loop(self.curr_idx());
-    }
+    }*/
 
-    fn s_cdt_loop(&mut self,
+/*    fn s_cdt_loop(&mut self,
         b0:   &Block,    // miȝt be empty
         cond: &Expr,
         b1:   &Block)
@@ -801,9 +643,9 @@ impl Compiler
         let outside = self.curr_idx();
         self.curr.end_loop(outside);
         self.curr.patch_jump(branch, Term::JFX(outside));
-    }
+    }*/
 
-    fn s_pccall(&mut self, proc: &Expr, args: &[Expr])
+/*    fn s_pccall(&mut self, proc: &Expr, args: &[Expr])
     {
         self.expr(proc);
         for a in args {
@@ -812,39 +654,40 @@ impl Compiler
         let ari = u8::try_from(args.len())
             .expect("too many args in proc call: max 255");
         self.push_op(ImOp::PCL(ari));
-    }
+    }*/
 
-    fn s_return(&mut self, e: &Expr)
+/*    fn s_return(&mut self, e: &Expr)
     {
         self.expr(e);
         self.term_curr_bb(Term::RET);
-    }
+    }*/
 
-    fn s_againl(&mut self, lev: u32)
+/*    fn s_againl(&mut self, lev: u32)
     {
         let loop_start = self.curr.agn.peek(lev as usize)
             .expect("@@ too deep, þer'r no so many levels");
         self.term_curr_bb(Term::JJX(*loop_start));
-    }
+    }*/
 
-    fn s_breakl(&mut self, lev: u32)
+/*    fn s_breakl(&mut self, lev: u32)
     {
         let here = self.curr_idx();
         self.curr.brk.peek_mut(lev as usize)
             .expect(".@ too deep, þer'r no so many levels")
             .push(here);
-    }
+    }*/
 
-    fn expr(&mut self, ex: &Expr)
+    fn expr(&mut self, ex: &ExprWt)
     {
-        match ex {
-            Expr::Const(v)       => self.e_const(v),
-            Expr::Ident(i)       => self.e_ident(i),
-            Expr::Tcast(t, e)    => self.e_tcast(t, e),
-            Expr::UniOp(e, o)    => self.e_uniop(e, o),
-            Expr::BinOp(l, o, r) => self.e_binop(l, o, r),
-            Expr::CmpOp(l, v)    => self.e_cmpop(l, v),
-            Expr::Array(a)       => self.e_array(a),
+        match &ex.e {
+            ExprWte::Const(v)       => self.e_const(v),
+            ExprWte::Ident(i)       => self.e_ident(i),
+//            ExprWte::Tcast(t, e)    => self.e_tcast(t, e),
+            ExprWte::UniOp(e, o)    => self.e_uniop(e, o),
+            ExprWte::BinOp(l, o, r) => self.e_binop(l, o, r),
+            _ => todo!(),
+//            ExprWte::CmpOp(l, v)    => self.e_cmpop(l, v),
+/*            Expr::Array(a)       => self.e_array(a),
             Expr::Table(v)       => self.e_table(v),
             Expr::TblFd(t, f)    => self.e_tblfd(t, f),
             Expr::RecsT(l)       => self.e_recst(*l),
@@ -854,43 +697,14 @@ impl Compiler
             Expr::PcDef(s)       => self.e_pcdef(&s.borrow()),
             Expr::RecFn |
             Expr::RecPc => self.push_op(ImOp::LLX(0)), // unchecked
-            Expr::IfExp(c, e)    => self.e_ifexp(c, e),
+            Expr::IfExp(c, e)    => self.e_ifexp(c, e),*/
         }
     }
 
     // þis checks predefined consts
     fn e_const(&mut self, v: &Val)
     {
-        match v {
-            Val::V => return self.push_op(ImOp::LVV),
-            Val::B(b) => return self.push_op(ImOp::LBX(*b)),
-            Val::N(n) => match n {
-                0 => return self.push_op(ImOp::LN0),
-                1 => return self.push_op(ImOp::LN1),
-                2 => return self.push_op(ImOp::LN2),
-                3 => return self.push_op(ImOp::LN3),
-                _ => {},
-            },
-            Val::Z(z) => match z {
-                -1 => return self.push_op(ImOp::LM1),
-                0 => return self.push_op(ImOp::LZ0),
-                1 => return self.push_op(ImOp::LZ1),
-                2 => return self.push_op(ImOp::LZ2),
-                _ => {},
-            },
-            // oþers must be internalized
-            Val::C(_) |
-            Val::R(_) |
-            Val::T(Table::Nat(_)) |
-            Val::A(_) => {},
-            _ => todo!("oþer consts {:?}", v),
-        }
-        self.e_new_const(v);
-    }
-
-    // called when self couldn't find a predefined L op
-    fn e_new_const(&mut self, v: &Val)
-    {
+        // TODO: special cases like B(T), B(F), N([0..3])
         let idx = self.push_const(v);
         self.push_op(ImOp::LKX(idx));
     }
@@ -898,20 +712,20 @@ impl Compiler
     fn e_ident(&mut self, id: &Rc<DfStr>)
     {
         if id.as_bytes() == b"STD" {
-            todo!("STD");
+            panic!("STD");
         }
         if let Some(i) = self.resolve_local(id) {
             self.push_op(ImOp::LLX(*i));
             return;
         }
-        if let Some(i) = self.resolve_upval(id) {
+/*        if let Some(i) = self.resolve_upval(id) {
             self.push_op(ImOp::LUV(i));
             return;
-        }
+        }*/
         panic!("could not resolve symbol {id}");
     }
 
-    fn e_tcast(&mut self, t: &Type, e: &Expr)
+/*    fn e_tcast(&mut self, t: &Type, e: &Expr)
     {
         self.expr(e);
         match t {
@@ -920,26 +734,26 @@ impl Compiler
             Type::N => self.push_op(ImOp::CAN),
             _ => todo!(),
         }
-    }
+    }*/
 
-    fn e_uniop(&mut self, e: &Expr, o: &UniOpcode)
+    fn e_uniop(&mut self, e: &ExprWt, o: &UniOpWt)
     {
         self.expr(e);
-        self.push_uniop(o);
+        self.push_uniop(*o);
     }
 
-    fn e_binop(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
+    fn e_binop(&mut self, l: &ExprWt, o: &BinOpWt, r: &ExprWt)
     {
-        if o.is_sce() {
+/*        if o.is_sce() {
             self.e_bin_sce(l, o, r);
             return;
-        }
+        }*/
         self.expr(l);
         self.expr(r);
-        self.push_binop(o);
+        self.push_binop(*o);
     }
 
-    fn e_bin_sce(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
+/*    fn e_bin_sce(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
     {
         self.expr(l);
         let branch_i = self.term_curr_bb(Term::PCH(true));
@@ -953,9 +767,9 @@ impl Compiler
             BinOpcode::Cor  => Term::JBT(here), // T | * = T
             _ => unreachable!(),
         });
-    }
+    }*/
 
-    fn e_cmpop(&mut self, l: &Expr, v: &[(BinOpcode, Expr)])
+/*    fn e_cmpop(&mut self, l: &Expr, v: &[(BinOpcode, Expr)])
     {
         self.expr(l);
         match v.len() {
@@ -966,18 +780,18 @@ impl Compiler
             },
             _ => todo!("multi cmpop"),
         }
-    }
+    }*/
 
-    fn e_array(&mut self, a: &[Expr])
+/*    fn e_array(&mut self, a: &[Expr])
     {
         self.push_op(ImOp::AMN);
         for e in a {
             self.expr(e);
             self.push_op(ImOp::APE);
         }
-    }
+    }*/
 
-    fn e_table(&mut self, v: &[(Rc<DfStr>, Expr)])
+/*    fn e_table(&mut self, v: &[(Rc<DfStr>, Expr)])
     {
         self.push_op(ImOp::TMN);
         self.curr.rect.push(self.locsize()); // new $@0 will be on þe stack
@@ -989,42 +803,42 @@ impl Compiler
         }
         self.curr.rect.pop();
         self.decloc();
-    }
+    }*/
 
-    fn e_tblfd(&mut self, t: &Expr, f: &Rc<DfStr>)
+/*    fn e_tblfd(&mut self, t: &Expr, f: &Rc<DfStr>)
     {
         self.expr(t);
         let idx = self.push_ident(f);
         self.push_op(ImOp::TGF(idx));
-    }
+    }*/
 
-    fn e_recst(&mut self, level: u32)
+/*    fn e_recst(&mut self, level: u32)
     {
         let Some(loc) = self.curr.rect.peek(level as usize) else {
             panic!("$@{level} too deep");
         };
         self.push_op(ImOp::LLX(*loc));
-    }
+    }*/
 
-    pub fn e_fndef(&mut self, subr: &Subr)
+/*    pub fn e_fndef(&mut self, subr: &Subr)
     {
         let pagidx = self.comp_subr(subr, SubrType::F);
         for id in &subr.upvs {
             self.e_ident(id);
         }
         self.push_op(ImOp::FMN(pagidx));
-    }
+    }*/
 
-    pub fn e_pcdef(&mut self, subr: &Subr)
+/*    pub fn e_pcdef(&mut self, subr: &Subr)
     {
         let pagidx = self.comp_subr(subr, SubrType::P);
         for id in &subr.upvs {
             self.e_ident(id);
         }
         self.push_op(ImOp::PMN(pagidx));
-    }
+    }*/
 
-    pub fn e_fcall(&mut self, func: &Expr, args: &[Expr])
+/*    pub fn e_fcall(&mut self, func: &Expr, args: &[Expr])
     {
         self.expr(func);
         for arg in args {
@@ -1033,9 +847,9 @@ impl Compiler
         let ari = u8::try_from(args.len())
             .expect("too many args in func call: max 255");
         self.push_op(ImOp::FCL(ari));
-    }
+    }*/
 
-    fn e_ifexp(&mut self, cases: &[(Expr, Expr)], elze: &Expr)
+/*    fn e_ifexp(&mut self, cases: &[(Expr, Expr)], elze: &Expr)
     {
         // copypasted from stmt if else
         macro_rules! if_case {
@@ -1060,9 +874,9 @@ impl Compiler
         for i in jjx_idxs {
             self.curr.patch_jump(i, Term::JJX(end));
         }
-    }
+    }*/
 
-    pub fn obj_call(
+/*    pub fn obj_call(
         &mut self,
         obj: &Expr,
         field: &Rc<DfStr>,
@@ -1091,9 +905,9 @@ impl Compiler
             SubrType::F => ImOp::FCL(ari),
             SubrType::P => ImOp::PCL(ari),
         });
-    }
+    }*/
 
-    // helper fn
+/*    // helper fn
     fn declar_upvs(&mut self, upvs: &[Rc<DfStr>])
     {
         for upv in upvs {
@@ -1118,7 +932,7 @@ impl Compiler
         let low_name = s.meta.name.as_ref().map(|n| self.push_ident(n));
         let m = PageMeta { line: s.meta.line, name: low_name };
         return self.term_subr(s.arity(), s.upvs.len(), m, outer);
-    }
+    }*/
 }
 
 impl Default for Compiler
@@ -1128,7 +942,7 @@ impl Default for Compiler
         Self {
             consts: ArraySet::default(),
             idents: ArraySet::default(),
-            subrs:  vec![],
+            //subrs:  vec![],
             curr: SubrEnv::default(),
         }
     }

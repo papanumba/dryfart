@@ -1,14 +1,14 @@
 /* asterix.rs */
 
 use std::{rc::Rc, cell::RefCell, fmt};
+use strum::EnumCount;
+use strum_macros::EnumCount;
 use crate::{util, /*dflib,*/ util::{MutRc, DfStr}};
 
 #[repr(u8)]
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Type
 {
-    #[default]
-    V = b'V', // void
     B = b'B', // bool
     C = b'C', // char
     N = b'N', // natural
@@ -18,10 +18,14 @@ pub enum Type
 
 impl Type
 {
+    pub fn is_num(&self) -> bool
+    {
+        matches!(self, Self::C | Self::N | Self::Z | Self::R)
+    }
+
     pub fn default_val(&self) -> Val
     {
         match self {
-            Self::V => Val::V,
             Self::B => Val::B(false),
             Self::C => Val::C(0),
             Self::N => Val::N(0),
@@ -36,7 +40,6 @@ impl std::convert::From<&Val> for Type
     fn from(v: &Val) -> Self
     {
         match v {
-            Val::V    => Type::V,
             Val::B(_) => Type::B,
             Val::C(_) => Type::C,
             Val::N(_) => Type::N,
@@ -59,7 +62,6 @@ pub const ESC_CH: u8 = b'?';
 #[derive(Debug, Clone)]
 pub enum Val
 {
-    V,
     B(bool),
     C(u8),
     N(u32),
@@ -89,7 +91,6 @@ impl PartialEq for Val
     fn eq(&self, other: &Val) -> bool
     {
         match (self, other) {
-            (Val::V, Val::V) => true,
             (Val::B(b), Val::B(c)) => b == c,
             (Val::C(c), Val::C(d)) => c == d,
             (Val::N(n), Val::N(m)) => n == m,
@@ -106,7 +107,6 @@ impl fmt::Display for Val
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
     {
         match self {
-            Val::V    => write!(f, "V"),
             Val::B(b) => write!(f, "{}", if *b {'T'} else {'F'}),
             Val::C(c) => write!(f, "{}", char::from(*c)),
             Val::N(n) => write!(f, "{n}u"),
@@ -116,60 +116,59 @@ impl fmt::Display for Val
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BinOpcode {
-    Add, Sub, Mul, Div, Mod,
-    Eq, Ne, Lt, Gt, Le, Ge,
-    And, Or, Xor, Cand, Cor,
-    Idx
+// AST stuff ------------------------------------
+
+macro_rules! dccee {
+    ($t:item) => { #[derive(Copy, Clone, Debug, Eq, PartialEq)] $t }
 }
 
-impl BinOpcode
+macro_rules! dccee8 { // usefull for small enums
+    ($t:item) => { #[repr(u8)] dccee!{ $t } }
+}
+
+macro_rules! dcceep { // for structs
+    ($t:item) => { #[repr(packed)] dccee!{ $t } }
+}
+
+pub(crate) use dccee;
+pub(crate) use dccee8;
+
+dccee8!{
+pub enum UniOp { Neg, Inv, Not }
+}
+
+dccee8!{
+pub enum BinOp { Add, Sub, Mul, Div, Mod, And, Ior, Xor }
+}
+
+macro_rules! is_sth_fn {
+    ($name:ident, $($member:ident),+) => {
+        pub fn $name(&self) -> bool
+        {
+            matches!(self, $(Self::$member)|+)
+        }
+    }
+}
+
+impl BinOp
 {
-    pub fn is_num(&self) -> bool
-    {
-        matches!(self,
-            Self::Add |
-            Self::Sub |
-            Self::Mul |
-            Self::Div |
-            Self::Mod
-        )
-    }
-
-    pub fn is_bit(&self) -> bool
-    {
-        matches!(self,
-            Self::And |
-            Self::Or  |
-            Self::Xor
-        )
-    }
-
-    pub fn is_sce(&self) -> bool
-    {
-        matches!(self, Self::Cand | Self::Cor)
-    }
-
-    pub fn is_cmp(&self) -> bool
-    {
-        matches!(self,
-            Self::Eq |
-            Self::Ne |
-            Self::Lt |
-            Self::Gt |
-            Self::Le |
-            Self::Ge
-        )
-    }
+    is_sth_fn!(is_num, Add, Sub, Mul, Div, Mod);
+    is_sth_fn!(is_bit, And, Ior, Xor);
+//    is_sth_fn!(is_sce, Cand, Cor);
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum UniOpcode {
-    Neg, // additive negative
-    Inv, // multiplicative inverse
-    Not, // boolean negation
+dccee8!{
+pub enum OrdOp { Lt, Le, Gt, Ge }
 }
+
+dccee8!{
+pub enum CmpOp
+{
+    Equ(bool),
+    Ord(OrdOp),
+}}
+
+// TODO Cand &?, Cor |?
 
 /*#[derive(Debug, Clone)]
 pub enum Loop
@@ -177,8 +176,6 @@ pub enum Loop
     Inf(Block),
     Cdt(Block, Expr, Block),
 }*/
-
-pub type Block = Vec<Stmt>;
 
 /*#[derive(Debug, Clone)]
 pub struct IfCase
@@ -203,6 +200,19 @@ pub struct SwCase
 }*/
 
 #[derive(Debug, Clone)]
+pub enum Expr
+{
+//    DfLib,
+    Const(Val),
+    Ident(Rc<DfStr>),
+//    Tcast(Type, Box<Expr>),
+    BinOp(Box<Expr>, BinOp, Box<Expr>),
+    UniOp(Box<Expr>, UniOp),
+    CmpOp(Box<Expr>, Vec<(CmpOp, Expr)>),
+//    IfExp(Vec<(Expr, Expr)>, Box<Expr>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Stmt
 {
     Assign(Expr, Expr),
@@ -218,14 +228,79 @@ pub enum Stmt
 //    TbPCal(Expr, Rc<DfStr>, Vec<Expr>),
 }
 
+pub type Block = Vec<Stmt>;
+
+// TODO: move this to semanal
+// AST wiþ types, after SemAnal
+
+dccee8!{ #[derive(EnumCount)]
+pub enum UniOpWt {
+                   NEZ, NER,
+                        INR,
+    NOB, NOC, NON,
+}}
+
+dccee8!{ #[derive(EnumCount)]
+pub enum BinOpWt {
+         ADC, ADN, ADZ, ADR,
+                   SUZ, SUR,
+         MUC, MUN, MUZ, MUR,
+              DIN,      DIR,
+         MOC, MON, MOZ,      // MOZ is %Z \ %N
+    ANB, ANC, ANN,
+    IOB, IOC, ION,
+    XOB, XOC, XON,
+}}
+
+// EQU CMP
+
+dccee8!{ #[derive(EnumCount)]
+pub enum EquTyp { B, C, N, Z }
+}
+
+// ORD CMP
+
+// Types which can be compared using OrdOps
+dccee8!{ #[derive(EnumCount)]
+pub enum OrdTyp { C, N, Z, R }
+}
+
+dcceep!{
+pub struct OrdOpWt (pub OrdOp, pub OrdTyp);
+}
+
+dcceep!{
+pub struct EquOpWt (pub bool, pub EquTyp);
+}
+
+dccee8!{
+pub enum CmpOpWt
+{
+    Equ(EquOpWt),
+    Ord(OrdOpWt),
+}}
+
 #[derive(Debug, Clone)]
-pub enum Expr
+pub struct ExprWt
+{
+    pub e: ExprWte,
+    pub t: Type,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprWte
 {
     Const(Val),
     Ident(Rc<DfStr>),
-//    Tcast(Type, Box<Expr>),
-    BinOp(Box<Expr>, BinOpcode, Box<Expr>),
-    UniOp(Box<Expr>, UniOpcode),
-    CmpOp(Box<Expr>, Vec<(BinOpcode, Expr)>),
-//    IfExp(Vec<(Expr, Expr)>, Box<Expr>),
+    BinOp(Box<ExprWt>, BinOpWt, Box<ExprWt>),
+    UniOp(Box<ExprWt>, UniOpWt),
+    CmpOp(Box<ExprWt>, Vec<(CmpOpWt, ExprWt)>),
 }
+
+#[derive(Debug, Clone)]
+pub enum StmtWt
+{
+    VarAss(Rc<DfStr>, ExprWt),
+}
+
+pub type BlockWt = Vec<StmtWt>;

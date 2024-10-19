@@ -1,10 +1,10 @@
 /* genesis.rs */
 
 use std::rc::Rc;
+use strum::EnumCount;
 use crate::{
     intrep::*,
     asterix::*,
-    dflib,
     util::DfStr,
 };
 
@@ -15,169 +15,134 @@ pub fn comp_into_bytes(c: &Compiler) -> Vec<u8>
 
 const DF_MAGIC: &[u8; 8] = b"\xDFDRYFART";
 
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+dccee8!{
+#[derive(Default)]
 pub enum Op
 {
     #[default]
-    NOP = 0x00,
+    NOP,
 
-    LVV = 0x01,
-    LBT = 0x02,
-    LBF = 0x03,
-    LN0 = 0x04,
-    LN1 = 0x05,
-    LN2 = 0x06,
-    LN3 = 0x07,
-    LM1 = 0x08,
-    LZ0 = 0x09,
-    LZ1 = 0x0A,
-    LZ2 = 0x0B,
-    LR0 = 0x0C,
-    LR1 = 0x0D,
-    LKS = 0x0E,
-    LKL = 0x0F,
+    // LKX
+    LKS, LKL,
 
-    NEG = 0x10,
-    ADD = 0x11,
-    SUB = 0x12,
-    MUL = 0x13,
-    DIV = 0x14,
-    INV = 0x15,
-    INC = 0x16,
-    DEC = 0x17,
-    MOD = 0x18,
+    // some of þe following do not have all explicitly, but leave space to be
+    // prepare þe base index for each type of op, þen add the op as u8
 
-    CEQ = 0x98,
-    CNE = 0x99,
-    CLT = 0x9A,
-    CLE = 0x9B,
-    CGT = 0x9C,
-    CGE = 0x9D,
+    // UniOp base
+    UNO,
 
-    NOT = 0x20,
-    AND = 0x21,
-    IOR = 0x22,
-    XOR = 0x23,
+    // BinOp base
+    BIO = (Op::UNO as u8 + UniOpWt::COUNT as u8) as isize,
 
-    LGL = 0x40, // Load   Global Long  (u16)
-    SGL = 0x41, // Store  Global Long  (u16)
-    LLS = 0x44, // Load   Local  Short (u8)
-    SLS = 0x45, // Store  Local  Short (u8)
-    ULS = 0x46, // Update Local  Short (u8)
-    LLL = 0x47, // Load   Local  Long  (u16)
-    SLL = 0x48, // Store  Local  Long  (u16)
-    ULL = 0x49, // Update Local  Long  (u16)
+    // CMP
+    EQU = (Op::BIO as u8 + BinOpWt::COUNT as u8) as isize,
+    ORD = (Op::EQU as u8 + EquTyp::COUNT as u8 * 2) as isize, // 2 is EQ|NE
+    DUM = (Op::ORD as u8 + OrdTyp::COUNT as u8 * 4) as isize, // 4 is [LG][TE]
 
-    JJS = 0x50,
-    JJL = 0x51,
-    JBT = 0x52,
-    JBF = 0x53,
-    JTS = 0x54,
-    JTL = 0x55,
-    JFS = 0x56,
-    JFL = 0x57,
-    JES = 0x58,
-    JEL = 0x59,
-    JNS = 0x5A,
-    JNL = 0x5B,
-    JLT = 0x5C,
-    JLE = 0x5D,
-    JGT = 0x5E,
-    JGE = 0x5F,
+    // LOC
+    LLS, LLL,
+    SLS, SLL,
+    ULS, ULL,
 
-    AMN = 0x60,
-    APE = 0x61,
-    AGE = 0x62,
-    ASE = 0x63,
+    // JMP
+    JJS, JJL,
+    JBT,      JBF,     // þese are always short
+    JTS, JTL, JFS, JFL,
 
-    TMN = 0x70,
-    TSF = 0x71,
-    TGF = 0x72,
+    // T2T: C2N, C2Z, C2R, N2Z, N2R, Z2R
 
-    PMN = 0x80,
-    PCL = 0x82,
-
-    FMN = 0x88,
-    FCL = 0x89,
-
-    LUV = 0x8F,
-
-    CAN = 0xE6,
-    CAZ = 0xE8,
-    CAR = 0xEA,
-
-    RET = 0xF0,
-    END = 0xF1,
-    DUP = 0xF4,
-    SWP = 0xF5,
-    ROT = 0xF6,
-    POP = 0xF8,
-    HLT = 0xFF
-    // TODO: add opcodes
+    // stack ops
+//    RET = 0xF0,
+//    END = 0xF1,
+    DUP,
+    SWP,
+    ROT,
+    POP,
+    HLT,
 }
-
-macro_rules! term2jmp { // short jump
-    ($fnname:ident, $($term:ident => $op:ident),+) => {
-        pub fn $fnname(j: Term) -> Option<Self>
-        {
-            match j {
-                $(Term::$term(_) => Some(Op::$op),)+
-                _ => None
-            }
-        }
-    }
 }
 
 impl Op
 {
-    #[inline]
-    pub fn is_jmp(&self) -> bool
+    pub fn try_s_jmp(j: Jmp) -> Op
     {
-        return *self as u8 >> 4 == 0x5;
+        match j {
+            Jmp::JX => Op::JJS,
+            Jmp::BY(b) => if b {Op::JBT} else {Op::JBF},
+            Jmp::YX(b) => if b {Op::JTS} else {Op::JFS},
+        }
     }
 
-    term2jmp!{try_s_jmp,
-        JJX => JJS, JBT => JBT, JBF => JBF, JTX => JTS,
-        JFX => JFS, JEX => JES, JNX => JNS
-    }
-
-    term2jmp!{try_l_jmp,
-        JJX => JJL, JTX => JTL, JFX => JFL, JEX => JEL, JNX => JNL,
-        JLT => JLT, JLE => JLE, JGT => JGT, JGE => JGE
+    pub fn try_l_jmp(j: Jmp) -> Option<Op>
+    {
+        match j {
+            Jmp::JX => Some(Op::JJL),
+            Jmp::BY(_) => None,
+            Jmp::YX(b) => Some(if b {Op::JTL} else {Op::JFL}),
+        }
     }
 }
 
 // only converts þose ImOps þat are "simple" i.e.
 // þose þat're only a tag & don't have a value
-impl TryFrom<ImOp> for Op
+impl TryFrom<ImOp> for u8
 {
     type Error = ();
-    fn try_from(imop: ImOp) -> Result<Op, ()>
+    fn try_from(imop: ImOp) -> Result<u8, ()>
     {
-        macro_rules! convert {
-            ($imop:ident, $($name:ident),+;) => {
-                return match $imop {
-                    ImOp::LBX(b) => Ok(if b {Op::LBT} else {Op::LBF}),
-                    $(ImOp::$name => Ok(Op::$name),)+
-                    _ => Err(()),
-                }
-            }
+        match imop {
+            ImOp::DUP => Ok(Op::DUP as u8),
+            ImOp::SWP => Ok(Op::SWP as u8),
+            ImOp::ROT => Ok(Op::ROT as u8),
+            ImOp::POP => Ok(Op::POP as u8),
+            ImOp::UNO(u) => Ok(u8::from(u)),
+            ImOp::BIO(u) => Ok(u8::from(u)),
+            ImOp::CMP(u) => Ok(u8::from(u)),
+            _ => Err(()),
         }
-        convert!(imop, LVV,
-            LN0, LN1, LN2, LN3, LM1, LZ0, LZ1, LZ2, LR0, LR1, NEG, ADD, SUB,
-            MUL, DIV, INV, INC, DEC, MOD, CEQ, CNE, CLT, CLE, CGT, CGE, NOT,
-            AND, IOR, XOR, AMN, APE, AGE, ASE, TMN, CAN, CAZ, CAR, DUP, SWP,
-            ROT, POP;
-        );
     }
 }
 
 // some boilerplate
-impl TryFrom<&ImOp> for Op {
+impl TryFrom<&ImOp> for u8 {
     type Error = ();
-    fn try_from(imop: &ImOp) -> Result<Op, ()> {
-        return Op::try_from(*imop);
+    fn try_from(imop: &ImOp) -> Result<u8, ()> {
+        return u8::try_from(*imop);
+    }
+}
+
+impl From<UniOpWt> for u8 {
+    fn from(x: UniOpWt) -> u8 {
+        Op::UNO as u8 + x as u8
+    }
+}
+
+impl From<BinOpWt> for u8 {
+    fn from(x: BinOpWt) -> u8 {
+        Op::BIO as u8 + x as u8
+    }
+}
+
+impl From<CmpOpWt> for u8 {
+    fn from(x: CmpOpWt) -> u8 {
+        match x {
+            CmpOpWt::Equ(e) => e.into(),
+            CmpOpWt::Ord(o) => o.into(),
+        }
+    }
+}
+
+impl From<EquOpWt> for u8 {
+    fn from(x: EquOpWt) -> u8 {
+        Op::EQU as u8 + x.1 as u8 * 2 + (!x.0) as u8
+        // e.g. x.0 == true -> false -> 0 -> EQ goes 1st
+    }
+}
+
+impl From<OrdOpWt> for u8 {
+    fn from(x: OrdOpWt) -> u8 {
+        // x.1 is þe type & x.0 is þe OrdOp (LE, etc)
+        Op::ORD as u8 + x.1 as u8 * 4 + x.0 as u8
     }
 }
 
@@ -189,9 +154,8 @@ impl TryFrom<Term> for Op
     {
         match term {
             Term::NOP => Ok(Op::NOP),
-            Term::RET => Ok(Op::RET),
-            Term::END => Ok(Op::END),
             Term::HLT => Ok(Op::HLT),
+            // FUTURE: END, RET
             _ => Err(()),
         }
     }
@@ -205,15 +169,15 @@ impl TryFrom<&Term> for Op {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
+dccee!{ #[derive(Default)]
 enum LowerTerm
 {
     #[default]
     Nop,      // NOP
     One,      // "simple" op
-    Jjs(i8),  // short jump
-    Jjl(i16), // long jump
-}
+    Jxs(i8),  // short jump
+    Jxl(i16), // long jump
+}}
 
 impl LowerTerm
 {
@@ -223,8 +187,8 @@ impl LowerTerm
         match self {
             Self::Nop    => 0,
             Self::One    => 1,
-            Self::Jjs(_) => 2,
-            Self::Jjl(_) => 3,
+            Self::Jxs(_) => 2,
+            Self::Jxl(_) => 3,
         }
     }
 
@@ -233,8 +197,8 @@ impl LowerTerm
         match self {
             Self::Nop |
             Self::One => None,
-            Self::Jjs(d) => Some(d as isize),
-            Self::Jjl(d) => Some(d as isize),
+            Self::Jxs(d) => Some(d as isize),
+            Self::Jxl(d) => Some(d as isize),
         }
     }
 
@@ -244,8 +208,8 @@ impl LowerTerm
         match self {
             Self::Nop |
             Self::One => None,
-            Self::Jjs(d) => Some((d.to_bytes()[0], None)),
-            Self::Jjl(d) => {
+            Self::Jxs(d) => Some((d.to_bytes()[0], None)),
+            Self::Jxl(d) => {
                 let b = d.to_bytes();
                 Some((b[0], Some(b[1])))
             }
@@ -293,11 +257,11 @@ impl LowerBlock
     pub fn shrink_jj_by(&mut self, dx: u8)
     {
         match &mut self.tinf {
-            LowerTerm::Jjs(ref mut d) => match *d {
+            LowerTerm::Jxs(ref mut d) => match *d {
                 0 => panic!("cannot shrink 0 jump"),
                 _ => *d -= d.signum() * (dx as i8),
             },
-            LowerTerm::Jjl(ref mut d) => match *d {
+            LowerTerm::Jxl(ref mut d) => match *d {
                 0 => panic!("cannot shrink 0 jump"),
                 _ => *d -= d.signum() * (dx as i16),
             },
@@ -305,21 +269,19 @@ impl LowerBlock
         }
     }
 
-    // warning: term is expected to be a Jump
     // returns true if jmp is small (8), false if long (16)
-    pub fn write_jmp(&mut self, term: Term, dist: isize) -> bool
+    pub fn write_jmp(&mut self, jmp: Jmp, dist: isize) -> bool
     {
         if let Ok(s) = i8::try_from(dist+1) { // +1 bcoz þe NOP
-            if let Some(j) = Op::try_s_jmp(term) {
-                self.term = j;
-                self.tinf = LowerTerm::Jjs(s);
-                return true;
-            } // else long, even if can i8
+            let j = Op::try_s_jmp(jmp);
+            self.term = j;
+            self.tinf = LowerTerm::Jxs(s);
+            return true;
         }
         if let Ok(l) = i16::try_from(dist) {
-            let j = Op::try_l_jmp(term).unwrap();
+            let j = Op::try_l_jmp(jmp).unwrap();
             self.term = j;
-            self.tinf = LowerTerm::Jjl(l);
+            self.tinf = LowerTerm::Jxl(l);
             return false;
         }
         panic!("jump too long {dist} to fit in 2 bytes");
@@ -346,17 +308,21 @@ impl LowerBlock
 
     fn push_imop(&mut self, imop: &ImOp)
     {
-        if let Ok(op) = Op::try_from(imop) { // simple op or LBX
-            self.push_op(op);
+        if let Ok(op) = u8::try_from(*imop) { // simple op or LBX
+            self.push_u8(op);
         } else { // with operands
             self.push_arg_op(imop);
         }
     }
 
-    #[inline]
     fn push_op(&mut self, op: Op)
     {
-        self.code.push(op as u8);
+        self.push_u8(op as u8);
+    }
+
+    fn push_u8(&mut self, x: u8)
+    {
+        self.code.push(x);
     }
 
     #[inline]
@@ -369,12 +335,12 @@ impl LowerBlock
     // called when imop is not simple
     fn push_arg_op(&mut self, imop: &ImOp)
     {
-        if imop.is_tbl() {
+/*        if imop.is_tbl() {
             return self.push_tbl_op(imop);
         }
         if imop.is_subr() {
             return self.push_subr_op(imop);
-        }
+        }*/
         let opnd = imop.get_operand()
             .expect(&format!("imop {imop:?}"));
         if let Ok(u) = u8::try_from(opnd) { // Short
@@ -403,7 +369,7 @@ impl LowerBlock
     }
 
     // anoþer stupid function
-    fn push_tbl_op(&mut self, imop: &ImOp)
+/*    fn push_tbl_op(&mut self, imop: &ImOp)
     {
         match imop {
             ImOp::TGF(x) => {
@@ -416,9 +382,9 @@ impl LowerBlock
             },
             _ => unreachable!(),
         }
-    }
+    }*/
 
-    fn push_subr_op(&mut self, imop: &ImOp)
+/*    fn push_subr_op(&mut self, imop: &ImOp)
     {
         match imop {
             ImOp::PMN(pi) => {
@@ -445,10 +411,10 @@ impl LowerBlock
             },
             _ => unreachable!(),
         }
-    }
+    }*/
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Phil
 {
     out: Vec<u8> // accumulator for state machine
@@ -458,11 +424,12 @@ impl Phil // 'a lifetime of AST
 {
     pub fn transfart(comp: &Compiler) -> Vec<u8>
     {
-        let mut collins = Self { out: vec![] };
+        let mut collins = Self::default();
         collins.extend_bytes(DF_MAGIC);
         collins.push_idents(comp.idents.as_slice());
         collins.push_consts(comp.consts.as_slice());
-        collins.push_pages(&comp.subrs);
+//        collins.push_pages(&comp.subrs);
+        collins.push_main(&comp.curr);
         return collins.out;
     }
 
@@ -500,13 +467,11 @@ impl Phil // 'a lifetime of AST
             Val::N(n) => self.extend(*n),
             Val::Z(z) => self.extend(*z),
             Val::R(r) => self.extend(*r),
-            Val::T(Table::Nat(nt)) => self.extend(*nt),
-            Val::A(a) => self.extend_array(&a.borrow()),
             _ => unreachable!("{:?}", v),
         }
     }
 
-    fn extend_array(&mut self, a: &Array)
+/*    fn extend_array(&mut self, a: &Array)
     {
         if a.is_empty() {
             todo!("empty arrays");
@@ -518,7 +483,7 @@ impl Phil // 'a lifetime of AST
             let elem = a.get(i).unwrap();
             self.extend_val(&elem);
         }
-    }
+    }*/
 
     fn push_idents(&mut self, idents: &[Rc<DfStr>])
     {
@@ -546,23 +511,26 @@ impl Phil // 'a lifetime of AST
         }
     }
 
-    fn push_pages(&mut self, pags: &[Page])
+/*    fn push_pages(&mut self, pags: &[Page])
     {
         self.extend(u16::try_from(pags.len()).unwrap());
         for pag in pags {
             self.push_pag(pag);
         }
-    }
+    }*/
 
+    /* FORMAT: [ 4 bytes len ] [all Ops] [b'\0']
+        where þe len is the len of all Ops
+    */
     // joins all bblocks in one line & computes þe relative jumps
-    fn push_pag(&mut self, pag: &Page)
+    fn push_main(&mut self, main: &SubrEnv)
     {
         // convert to lower basic blocks
-        let lblocks = bb2lb(&pag.code);
+        let lblocks = bb2lb(&main.blocks);
         /************** W R I T E **************/
-        self.extend(pag.arity as u8);
-        self.extend(u8::try_from(pag.uvs).expect("too many upvals"));
-        self.push_page_meta(&pag.meta);
+//        self.extend(pag.arity as u8);
+//        self.extend(u8::try_from(pag.uvs).expect("too many upvals"));
+//        self.push_page_meta(&pag.meta);
         let len_idx = self.at();
         self.extend(0_u32); // dummy for len
         let x0 = self.at();
@@ -576,7 +544,7 @@ impl Phil // 'a lifetime of AST
         self.extend(b'\0'); // final NUL
     }
 
-    fn push_page_meta(&mut self, pm: &PageMeta)
+/*    fn push_page_meta(&mut self, pm: &PageMeta)
     {
         self.extend(pm.line as u32);
         if let Some(ii) = pm.name {
@@ -585,7 +553,7 @@ impl Phil // 'a lifetime of AST
         } else {
             self.extend(0_u8);
         }
-    }
+    }*/
 }
 
 fn bb2lb(bblocks: &[BasicBlock]) -> Vec<LowerBlock>
@@ -646,15 +614,16 @@ fn write_lb_term(
         return;
     }
     // jump to compute
-    let bbi = t.jmp_target()
-        .expect("term op is not branch??");
+    let Term::JMP(jmp, bbi) = t else {
+        panic!("term op is not branch??")
+    };
     let (sign, range) = if i < bbi {(1, i+1..bbi)} else {(-1, bbi..i+1)};
     let dist = sign * isize::try_from(lblocks[range]
             .iter()
             .map(|lb| lb.code.len()+3) // supose max size (terms can fit in 3b)
             .sum::<usize>())
         .unwrap();
-    lblocks[i].write_jmp(t, dist);
+    lblocks[i].write_jmp(jmp, dist);
 }
 
 fn check_jumps(
@@ -683,17 +652,11 @@ fn check_jumps(
 fn ser_ctn_type(v: &Val) -> u8
 {
     match v {
-        Val::V => unreachable!("can't ctn V"),
-        Val::B(_) => unreachable!("can't ctn a B"),
+//        Val::B(_) => unreachable!("can't ctn a B"),
         Val::C(_) => 0x02,
         Val::N(_) => 0x03,
         Val::Z(_) => 0x04,
         Val::R(_) => 0x05,
-        Val::T(t) => match t {
-            Table::Usr(_) => todo!(),
-            Table::Nat(_) => 0x07,
-        },
-        Val::A(_) => 0x08,
         _ => todo!(),
     }
 }
@@ -747,21 +710,9 @@ impl ToBytes for i32 {
     }
 }
 
-impl ToBytes for f32 {
-    type Bytes = [u8; 4];
+impl ToBytes for f64 {
+    type Bytes = [u8; 8];
     fn to_bytes(&self) -> Self::Bytes {
         return self.to_be_bytes();
-    }
-}
-
-impl ToBytes for dflib::tables::NatTb {
-    type Bytes = [u8; 4];
-    fn to_bytes(&self) -> Self::Bytes {
-        match self.name() {
-            "STD" => 0_u32,
-            "STD$io" => 1,
-            "STD$a"  => 2,
-            _ => todo!(),
-        }.to_be_bytes()
     }
 }

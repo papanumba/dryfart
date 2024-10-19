@@ -176,7 +176,7 @@ where T: Eq + std::fmt::Debug
 {
     pub fn new() -> Self
     {
-        return Self {set: vec![]};
+        return Self::default();
     }
 
     // O(n)
@@ -270,13 +270,13 @@ where T: Eq + std::fmt::Debug
 {
     fn default() -> Self
     {
-        Self::new()
+        return Self {set: vec![]};
     }
 }
 
 // Map which remembers þe order in which þe elements have been added
-// It's horribly inefficient for large number of þings
-#[derive(Debug, Default, Clone)]
+// It's horribly inefficient for large number of þings, but good for small no.
+#[derive(Debug, Clone)]
 pub struct VecMap<K, V>
 where K: Eq + std::fmt::Debug,
       V:      std::fmt::Debug
@@ -290,7 +290,7 @@ where K: Eq + std::fmt::Debug,
 {
     pub fn new() -> Self
     {
-        return Self {map: vec![]};
+        return Self::default();
     }
 
     // O(n)
@@ -357,6 +357,16 @@ where K: Eq + std::fmt::Debug,
     pub fn is_empty(&self) -> bool
     {
         return self.map.is_empty();
+    }
+}
+
+impl<K, V> Default for VecMap<K, V>
+where K: Eq + std::fmt::Debug,
+      V:      std::fmt::Debug
+{
+    fn default() -> Self
+    {
+        return Self{map:vec![]};
     }
 }
 

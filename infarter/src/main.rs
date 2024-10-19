@@ -1,15 +1,17 @@
 /* main.rs */
 
+#![allow(warnings)]
+
 use std::io::Write;
 
 pub mod parsnip;
 pub mod asterix;
-/*pub mod tarzan;
-pub mod dflib;
 pub mod semanal;
 pub mod intrep;
-pub mod optimus;
-pub mod genesis;*/
+pub mod genesis;
+/*pub mod tarzan;
+pub mod dflib;
+pub mod optimus;*/
 pub mod util;
 
 fn main()
@@ -37,15 +39,9 @@ pub fn parse_file(fname: &str)
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},
     };
-/*    semanal::check(&mut ast);
-    tarzan::exec_main(&ast);*/
-}
-
-#[inline]
-pub fn read_file_to_string(fname: &str) -> String
-{
-    return std::fs::read_to_string(fname)
-            .expect("Should have been able to read the file");
+    let mut ast = semanal::semanalize(ast);
+    dbg!(&ast);
+/*    tarzan::exec_main(&ast);*/
 }
 
 pub fn transfart(ifname: &str, opt: bool)
@@ -57,11 +53,12 @@ pub fn transfart(ifname: &str, opt: bool)
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},
     };
-/*    semanal::check(&mut ast);
+    let mut ast = semanal::semanalize(ast);
     let mut cfg = intrep::Compiler::from_asterix(&ast);
-    if opt {
+    dbg!(&cfg);
+/*    if opt {
         optimus::opt_bblocks(&mut cfg);
-    }
+    }*/
     let mut ofile = std::fs::File::create(&ofname)
         .expect("could not create file");
     match ofile.write_all(&genesis::comp_into_bytes(&cfg)) {
@@ -70,5 +67,12 @@ pub fn transfart(ifname: &str, opt: bool)
             ofname,
         ),
         Err(e) => eprintln!("Could not write to binary file because:\n {e}"),
-    }*/
+    }
+}
+
+#[inline]
+pub fn read_file_to_string(fname: &str) -> String
+{
+    return std::fs::read_to_string(fname)
+            .expect("Should have been able to read the file");
 }

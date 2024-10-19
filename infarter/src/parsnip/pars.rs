@@ -30,7 +30,7 @@ macro_rules! left_binop_expr {
                 let t = self.$term()?;
                 e = Expr::BinOp(
                     Box::new(e),
-                    BinOpcode::$binop,
+                    BinOp::$binop,
                     Box::new(t),
                 );
             }
@@ -52,7 +52,7 @@ macro_rules! rite_uniop_expr {
             }
             let mut e = self.$base()?;
             for _ in 0..n {
-                e = Expr::UniOp(Box::new(e), UniOpcode::$uniop);
+                e = Expr::UniOp(Box::new(e), UniOp::$uniop);
             }
             return Ok(e);
         }
@@ -235,7 +235,7 @@ impl<'src> Nip<'src>
     fn operon(&mut self, lhs: Expr, op: Token<'_>) -> StrRes<Stmt>
     {
         self.advance(); // op
-        let binop = BinOpcode::try_from(op.typ())?;
+        let binop = BinOp::try_from(op.typ())?;
         let ex = self.expr()?;
         self.exp_adv(TokTyp::Period)?;
         return Ok(Stmt::OperOn(lhs, binop, ex));
@@ -411,23 +411,23 @@ impl<'src> Nip<'src>
 
     fn expr(&mut self) -> StrRes<Expr>
     {
-        return self.cor_expr();
+        return self.cmp_expr();
     }
 
-    left_binop_expr!( cor_expr, cand_expr, VbarQu,  Cor);
-    left_binop_expr!(cand_expr,  cmp_expr,  AndQu, Cand);
+/*    left_binop_expr!( cor_expr, cand_expr, VbarQu,  Cor);
+    left_binop_expr!(cand_expr,  cmp_expr,  AndQu, Cand);*/
 
     fn cmp_expr(&mut self) -> StrRes<Expr>
     {
-        let first = self.or_expr()?;
-        let mut others: Vec<(BinOpcode, Expr)> = vec![];
+        let first = self.ior_expr()?;
+        let mut others: Vec<(CmpOp, Expr)> = vec![];
         while let Some(pop) = self.peek() {
             if !pop.0.is_cmp() {
                 break;
             }
-            let op = BinOpcode::try_from(pop.0.typ()).unwrap();
+            let op = CmpOp::try_from(pop.0.typ()).unwrap();
             self.advance();
-            let rhs = self.or_expr()?;
+            let rhs = self.ior_expr()?;
             others.push((op, rhs));
         }
         if others.is_empty() {
@@ -437,7 +437,7 @@ impl<'src> Nip<'src>
         }
     }
 
-    left_binop_expr!( or_expr, xor_expr,  Vbar,  Or);
+    left_binop_expr!(ior_expr, xor_expr,  Vbar, Ior);
     left_binop_expr!(xor_expr, and_expr, Caret, Xor);
     left_binop_expr!(and_expr, add_expr,   And, And);
 
@@ -449,8 +449,8 @@ impl<'src> Nip<'src>
             let op = self.read_token().unwrap().0; // +, -
             let rhs = self.neg_expr()?;
             let op = match op.typ() {
-                TokTyp::Plus  => BinOpcode::Add,
-                TokTyp::Minus => BinOpcode::Sub,
+                TokTyp::Plus  => BinOp::Add,
+                TokTyp::Minus => BinOp::Sub,
                 _ => unreachable!(),
             };
             ae = Expr::BinOp(Box::new(ae), op, Box::new(rhs));
@@ -469,9 +469,9 @@ impl<'src> Nip<'src>
             let op = self.read_token().unwrap().0; // *, /, \
             let rhs = self.inv_expr()?;
             let op = match op.typ() {
-                TokTyp::Asterisk => BinOpcode::Mul,
-                TokTyp::Slash    => BinOpcode::Div,
-                TokTyp::Bslash   => BinOpcode::Mod,
+                TokTyp::Asterisk => BinOp::Mul,
+                TokTyp::Slash    => BinOp::Div,
+                TokTyp::Bslash   => BinOp::Mod,
                 _ => unreachable!(),
             };
             me = Expr::BinOp(Box::new(me), op, Box::new(rhs));
@@ -480,8 +480,8 @@ impl<'src> Nip<'src>
     }
 
     rite_uniop_expr!(inv_expr,  not_expr,  Slash, Inv);
-    rite_uniop_expr!(not_expr,  idx_expr,  Tilde, Not);
-    left_binop_expr!(idx_expr,     nucle, Uscore, Idx);
+    rite_uniop_expr!(not_expr,     nucle,  Tilde, Not);
+//    left_binop_expr!(idx_expr,     nucle, Uscore, Idx);
 
 /*    fn cast_expr(&mut self) -> StrRes<Expr>
     {
@@ -568,7 +568,6 @@ impl<'src> Nip<'src>
                 )));
             },
             // literals
-            TokTyp::ValV => {self.advance(); Ok(Expr::Const(Val::V))},
             TokTyp::ValB => Ok(self.valb(tok.0.as_valb().unwrap())),
             TokTyp::ValC => Ok(self.valc(tok.0.as_valc().unwrap())),
             TokTyp::ValN => Ok(self.valn(tok.0.as_valn().unwrap())),
@@ -809,19 +808,29 @@ impl From<PrimType> for Type
     }
 }
 
-impl TryFrom<TokTyp> for BinOpcode
+impl TryFrom<TokTyp> for CmpOp
+{
+    type Error = ();
+    fn try_from(t: TokTyp) -> Result<Self, ()>
+    {
+        match t {
+            TokTyp::Equal2 => Ok(CmpOp::Equ(true)),
+            TokTyp::Ne     => Ok(CmpOp::Equ(false)),
+            TokTyp::Langle => Ok(CmpOp::Ord(OrdOp::Lt)),
+            TokTyp::Le     => Ok(CmpOp::Ord(OrdOp::Le)),
+            TokTyp::Rangle => Ok(CmpOp::Ord(OrdOp::Gt)),
+            TokTyp::Ge     => Ok(CmpOp::Ord(OrdOp::Ge)),
+            _ => Err(()),
+        }
+    }
+}
+
+/*impl TryFrom<TokTyp> for BinOp
 {
     type Error = String;
     fn try_from(t: TokTyp) -> Result<Self, Self::Error>
     {
         match t {
-            TokTyp::Equal2 => Ok(BinOpcode::Eq),
-            TokTyp::Ne     => Ok(BinOpcode::Ne),
-            TokTyp::Langle => Ok(BinOpcode::Lt),
-            TokTyp::Le     => Ok(BinOpcode::Le),
-            TokTyp::Rangle => Ok(BinOpcode::Gt),
-            TokTyp::Ge     => Ok(BinOpcode::Ge),
-            // for Operons
             TokTyp::Plus2     => Ok(BinOpcode::Add),
             TokTyp::Minus2    => Ok(BinOpcode::Sub),
             TokTyp::Asterisk2 => Ok(BinOpcode::Mul),
@@ -834,3 +843,4 @@ impl TryFrom<TokTyp> for BinOpcode
         }
     }
 }
+*/
