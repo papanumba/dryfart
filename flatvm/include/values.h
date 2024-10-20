@@ -3,24 +3,26 @@
 #ifndef FLATVM_VALUES_H
 #define FLATVM_VALUES_H
 
-#include <cstring>
-#include "objref.h"
+//#include <cstring>
+//#include "objref.h"
+#include "common.h"
+
+//namespace flatvm {
 
 // types from þe user side
-enum class DfType : uint8_t {
-    V = 'V', /* void */
-    B = 'B', /* bool */
-    C = 'C', /* char */
-    N = 'N', /* natural */
-    Z = 'Z', /* zahl */
-    R = 'R', /* real */
-    F = '#', /* function */
-    P = '!', /* procedure */
-    A = '_', /* array */
-    T = '$'  /* table */
-};
+/*enum class Type : uint8_t {
+    B = 'B', // bool
+    C = 'C', // char
+    N = 'N', // natural
+    Z = 'Z', // zahl
+    R = 'R', // real
+    F = '#', // function
+    P = '!', // procedure
+    A = '_', // array
+    T = '$'  // table
+};*/
 
-static inline DfType objt2dft(ObjType ot)
+/*static inline DfType objt2dft(ObjType ot)
 {
     DfType t = DfType::V;
     switch (ot) {
@@ -30,94 +32,34 @@ static inline DfType objt2dft(ObjType ot)
         case OBJ_PRO: t = DfType::P; break;
     }
     return t;
-}
+}*/
 
-enum ValType {
-    VAL_V = 0x00,
-    VAL_B = 0x02,
-    VAL_C = 0x04,
-    VAL_N = 0x06,
-    VAL_Z = 0x08,
-    VAL_R = 0x0A,
-    VAL_O = 0x0C /* any heap stuff */
-};
-
-static inline ValType dft2valt(DfType t)
+union DfVal
 {
-    switch (t) {
-#define BASURA(X) case DfType::X: return VAL_##X;
-      BASURA(V)
-      BASURA(B)
-      BASURA(C)
-      BASURA(N)
-      BASURA(Z)
-      BASURA(R)
-#undef BASURA
-      default: // ATFP
-        return VAL_O;
-    }
-}
+    bool     b;
+    uint8_t  c;
+    uint32_t n;
+    int32_t  z;
+    double   r;
+    //ObjRef   o;
 
-class DfVal {
   public:
-    static const int CMP_ERR = -1;
-  public:
-    enum ValType type;
-    union _as {
-        bool     b;
-        uint8_t  c;
-        uint32_t n;
-        int32_t  z;
-        float    r;
-        ObjRef   o;
-    } as;
-  public:
-    DfVal() : type(VAL_V) { }
-    DfVal(const DfVal &that) {
-        this->type = that.type;
-        this->as.o = that.as.o; // largest member
-    }
-#define BASURA(typ, m, M) \
-    DfVal(typ m) :        \
-        type(VAL_ ## M) { \
-        this->as.m = m;   \
-    }
-    BASURA(bool,     b, B)
-    BASURA(uint8_t,  c, C)
-    BASURA(uint32_t, n, N)
-    BASURA(int32_t,  z, Z)
-    BASURA(float,    r, R)
-    BASURA(ObjRef,   o, O)
+
+    // ctors
+#define BASURA(typ, m) DfVal(typ x) : m(x) {}
+    BASURA(bool,     b)
+    BASURA(uint8_t,  c)
+    BASURA(uint32_t, n)
+    BASURA(int32_t,  z)
+    BASURA(double,   r)
 #undef BASURA
+    DfVal(const DfVal &that) = default;
+
     // meþods
-    void set_mut(bool m = true) {
-        if (this->type == VAL_O)
-            this->as.o.set_mut(m);
-    }
-    void print() const;
-    DfType as_type() const;
-#define BASURA(X, x) \
-    bool is_ ## x() const { \
-        return this->type == VAL_O && \
-            this->as.o.get_type() == OBJ_ ## X; \
-    }
-    BASURA(ARR, arr)
-    BASURA(TBL, tbl)
-    BASURA(FUN, fun)
-    BASURA(PRO, pro)
-#undef BASURA
-    // operators
-    bool operator==(const DfVal &) const;
-    bool operator!=(const DfVal &) const;
-    int  operator< (const DfVal &) const; // 0 -> false, 1 -> true, -1 -> err
-    int  operator<=(const DfVal &) const;
-    int  operator> (const DfVal &) const;
-    int  operator>=(const DfVal &) const;
-    DfVal & operator=(const DfVal &that) {
-        this->type = that.type;
-        this->as.o = that.as.o;
-        return *this;
-    }
+    //void print() const;
+    DfVal & operator=(DfVal &that) = default;
 };
+
+//} // namespace
 
 #endif /* FLATVM_VALUES_H */

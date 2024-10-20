@@ -4,7 +4,7 @@
 #include <cstring>
 #include "idents.h"
 
-static uint32_t hash_buff(const uint8_t *, size_t);
+static uint32_t hash_buff(cbyte_p, size_t);
 
 /* str mayn't be NUL-term'd, but idf.str will */
 DfIdf::DfIdf(const uint8_t *str, size_t len)
@@ -61,11 +61,11 @@ DfIdf & DfIdf::operator=(DfIdf &&that)
     return *this;
 }
 
-/* FNV-1a (Fowler-Noll-Vo) hash function for 32 bit */
-static uint32_t hash_buff(const uint8_t *buf, size_t len)
+// FNV-1a (Fowler-Noll-Vo) hash function for 32 bit
+static uint32_t hash_buff(cbyte_p buf, size_t len)
 {
     uint32_t hash = 2166136261;
-    for (size_t i = 0; i < len; ++i) {
+    TIL(i, len) {
         hash ^= buf[i];
         hash *= 16777619;
     }

@@ -6,16 +6,16 @@
 
 Norris::Norris(
     cbyte_p      cod,
-    size_t       len,
-    uint32_t     lne,
-    uint8_t      ari,
-    uint8_t      uvs,
-    const DfIdf *nam)
+    size_t       len)
+//    uint32_t     lne,
+//    uint8_t      ari,
+//    uint8_t      uvs,
+//    const DfIdf *nam)
 {
-    this->lne = lne;
+/*    this->lne = lne;
     this->ari = ari;
     this->uvs = uvs;
-    this->nam = nam;
+    this->nam = nam;*/
     if (len >= UINT32_MAX)
         panic("Buffer for Norris too big");
     this->len = (uint32_t) len;

@@ -105,6 +105,13 @@ case OP_NEG: {
 
 #define DO_BINOP(x, op) this->push(DfVal(lhs.as.x op rhs.as.x)); break
 
+case OP_ADN: {
+    auto rhs = this->pop();
+    auto lhs = this->pop();
+    this->push(DfVal(rhs.n + lhs.n);
+    break;
+}
+
 case OP_ADD: {
     DfVal rhs = this->pop();
     DfVal lhs = this->pop();

@@ -2,14 +2,14 @@ CC = clang
 CXX = clang++
 CPPFLAGS = -Iinclude -Idf-lib -DSAFE
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
-LDFLAGS = -L. -ldf-lib # -Wl,-rpath=.
+LDFLAGS = #-L. -ldf-lib # -Wl,-rpath=.
 CXXNOWARN := -Wno-unused-private-field -Wno-unused-parameter
 # -Wno-mismatched-tags
 CXXNOWARN := $(CXXNOWARN) -Wno-c++98-compat
 CXXWARN := -Wall -Wextra -Wdeprecated-copy-dtor
 CXXFLAGS = -std=c++17 -pedantic $(CXXWARN) -fPIE #$(CXXNOWARN)
 
-cxxobjs = bitarr.o disasm.o garcol.o htable.o idents.o loader.o maitre.o norris.o object.o objref.o values.o virmac.o
+cxxobjs = disasm.o idents.o loader.o norris.o values.o
 cxxobjs := $(cxxobjs) main.o
 cobjs = common.o latin1.o reader.o
 objs = $(cxxobjs) $(cobjs)
@@ -50,8 +50,8 @@ main.o: src/main.cpp
 %.o: src/%.cpp include/%.h
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
-virmac.o: src/virmac.cpp src/vm-ops.cpp include/virmac.h
-	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
+#virmac.o: src/virmac.cpp src/vm-ops.cpp include/virmac.h
+#	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 %.o: src/%.c
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $<

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include "disasm.h"
 #include "idents.h"
+#include "ser-de.h"
 
 /* local state for disassembling */
 static VmData *dat = nullptr;
@@ -23,12 +24,12 @@ static void jmp_ins(const char *, uint);
 void disasm_vmdata(VmData *vmd, const char *name)
 {
     set_vmdata(vmd);
-    printf("size of Norris = %u\n", (uint) sizeof(Norris));
+//    printf("size of Norris = %u\n", (uint) sizeof(Norris));
     printf("=== %s ===\n", name);
     size_t pag_len = dat->pag.len();
-    for (size_t p = 0; p < pag_len; ++p) {
+    TIL (p, pag_len) {
         nor = &dat->pag[p];
-        if (nor->nam != nullptr) {
+/*        if (nor->nam != nullptr) {
             printf("-------- %u-ary @ line: %u \"",
                 nor->ari, nor->lne);
             nor->nam->print();
@@ -36,7 +37,8 @@ void disasm_vmdata(VmData *vmd, const char *name)
         } else {
             printf("-------- %u-ary @ line: %u --------\n",
                 nor->ari, nor->lne);
-        }
+        }*/
+        puts("--------------");
         ip = nor->cod;
         cbyte_p end = &nor->cod[nor->len];
         while (ip < end)
@@ -60,94 +62,34 @@ static void disasm_ins_fast()
 
     switch (instru) {
 
-#define ONE(XXX)       case OP_ ## XXX: one_ins(#XXX      ); break;
-#define CTN(XXX, size) case OP_ ## XXX: ctn_ins(      size); break;
-#define NUM(XXX, size) case OP_ ## XXX: num_ins(#XXX, size); break;
-#define JMP(XXX, size) case OP_ ## XXX: jmp_ins(#XXX, size); break;
+#define ONE(XXX)       case (uint8_t) Op::XXX: one_ins(#XXX      ); break;
+#define CTN(XXX, size) case (uint8_t) Op::XXX: ctn_ins(      size); break;
+#define NUM(XXX, size) case (uint8_t) Op::XXX: num_ins(#XXX, size); break;
+#define JMP(XXX, size) case (uint8_t) Op::XXX: jmp_ins(#XXX, size); break;
 
       ONE(NOP)
-      ONE(LVV)
-      ONE(LBT)
-      ONE(LBF)
-      ONE(LN0)
-      ONE(LN1)
-      ONE(LN2)
-      ONE(LN3)
-      ONE(LM1)
-      ONE(LZ0)
-      ONE(LZ1)
-      ONE(LZ2)
-      ONE(LR0)
-      ONE(LR1)
+
       CTN(LKS, 1)
       CTN(LKL, 2)
 
-      ONE(NEG)
-      ONE(ADD)
-      ONE(SUB)
-      ONE(MUL)
-      ONE(DIV)
-      ONE(INV)
-      ONE(INC)
-      ONE(DEC)
-      ONE(MOD)
+      ONE(NGZ) ONE(NER) ONE(INR) ONE(NOB) ONE(NOC) ONE(NON)
 
-      ONE(CEQ)
-      ONE(CNE)
-      ONE(CLT)
-      ONE(CLE)
-      ONE(CGT)
-      ONE(CGE)
+      ONE(ADC) ONE(ADN) ONE(ADZ) ONE(ADR) ONE(SUZ) ONE(SUR) ONE(MUC) ONE(MUN)
+      ONE(MUZ) ONE(MUR) ONE(DIN) ONE(DIR) ONE(MOC) ONE(MON) ONE(MOZ) ONE(ANB)
+      ONE(ANC) ONE(ANN) ONE(IOB) ONE(IOC) ONE(ION) ONE(XOB) ONE(XOC) ONE(XON)
 
-      ONE(NOT)
-      ONE(AND)
-      ONE(IOR)
-      ONE(XOR)
+      ONE(EQB) ONE(NEB) ONE(EQC) ONE(NEC) ONE(EQN) ONE(NEN) ONE(EQZ) ONE(NEZ)
+      ONE(LTC) ONE(LEC) ONE(GTC) ONE(GEC) ONE(LTN) ONE(LEN) ONE(GTN) ONE(GEN)
+      ONE(LTZ) ONE(LEZ) ONE(GTZ) ONE(GEZ) ONE(LTR) ONE(LER) ONE(GTR) ONE(GER)
 
-      ONE(CAN)
-      ONE(CAZ)
-      ONE(CAR)
+      NUM(LLS, 1) NUM(LLL, 2)
+      NUM(SLS, 1) NUM(SLL, 2)
+      NUM(ULS, 1) NUM(ULL, 2)
 
-      ONE(AMN)
-      ONE(APE)
-      ONE(AGE)
-      ONE(ASE)
+      JMP(JJS, 1) JMP(JJL, 2)
+      JMP(JBT, 1)             JMP(JBF, 1)
+      JMP(JTS, 1) JMP(JTL, 2) JMP(JFS, 1) JMP(JFL, 2)
 
-      ONE(TMN)
-      case OP_TSF: idf_ins("TSF", 2); break;
-      case OP_TGF: idf_ins("TGF", 2); break;
-
-      NUM(PMN, 2)
-      NUM(PCL, 1)
-      NUM(FMN, 2)
-      NUM(FCL, 1)
-      NUM(LUV, 1)
-
-      NUM(LLS, 1)
-      NUM(SLS, 1)
-      NUM(ULS, 1)
-      NUM(LLL, 2)
-      NUM(SLL, 2)
-
-      JMP(JJS, 1)
-      JMP(JJL, 2)
-      JMP(JBT, 1)
-      JMP(JBF, 1)
-      JMP(JTS, 1)
-      JMP(JTL, 2)
-      JMP(JFS, 1)
-      JMP(JFL, 2)
-      JMP(JES, 1)
-      JMP(JEL, 2)
-      JMP(JNS, 1)
-      JMP(JNL, 2)
-      JMP(JLT, 2)
-      JMP(JLE, 2)
-      JMP(JGT, 2)
-      JMP(JGE, 2)
-
-      ONE(RET)
-      ONE(END)
       ONE(DUP)
       ONE(SWP)
       ONE(ROT)
@@ -200,7 +142,8 @@ static void ctn_ins(uint argsize)
         panic("size in ctn_ins is not 1 or 2");
     }
     printf("%-8s %4d (", name, c);
-    dat->ctn[c].print();
+    printf("todo: print val");
+//    dat->ctn[c].print();
     puts(")");
 }
 

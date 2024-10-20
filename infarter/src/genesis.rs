@@ -20,7 +20,7 @@ dccee8!{
 pub enum Op
 {
     #[default]
-    NOP,
+    NOP = 0,
 
     // LKX
     LKS, LKL,
@@ -59,8 +59,7 @@ pub enum Op
     ROT,
     POP,
     HLT,
-}
-}
+}}
 
 impl Op
 {
