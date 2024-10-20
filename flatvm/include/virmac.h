@@ -41,8 +41,8 @@ class VirMac {
     void push_call(DfVal *, Norris *);
     void pop_call();
     void set_norris(Norris *);
-    void print_calls() const;
-    void print_stack() const;
+//    void print_calls() const;
+//    void print_stack() const;
 
   public: // meþods
     VirMac();

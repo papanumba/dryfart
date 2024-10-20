@@ -3,7 +3,7 @@
 #ifndef FLATVM_VALUES_H
 #define FLATVM_VALUES_H
 
-//#include <cstring>
+#include <cstring>
 //#include "objref.h"
 #include "common.h"
 
@@ -46,6 +46,7 @@ union DfVal
   public:
 
     // ctors
+    DfVal() : n(0) {}
 #define BASURA(typ, m) DfVal(typ x) : m(x) {}
     BASURA(bool,     b)
     BASURA(uint8_t,  c)
@@ -57,7 +58,10 @@ union DfVal
 
     // meþods
     //void print() const;
-    DfVal & operator=(DfVal &that) = default;
+    DfVal & operator=(const DfVal &that) {
+        std::memcpy(this, &that, sizeof(DfVal));
+        return *this;
+    }
 };
 
 //} // namespace

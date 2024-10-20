@@ -1,37 +1,27 @@
 /* vm-ops.c */
 
-#include <cassert>
+//#include <cassert>
 
-#define SIMPLE_ERR(msg) do { \
+#define VM_OP(XXX, block) \
+case (uint8_t) Op::XXX: { block break; }
+
+/*#define SIMPLE_ERR(msg) do { \
     eputln(msg);            \
     return ITP_RUNTIME_ERR; \
-} while (false)
-
-#define ERR_BINOP(msg) do { \
-    err_dif_types(msg, lhs.as_type(), rhs.as_type()); \
-    return ITP_RUNTIME_ERR; \
-} while (false)
-
-#define ERR_OP_TYPE(msg, valref) do { \
-    err_cant_op(msg, valref); \
-    return ITP_RUNTIME_ERR;   \
-} while (false)
+} while (false)*/
 
 #define READ_U8()   read_u8 (&this->ip)
 #define READ_U16()  read_u16(&this->ip)
 
 /*****************************************************************/
 
-case OP_NOP:
-    break;
+VM_OP(NOP,
+    {}
+)
 
 // load ---------------------
 
-case OP_LVV:
-    this->push(DfVal());
-    break;
-
-#define OP_LXX(xx, val) \
+/*#define OP_LXX(xx, val) \
 case OP_L ## xx: this->push(DfVal((val))); break;
 OP_LXX(BT, true)
 OP_LXX(BF, false)
@@ -54,251 +44,41 @@ OP_LZX(2)
 #define OP_LRX(r) OP_LXX(R ## r, (float)(r))
 OP_LRX(0)
 OP_LRX(1)
-#undef OP_LRX
+#undef OP_LRX*/
 
-case OP_LKS: {
+VM_OP(LKS,
     uint idx = READ_U8();
-    this->push(DfVal(this->dat->ctn[idx]));
-    break;
-}
+    this->push(this->dat->ctn[idx]);
+)
 
-case OP_LKL: {
+VM_OP(LKL,
     uint idx = READ_U16();
     this->push(this->dat->ctn[idx]);
-    break;
-}
+)
 
 // ariþmetic ------------------
 
-case OP_NEG: {
-    DfVal val = this->pop(); // fastest (checked with peek)
-    switch (val.type) {
-      case VAL_Z: this->fpush(DfVal(-val.as.z)); break;
-      case VAL_R: this->fpush(DfVal(-val.as.r)); break;
-      default: ERR_OP_TYPE("unary -", &val);
-    }
-    break;
-}
+#define VM_BINOP(name, op, t) \
+VM_OP(name,                             \
+    auto rhs = this->pop();             \
+    auto lhs = this->pop();             \
+    this->push(DfVal(lhs.t op rhs.t));  \
+)
 
-// only used in OP_ADD
-#define ADD_O do { \
-    auto lo = lhs.as.o;                   \
-    auto ro = rhs.as.o;                   \
-    if (lo.get_type() != ro.get_type())   \
-        ERR_BINOP("+");                   \
-    switch (lo.get_type()) {              \
-      case OBJ_ARR: {                     \
-        auto a = maitre::alloc(OBJ_ARR);  \
-        auto arr = a.as_arr();            \
-        arr->typ = DfType::V;             \
-        arr->is_nat = false;              \
-        auto r = lo.as_arr()->concat(     \
-            *ro.as_arr(), *arr);          \
-        if (AccRes::OK != r)              \
-            SIMPLE_ERR(accres_what(r));   \
-        this->push(DfVal(a));             \
-        break;                            \
-      }                                   \
-      default: todo("add other objects"); \
-    } \
-} while (false)
+VM_BINOP(ADN, +, n)
+VM_BINOP(MUN, *, n)
+VM_BINOP(ANN, &, n)
 
-#define DO_BINOP(x, op) this->push(DfVal(lhs.as.x op rhs.as.x)); break
+#undef VM_BINOP
 
-case OP_ADN: {
-    auto rhs = this->pop();
-    auto lhs = this->pop();
-    this->push(DfVal(rhs.n + lhs.n);
-    break;
-}
+// locals
 
-case OP_ADD: {
-    DfVal rhs = this->pop();
-    DfVal lhs = this->pop();
-    if (lhs.type != rhs.type)
-        ERR_BINOP("+");
-    switch (lhs.type) {
-      case VAL_C: DO_BINOP(c, +);
-      case VAL_N: DO_BINOP(n, +);
-      case VAL_Z: DO_BINOP(z, +);
-      case VAL_R: DO_BINOP(r, +);
-      case VAL_O: ADD_O; break;
-      default: ERR_OP_TYPE("+", &lhs);
-    }
-    break;
-}
-
-#undef ADD_O
-
-case OP_SUB: {
-    DfVal rhs = this->pop();
-    DfVal lhs = this->pop();
-    if (lhs.type != rhs.type)
-        ERR_BINOP("-");
-    switch (lhs.type) {
-      case VAL_Z: DO_BINOP(z, -);
-      case VAL_R: DO_BINOP(r, -);
-      default: ERR_OP_TYPE("-", &lhs);
-    }
-    break;
-}
-
-case OP_MUL: {
-    DfVal rhs = this->pop();
-    DfVal lhs = this->pop();
-    if (lhs.type != rhs.type)
-        ERR_BINOP("*");
-    switch (lhs.type) {
-      case VAL_C: DO_BINOP(c, *);
-      case VAL_N: DO_BINOP(n, *);
-      case VAL_Z: DO_BINOP(z, *);
-      case VAL_R: DO_BINOP(r, *);
-      default: ERR_OP_TYPE("*", &lhs);
-    }
-    break;
-}
-
-case OP_DIV: { // fastest: checked with {pop, peek, ->} & {2pop, fpush}
-    DfVal rhs = this->pop();
-    DfVal lhs = this->pop();
-    if (lhs.type != rhs.type)
-        ERR_BINOP("/");
-    switch (lhs.type) {
-//      case VAL_N: this->push(DfVal(lhs.as.n * rhs.as.n)); break;
-//      case VAL_Z: this->push(DfVal(lhs.as.z * rhs.as.z)); break;
-      case VAL_R: DO_BINOP(r, /);
-      default: ERR_OP_TYPE("/", &lhs);
-    }
-    break;
-}
-
-case OP_INV: {
-/* TODO: why is þis slower þan LR1 [expr] DIV ? */
-    DfVal &val = this->peek();
-    if (val.type != VAL_R)
-        ERR_OP_TYPE("unary /", &val);
-    val.as.r = 1.0f / val.as.r;
-    break;
-}
-
-case OP_INC: {
-    DfVal &val = this->peek();
-    switch (val.type) {
-        case VAL_N: val.as.n += 1; break;
-        case VAL_Z: val.as.z += 1; break;
-        default: ERR_OP_TYPE("1 +", &val);
-    }
-    break;
-}
-
-case OP_DEC: {
-    DfVal &val = this->peek();
-    if (val.type != VAL_Z)
-        ERR_OP_TYPE("- 1", &val);
-    val.as.z -= 1;
-    break;
-}
-
-case OP_MOD: {
-    DfVal rhs = this->pop();
-    DfVal lhs = this->pop();
-    if (rhs.type != VAL_N)
-        ERR_BINOP("\\");
-    switch (lhs.type) {
-      case VAL_N: DO_BINOP(n, %);
-      case VAL_Z: {
-        auto rn = rhs.as.n;
-        auto res = ((lhs.as.z % rn) + rn) % rn;
-        this->push(DfVal((uint32_t) res));
-        break;
-      }
-      default: ERR_BINOP("\\");
-    }
-    break;
-}
-
-// bool/bits ----------------------
-
-case OP_NOT: {
-    DfVal &val = this->peek();
-    switch (val.type) {
-      case VAL_B: val.as.b = !val.as.b; break;
-      case VAL_C: val.as.c = ~val.as.c; break;
-      case VAL_N: val.as.n = ~val.as.n; break;
-      default: ERR_OP_TYPE("unary ~", &val);
-    }
-    val.as.b = !val.as.b;
-    break;
-}
-
-// applicable to B%, C% and N%
-#define BIT_BINOP(name, b_op, n_op, msg) \
-case OP_ ## name: {             \
-    DfVal rhs = this->pop();    \
-    DfVal lhs = this->pop();    \
-    if (lhs.type != rhs.type)   \
-        ERR_BINOP(msg);         \
-    switch (lhs.type) {         \
-      case VAL_B: DO_BINOP(b, b_op);    \
-      case VAL_C: DO_BINOP(c, n_op);    \
-      case VAL_N: DO_BINOP(n, n_op);    \
-      default: ERR_OP_TYPE(msg, &lhs);  \
-    }                           \
-    break;                      \
-}
-
-BIT_BINOP(AND, &&, &, "&")
-BIT_BINOP(IOR, ||, |, "|")
-BIT_BINOP(XOR,  ^, ^, "^")
-
-#undef BIT_BINOP
-
-// compare ----------------------
-
-#define OP_CEX(XX, cmpop) \
-case OP_C ## XX: {                    \
-    DfVal rhs = this->pop();          \
-    DfVal lhs = this->pop();          \
-    this->push(DfVal(lhs cmpop rhs)); \
-    break;                            \
-}
-
-// overloaded operators
-OP_CEX(EQ, ==)
-OP_CEX(NE, !=)
-
-#undef OP_CEX
-
-// orderings
-
-#define OP_CXX(XX, op) \
-case OP_C##XX: {                \
-    DfVal rhs = this->pop();    \
-    DfVal lhs = this->pop();    \
-    int cmp = lhs op rhs;       \
-    if (cmp == DfVal::CMP_ERR)  \
-        ERR_BINOP(#op);         \
-    else                        \
-        this->push(DfVal((bool) cmp)); \
-    break;                      \
-}
-
-OP_CXX(LT, < )
-OP_CXX(LE, <=)
-OP_CXX(GT, > )
-OP_CXX(GE, >=)
-
-#undef OP_CXX
-
-// locals -----------------------
-
-case OP_LLS: {
+VM_OP(LLS,
     uint index = READ_U8();
     this->push(this->bp[index]);
-    break;
-}
+)
 
-case OP_SLS: {
+/*case OP_SLS: {
     uint index = READ_U8();
     this->bp[index] = this->pop();
     break;
@@ -308,9 +88,11 @@ case OP_ULS: {
     uint index = READ_U8();
     this->bp[index] = this->peek(); // fastest, checked with sp[-1]
     break;
-}
+}*/
 
 // jumps -----------------------------
+
+#if 0
 
 #define CHECK_IS_B(var) do { \
     if ((var).type != VAL_B) \
@@ -739,17 +521,22 @@ case OP_POP:
     (void) this->pop();
     break;
 
-case OP_HLT:
+
+#endif // mega
+
+VM_OP(HLT,
 #ifdef DEBUG
     puts("VM HALTED");
     //this->print_calls();
 #endif
-    if (this->callnum != 0) { // not halted at main
+/*    if (this->callnum != 0) { // not halted at main
         this->print_stack();
         this->reset_stack();
         return ITP_RUNTIME_ERR;
-    }
+    }*/
+    auto last = this->pop();
+    printf("top of stack as N = %d", last.n);
     this->reset_stack();
 //            garcol_do(vm);
     return ITP_OK;
-
+)

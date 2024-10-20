@@ -6,10 +6,10 @@
 #include <exception>
 #include "loader.h"
 #include "reader.h"
-//#include "virmac.h"
+#include "virmac.h"
 #include "disasm.h"
 
-//static bool run_file(VirMac *vm, const char *);
+static bool run_file(VirMac *vm, const char *);
 static VmData * read_file_to_vmdata(const char *);
 static bool disasm(const char *);
 static void wellcum();
@@ -17,11 +17,11 @@ static void wellcum();
 int main(int argc, const char *argv[])
 {
     int status = 0;
-//    VirMac vm;
+    VirMac vm;
     switch (argc) {
       case 1: wellcum(); break;
       case 2:
-//        status = !run_file(&vm, argv[1]);
+        status = !run_file(&vm, argv[1]);
         break;
       case 3: {
         if (strcmp(argv[1], "d") != 0) {
@@ -39,7 +39,7 @@ int main(int argc, const char *argv[])
     return status;
 }
 
-/*static bool run_file(VirMac *vm, const char *path)
+static bool run_file(VirMac *vm, const char *path)
 {
     VmData *prog = read_file_to_vmdata(path);
     if (prog == nullptr)
@@ -59,7 +59,7 @@ int main(int argc, const char *argv[])
         return false;
     }
     return true;
-}*/
+}
 
 static bool disasm(const char *path)
 {

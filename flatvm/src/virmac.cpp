@@ -4,9 +4,10 @@
 #include <cstdlib>
 #include <cassert>
 #include "virmac.h"
-#include "maitre.h"
-#include "object.h"
+//#include "maitre.h"
+//#include "object.h"
 #include "idents.h"
+#include "ser-de.h"
 
 #ifdef DEBUG
 #include "disasm.h"
@@ -15,8 +16,8 @@
 #define READ_BYTE() (read_u8(&this->ip))
 
 /* static functions */
-void err_cant_op  (const char *, DfVal *);
-void err_dif_types(const char *, DfType, DfType);
+/*void err_cant_op  (const char *, DfVal *);
+void err_dif_types(const char *, DfType, DfType);*/
 
 VirMac::VirMac()
 {
@@ -47,7 +48,7 @@ ItpRes VirMac::run(VmData *prog)
     ItpRes res = this->_run();
     if (res != ITP_OK) {
 //        this->print_stack();
-        this->print_calls();
+//        this->print_calls();
     }
     return res;
 }
@@ -101,7 +102,7 @@ ItpRes VirMac::_run()
     LOOP {
         uint8_t ins;
 #ifdef DEBUG
-        this->print_stack();
+//        this->print_stack();
         disasm_instru(this->dat, this->nor, this->ip);
 #endif /* DEBUG */
         switch (ins = READ_BYTE()) {
@@ -113,7 +114,7 @@ ItpRes VirMac::_run()
     }
 }
 
-void VirMac::print_stack() const
+/*void VirMac::print_stack() const
 {
     const DfVal *slot = nullptr;
     for (slot = &this->stack[0];
@@ -124,7 +125,7 @@ void VirMac::print_stack() const
         printf("]");
     }
     printf("\n");
-}
+}*/
 
 void VirMac::push_call(DfVal *c, Norris *n)
 {
@@ -152,7 +153,7 @@ void VirMac::pop_call()
     this->callnum--;
 }
 
-void VirMac::print_calls() const
+/*void VirMac::print_calls() const
 {
     puts("Call stack (top oldest):\n    !main");
     int last = this->callnum;
@@ -166,7 +167,7 @@ void VirMac::print_calls() const
         BASURA(this->bp);
     puts("");
 #undef BASURA
-}
+}*/
 
 void VirMac::set_norris(Norris *n)
 {
@@ -175,17 +176,17 @@ void VirMac::set_norris(Norris *n)
 }
 
 /* error message for same type but invalid operations */
-void err_cant_op(const char *op, DfVal *v)
+/*void err_cant_op(const char *op, DfVal *v)
 {
     char ty = (char) v->as_type();
     fprintf(stderr, "ERROR: Cannot operate %s with %c value(s)\n", op, ty);
-}
+}*/
 
-void err_dif_types(const char *op, DfType t1, DfType t2)
+/*void err_dif_types(const char *op, DfType t1, DfType t2)
 {
     fprintf(stderr, "ERROR: Cannot operate %s with types %c and %c\n",
         op, (char)t1, (char)t2);
-}
+}*/
 
 #define VM_JX_IF(x, read_size, adv_size) \
 void VirMac::j ## x ## _if(bool cond) \
