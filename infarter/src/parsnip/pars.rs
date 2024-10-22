@@ -178,7 +178,7 @@ impl<'src> Nip<'src>
         let t = self.peek()?;
         match t.0.typ() {
 //            TokTyp::LsqBra  => Some(self.branch_stmt()),
-//            TokTyp::AtSign  => Some(self.loop_stmt()),
+            TokTyp::AtSign  => Some(self.loop_stmt()),
 //            TokTyp::AtSign2 => Some(self.again_break_stmt(true)),
 //            TokTyp::DotAt   => Some(self.again_break_stmt(false)),
 //            TokTyp::DotHash => Some(self.return_stmt()),
@@ -344,14 +344,14 @@ impl<'src> Nip<'src>
         return Ok((Some(comp), blok));
     }*/
 
-/*    // called when @
+    // called when @
     fn loop_stmt(&mut self) -> StrRes<Stmt>
     {
         self.advance(); // @
         let pre = self.block()?; // maybe empty
         if !self.matches(TokTyp::LsqBra2) { // infinite loop
             self.exp_adv(TokTyp::Period)?;
-            return Ok(Stmt::LoopIf(Loop::Inf(pre)));
+            return Ok(Stmt::Loooop(Loop::Inf(pre)));
         }
         // now, þer should be þe condition
         self.exp_adv(TokTyp::LsqBra2)?;
@@ -359,8 +359,8 @@ impl<'src> Nip<'src>
         self.exp_adv(TokTyp::RsqBra2)?;
         let post = self.block()?;
         self.exp_adv(TokTyp::Period)?;
-        return Ok(Stmt::LoopIf(Loop::Cdt(pre, cond, post)));
-    }*/
+        return Ok(Stmt::Loooop(Loop::Cdt(pre, cond, post)));
+    }
 
 /*    // called when @@ (true) or .@ (false)
     // parses ('@@' | '.@') (ValN | ValZ)? '.'

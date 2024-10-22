@@ -171,13 +171,6 @@ pub enum CmpOp
 // TODO Cand &?, Cor |?
 
 /*#[derive(Debug, Clone)]
-pub enum Loop
-{
-    Inf(Block),
-    Cdt(Block, Expr, Block),
-}*/
-
-/*#[derive(Debug, Clone)]
 pub struct IfCase
 {
     pub cond: Expr,
@@ -213,13 +206,20 @@ pub enum Expr
 }
 
 #[derive(Debug, Clone)]
+pub enum Loop
+{
+    Inf(Block),
+    Cdt(Block, Expr, Block),
+}
+
+#[derive(Debug, Clone)]
 pub enum Stmt
 {
     Assign(Expr, Expr),
 //    OperOn(Expr, BinOpcode, Expr),
 //    IfElse(IfCase, Vec<IfCase>, Option<Block>),
 //    Switch(Expr,   Vec<SwCase>, Block),
-//    LoopIf(Loop),
+    Loooop(Loop),
 //    AgainL(u32),
 //    BreakL(u32),
 //    Return(Expr),
@@ -291,16 +291,25 @@ pub struct ExprWt
 pub enum ExprWte
 {
     Const(Val),
-    Ident(Rc<DfStr>),
+    Local(Rc<DfStr>, usize), // last is depþ of scopes
     BinOp(Box<ExprWt>, BinOpWt, Box<ExprWt>),
     UniOp(Box<ExprWt>, UniOpWt),
     CmpOp(Box<ExprWt>, Vec<(CmpOpWt, ExprWt)>),
 }
 
 #[derive(Debug, Clone)]
+pub enum LoopWt
+{
+    Inf(BlockWt),
+    Cdt(BlockWt, ExprWt, BlockWt),
+}
+
+#[derive(Debug, Clone)]
 pub enum StmtWt
 {
-    VarAss(Rc<DfStr>, ExprWt),
+    Declar(Rc<DfStr>, ExprWt),
+    VarAss(Rc<DfStr>, ExprWt, usize), // last is depth of scopes, see semanal
+    Loooop(LoopWt),
 }
 
 pub type BlockWt = Vec<StmtWt>;

@@ -310,6 +310,7 @@ where K: Eq + std::fmt::Debug,
     // O(n)
     pub fn has(&self, k: &K) -> bool
     {
+        // TODO: functional style
         for p in &self.map {
             if &p.0 == k {
                 return true;
@@ -333,6 +334,19 @@ where K: Eq + std::fmt::Debug,
     pub fn trunc(&mut self, newlen: usize)
     {
         self.map.truncate(newlen);
+    }
+
+    // O(n)
+    // replaces (old_k, _) for (new_k, new_v), if found
+    pub fn replace(&mut self, old_k: &K, new_k: K, new_v: V)
+    {
+        for (k, v) in &mut self.map {
+            if k == old_k {
+                *k = new_k;
+                *v = new_v;
+                return;
+            }
+        }
     }
 
     #[inline]

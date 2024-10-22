@@ -1,6 +1,9 @@
 /* semanal.rs */
 
-use std::rc::Rc;
+use std::{
+    rc::Rc,
+    mem,
+};
 use crate::{
     asterix::*,
 //    dflib::tables::NatTb,
@@ -23,33 +26,61 @@ type Idf2Typ = util::VecMap<Rc<DfStr>, Type>;
 #[derive(Default)]
 struct SemAnal
 {
-//    envs: util::Stack<Idf2Typ>, // all parent Envs (for declared vars)
+    envs: util::Stack<Idf2Typ>, // all parent Envs (for declared vars)
     curr: Idf2Typ, // innermost Env
 }
 
 impl SemAnal
 {
-    fn get_idf_typ(&self, i: &Rc<DfStr>) -> Option<&Type>
+/*    fn get_idf_typ(&self, i: &Rc<DfStr>) -> Option<&Type>
     {
-        return self.curr.get(i);
-    }
+        match self.curr.get(i) {
+            Some(t) => Some((0, t)),
+            None => self.envs
+                .iter()              // from top
+                .find(|e| e.has(i))?
+                .get(i),
+        }
+    }*/
 
 /*    fn exists_idf(&self, i: &Rc<DfStr>) -> bool
     {
         return self.curr.has(i);
     }*/
 
+    fn init_scope(&mut self)
+    {
+        self.envs.push(mem::take(&mut self.curr));
+    }
+
+    fn exit_scope(&mut self)
+    {
+        self.curr = self.envs.pop().unwrap();
+    }
+
     // GRAMMAR
+
+    pub fn no_env_block(&mut self, b: Block) -> BlockWt
+    {
+        return b
+            .into_iter()
+            .map(|s| self.p_stmt(s))
+            .collect();
+    }
 
     pub fn p_block(&mut self, b: Block) -> BlockWt
     {
-        return b.into_iter().map(|s| self.p_stmt(s)).collect();
+        self.init_scope();
+        let b_wt = self.no_env_block(b);
+        self.exit_scope();
+        return b_wt;
     }
 
     pub fn p_stmt(&mut self, s: Stmt) -> StmtWt
     {
         match s {
             Stmt::Assign(a, e) => self.p_s_assign(a, e),
+            Stmt::Loooop(l) => self.p_s_loooop(l),
         }
     }
 
@@ -64,11 +95,65 @@ impl SemAnal
 
     fn p_s_varass(&mut self, i: Rc<DfStr>, e: ExprWt) -> StmtWt
     {
-        // FUTURE: var shadowing if different types
-        // if it didn't exists or existed wiþ a diff type,
-        // treat þe assign as a declar
+        /* On var shadowing:
+        ** If `i` exists in self.curr, it overwrites `i` & its type.
+        ** If `i` exists in some prev env wiþ a different type,
+        ** `i` is declared in self.curr, & þe prev `i` gets shadowed.
+        ** If `i` exists & is of þe same type, it's a normal assign to `i`.
+        **
+        ** Þe case when `i` of same type exists on an even furþer scope,
+        ** but þer's an `i` of diff type closer, þe 1st one is ignored,
+        ** so `i` gets declared as a new var.
+        */
+        if self.curr.has(&i) {
+            // normal assign, overwriting type
+            self.curr.set(i.clone(), e.t.clone());
+            return StmtWt::VarAss(i, e, 0); // assign to current level (0)
+        }
+        // now let's see if it exists in a parent scope
+        for (depth, env) in self.envs.iter().enumerate() {
+            if let Some(it) = env.get(&i) {
+                // as soon as it finds one, return
+                if it == &e.t {
+                    return StmtWt::VarAss(i, e, depth+1); // +1 adding curr
+                } else {
+                    self.curr.set(i.clone(), e.t.clone());
+                    return StmtWt::Declar(i, e);
+                }
+            }
+        }
+        // declar
         self.curr.set(i.clone(), e.t.clone());
-        return StmtWt::VarAss(i, e);
+        return StmtWt::Declar(i, e);
+    }
+
+    fn p_s_loooop(&mut self, l: Loop) -> StmtWt
+    {
+        //self.init_scope(); // for preloads
+        let res = match l {
+            Loop::Inf(b) => self.p_s_loop_inf(b),
+            Loop::Cdt(a, c, b) => self.p_s_loop_cdt(a, c, b),
+        };
+        //self.exit_scope();
+        return StmtWt::Loooop(res);
+    }
+
+    fn p_s_loop_inf(&mut self, b: Block) -> LoopWt
+    {
+        LoopWt::Inf(self.p_block(b))
+    }
+
+    fn p_s_loop_cdt(&mut self, b0: Block, cd: Expr, b1: Block) -> LoopWt
+    {
+        self.init_scope();
+        let b0_wt = self.no_env_block(b0);
+        let cd_wt = self.p_expr(cd);
+        if cd_wt.t != Type::B {
+            panic!("condition in loop is not B%");
+        }
+        let b1_wt = self.no_env_block(b1);
+        self.exit_scope();
+        return LoopWt::Cdt(b0_wt, cd_wt, b1_wt);
     }
 
     fn p_expr(&mut self, e: Expr) -> ExprWt
@@ -78,23 +163,30 @@ impl SemAnal
             Expr::Ident(i)       => self.e_ident(i),
             Expr::UniOp(e, o)    => self.e_uniop(*e, o),
             Expr::BinOp(l, o, r) => self.e_binop(*l, o, *r),
+            Expr::CmpOp(f, v)    => self.e_cmpop(*f, v),
             _ => todo!(),
         }
     }
 
     fn e_const(c: Val) -> ExprWt
     {
+        // TODO LBT, LN0, etc
         let t = Type::from(&c);
         return ExprWt{e:ExprWte::Const(c), t:t};
     }
 
     fn e_ident(&mut self, i: Rc<DfStr>) -> ExprWt
     {
-        // FUTURE: resolve also upval, etc.
-        let t = self.curr.get(&i)
-            .expect("could not resolve ident {&i}")
-            .clone();
-        return ExprWt {e:ExprWte::Ident(i), t:t}
+        if let Some(t) = self.curr.get(&i) {
+            return ExprWt {e:ExprWte::Local(i, 0), t:*t};
+        }
+        for (dep, env) in self.envs.iter().enumerate() {
+            if let Some(t) = env.get(&i) {
+                return ExprWt {e:ExprWte::Local(i, dep+1), t:*t};
+            }
+        }
+        // FUTURE: resolve also upval
+        panic!("could not resolve ident {i}");
     }
 
     fn e_uniop(&mut self, e: Expr, o: UniOp) -> ExprWt
@@ -114,9 +206,31 @@ impl SemAnal
             t: t,
         };
     }
+
+    fn e_cmpop(&mut self, f: Expr, v: Vec<(CmpOp, Expr)>) -> ExprWt
+    {
+        match v.len() {
+            0 => return self.p_expr(f),
+            1 => {}, // simple CMP
+            _ => todo!("multi CMP"),
+        }
+        // multiple cmp
+        let f_wt = self.p_expr(f);
+        let (o, g) = v.into_iter().nth(0).unwrap();
+        let g_wt = self.p_expr(g);
+        if &f_wt.t != &g_wt.t {
+            panic!("cannot use {:?} with different types", &o);
+        }
+        let o_wt = cmpop_types(&f_wt.t, &o);
+        return ExprWt{
+            e:ExprWte::CmpOp(Box::new(f_wt), vec![(o_wt, g_wt)]),
+            t:Type::B
+        };
+    }
 }
 
-pub fn binop_types(lt: &Type, op: &BinOp, rt: &Type) -> (BinOpWt, Type)
+
+fn binop_types(lt: &Type, op: &BinOp, rt: &Type) -> (BinOpWt, Type)
 {
     // BEWARE OF ÞE NASTY MACRO!
     macro_rules! binop {
@@ -170,7 +284,7 @@ pub fn binop_types(lt: &Type, op: &BinOp, rt: &Type) -> (BinOpWt, Type)
     panic!("Unknown operation: {lt} {op:?} {rt}");
 }
 
-pub fn uniop_types(t: &Type, o: &UniOp) -> (UniOpWt, Type)
+fn uniop_types(t: &Type, o: &UniOp) -> (UniOpWt, Type)
 {
     // no nasty macro since þer'r too few of þem
     match o {
@@ -194,3 +308,27 @@ pub fn uniop_types(t: &Type, o: &UniOp) -> (UniOpWt, Type)
     panic!("unknown op: {o:?} {t}");
 }
 
+fn cmpop_types(t: &Type, o: &CmpOp) -> CmpOpWt
+{
+    match o {
+        CmpOp::Equ(b) => CmpOpWt::Equ(EquOpWt(*b, t.try_into()
+            .expect(&format!("{t} is cannot be Equals compared"))
+        )),
+        _ => todo!(),
+    }
+}
+
+impl TryFrom<&Type> for EquTyp
+{
+    type Error = ();
+    fn try_from(t: &Type) -> Result<Self, ()>
+    {
+        match t {
+            Type::B => Ok(Self::B),
+            Type::C => Ok(Self::C),
+            Type::N => Ok(Self::N),
+            Type::Z => Ok(Self::Z),
+            _ => Err(()),
+        }
+    }
+}

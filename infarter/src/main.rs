@@ -55,7 +55,6 @@ pub fn transfart(ifname: &str, opt: bool)
     };
     let mut ast = semanal::semanalize(ast);
     let mut cfg = intrep::Compiler::from_asterix(&ast);
-    dbg!(&cfg);
 /*    if opt {
         optimus::opt_bblocks(&mut cfg);
     }*/

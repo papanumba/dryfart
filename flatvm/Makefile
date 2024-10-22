@@ -1,6 +1,6 @@
 CC = clang
 CXX = clang++
-CPPFLAGS = -Iinclude -Idf-lib -DSAFE
+CPPFLAGS = -Iinclude -Idf-lib #-DSAFE
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
 LDFLAGS = #-L. -ldf-lib # -Wl,-rpath=.
 CXXNOWARN := -Wno-unused-private-field -Wno-unused-parameter
@@ -26,7 +26,7 @@ debug: flatvm
 release: LDFLAGS += -O3 -flto
 release: CPPFLAGS += -O3 -flto
 release: flatvm
-#	strip flatvm
+	strip flatvm
 
 install: LDFLAGS += -O3 -flto
 install: CPPFLAGS += -O3 -flto

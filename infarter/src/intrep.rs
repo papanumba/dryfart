@@ -1,6 +1,10 @@
 /* intrep.rs */
 
-use std::rc::Rc;
+use std::{
+    rc::Rc,
+    mem,
+    collections::{HashSet, HashMap}
+};
 use crate::{util::*, asterix::*};
 
 // Intermediate Opcodes
@@ -27,6 +31,7 @@ pub enum ImOp
     N2R,*/
 
     // stack stuff
+    DUM,  // … ]      -> … X]   dummy
     DUP,  // … a]     -> … a a]
     SWP,  // … a b]   -> … b a]
     ROT,  // … a b c] -> … c a b]
@@ -129,17 +134,80 @@ impl BasicBlock
     }
 }
 
+type Idf2LocIdx = HashMap<Rc<DfStr>, LocIdx>;
+
+#[derive(Debug, Default)]
+pub struct Scope
+{
+    pub locsiz: usize,      // size of þe stack, (incl. all its parents)
+    locals: Idf2LocIdx, // local vars & þeir index on þe stack
+    dummis: HashSet<Rc<DfStr>>, // loop variables preloaded, as phantom
+                                    // stored in self.locals as "$name",
+                                    // and here as "name"
+                                    // þey actually don't exists in locals,
+                                    // but serve for locsiz
+}
+
+impl Scope
+{
+    pub fn with_locsiz(ls: usize) -> Self
+    {
+        let mut s = Self::default();
+        s.locsiz = ls;
+        return s;
+    }
+
+    pub fn incloc(&mut self)
+    {
+        self.locsiz += 1;
+    }
+
+    pub fn decloc(&mut self)
+    {
+        self.locsiz -= 1;
+    }
+
+    pub fn declar(&mut self, id: &Rc<DfStr>)
+    {
+        // check if previusly declared as dummy
+        if self.dummis.contains(id) {
+            assert!(self.locals.contains_key(id));
+            self.dummis.remove(id);
+        } else {
+            // normal declar
+            self.locals.insert(id.clone(), self.locsiz);
+            self.incloc();
+        }
+    }
+
+    pub fn declar_dummy(&mut self, id: &Rc<DfStr>)
+    {
+        assert!(!self.dummis.contains(id));
+        self.declar(id);
+        self.dummis.insert(id.clone());
+    }
+
+    pub fn resolve_var(&self, id: &Rc<DfStr>) -> Option<&LocIdx>
+    {
+        let li = self.locals.get(id)?;
+        if self.dummis.contains(id) { // => it's not yet a var
+            return None;
+        } else {
+            return Some(li);
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct SubrEnv // subroutine environment compiler
 {
-    pub scpdpt:   usize,
-    pub presize:  usize,
-    pub locsize:  usize,
-    pub locals:   VecMap<Rc<DfStr>, LocIdx>, // var name, stack index
+    pub s_pres:   Stack<Scope>,     // variables & þeir stack index
+    pub s_curr:   Scope,
 //    pub upvals:   ArraySet<DfStrIdx>, // upvalue names (intern'd by comp)
     pub blocks:   Vec<BasicBlock>,  // graph arena
-    pub curr:     BasicBlock,       // current working bblock
-    pub rect:     Stack<LocIdx>,    // accumulating $@N
+    pub currbb:   BasicBlock,       // current working bblock
+//    pub rect:     Stack<LocIdx>,    // accumulating $@N
+    // loop stuff
     pub agn:      Stack<BbIdx>,     // stack of þe loops from outer to inner
                                     // þe indices are each loop's start
     pub brk:      Stack<Vec<BbIdx>>,// þis one is a stack for each loop
@@ -148,26 +216,36 @@ pub struct SubrEnv // subroutine environment compiler
 
 impl SubrEnv
 {
-    pub fn enter_scope(&mut self)
+    pub fn get_loc_idx(&self, id: &Rc<DfStr>, de: usize) -> &LocIdx
     {
-        self.presize = self.locsize;
-        self.scpdpt += 1;
+        return match de {
+            0 => &self.s_curr,
+            _ =>  self.s_pres.peek(de-1)
+                .expect(&format!("depth {de} too much searching for {id}")),
+        }.resolve_var(id).unwrap();
+    }
+
+    pub fn init_scope(&mut self)
+    {
+        let new_scope = Scope::with_locsiz(self.s_curr.locsiz);
+        self.s_pres.push(mem::replace(
+            &mut self.s_curr, new_scope
+        ));
     }
 
     pub fn exit_scope(&mut self)
     {
-        assert!(self.scpdpt != 0);
-        for _ in self.presize..self.locals.size() {
+        let last_s = self.s_pres.pop().unwrap();
+        for _ in self.s_curr.locsiz..last_s.locsiz {
             self.push_op(ImOp::POP);
         }
-        self.scpdpt -= 1;
-        self.locals.trunc(self.presize);
+        self.s_curr = last_s;
     }
 
     #[inline]
     fn push_op(&mut self, op: ImOp)
     {
-        self.curr.push(op);
+        self.currbb.push(op);
     }
 
     #[inline]
@@ -176,26 +254,36 @@ impl SubrEnv
         return self.blocks.len();
     }
 
-    fn assign(&mut self, id: &Rc<DfStr>)
+    fn declar(&mut self, id: &Rc<DfStr>)
     {
-        // if exists local, it's an assign
-        if let Some(i) = self.locals.get(id) {
-            self.push_op(ImOp::SLX(*i));
-        } else { // it's a declar, even if þer's an upvale, it will shadow
-            self.locals.set(id.clone(), self.locsize);
-            self.locsize += 1;
-        }
+        self.s_curr.declar(id);
+    }
+
+    fn declar_dummy(&mut self, id: &Rc<DfStr>)
+    {
+        self.push_op(ImOp::DUM);
+        self.s_curr.declar_dummy(id);
+    }
+
+    fn slx(&mut self, id: &Rc<DfStr>, de: usize)
+    {
+        self.push_op(ImOp::SLX(*self.get_loc_idx(id, de)));
+    }
+
+    fn llx(&mut self, id: &Rc<DfStr>, de: usize)
+    {
+        self.push_op(ImOp::LLX(*self.get_loc_idx(id, de)));
     }
 
     fn term_curr_bb(&mut self, t: Term) -> BbIdx // of þe termed block
     {
-        self.curr.term = t;
+        self.currbb.term = t;
         let last_idx  = self.curr_idx();
-        let last_term = self.curr.term;
-        let aux = std::mem::take(&mut self.curr);
+        let last_term = self.currbb.term;
+        let aux = std::mem::take(&mut self.currbb);
         self.blocks.push(aux);
         if last_term.can_thru() { // NOP, JF, etc.
-            self.curr.pred.add(last_idx);
+            self.currbb.pred.add(last_idx);
         }
         return last_idx;
     }
@@ -205,21 +293,23 @@ impl SubrEnv
         let t = term.jmp_target().unwrap(); // should be responsible
         self.blocks[from].term = term;
         if t == self.curr_idx() {
-            self.curr.pred.add(from);
+            self.currbb.pred.add(from);
         } else {
             self.blocks[t].pred.add(from);
         }
     }
 
-    pub fn start_loop(&mut self, start_bbi: BbIdx)
+    pub fn init_loop(&mut self, start_bbi: BbIdx)
     {
         self.agn.push(start_bbi);
         self.brk.push(vec![]);
     }
 
-    pub fn end_loop(&mut self, end_bbi: BbIdx)
+    pub fn exit_loop(&mut self, end_bbi: BbIdx)
     {
+        // discard þe agains
         self.agn.pop();
+        // patch þe breaks
         let patches = self.brk.pop().unwrap();
         let jj = Term::JMP(Jmp::JX, end_bbi);
         for p in patches {
@@ -268,18 +358,17 @@ impl Compiler
 
     fn locsize(&self) -> usize
     {
-        return self.curr.locsize;
+        return self.curr.s_curr.locsiz;
     }
 
     fn incloc(&mut self)
     {
-        self.curr.locsize += 1;
+        self.curr.s_curr.incloc();
     }
 
     fn decloc(&mut self)
     {
-        assert!(self.curr.locsize != 0);
-        self.curr.locsize -= 1;
+        self.curr.s_curr.decloc();
     }
 
 /*    fn push_ident(&mut self, id: &Rc<DfStr>) -> DfStrIdx
@@ -291,7 +380,7 @@ impl Compiler
         }
     }*/
 
-    fn push_const(&mut self, v: &Val) -> CtnIdx
+    fn intern_ctn(&mut self, v: &Val) -> CtnIdx
     {
         if let Some(i) = self.consts.index_of(v) {
             i
@@ -324,7 +413,6 @@ impl Compiler
 
     fn push_uniop(&mut self, o: UniOpWt)
     {
-        self.push_op(ImOp::UNO(o));
     }
 
     fn push_binop(&mut self, o: BinOpWt)
@@ -342,10 +430,10 @@ impl Compiler
         return self.curr.curr_idx();
     }
 
-    fn resolve_local(&self, id: &Rc<DfStr>) -> Option<&LocIdx>
+/*    fn resolve_local(&self, id: &Rc<DfStr>) -> Option<&LocIdx>
     {
         return self.curr.locals.get(id);
-    }
+    }*/
 
 /*    fn resolve_upval(&self, id: &Rc<DfStr>) -> Option<UpvIdx>
     {
@@ -353,21 +441,19 @@ impl Compiler
         return self.curr.upvals.index_of(&idx);
     }*/
 
-    fn exists_var(&self, id: &Rc<DfStr>) -> bool
+/*    fn exists_var(&self, id: &Rc<DfStr>) -> bool
     {
         return self.resolve_local(id).is_some();
         //    || self.resolve_upval(id).is_some();
-    }
+    }*/
 
     fn block(&mut self, b: &BlockWt)
     {
         if b.is_empty() {
             return;
         }
-        let presize = self.locsize();
-        self.curr.enter_scope();
+        self.curr.init_scope();
         self.no_env_block(b);
-        self.curr.presize = presize;
         self.curr.exit_scope();
     }
 
@@ -381,14 +467,23 @@ impl Compiler
     fn stmt(&mut self, s: &StmtWt)
     {
         match s {
-            StmtWt::VarAss(i, e)    => self.s_varass(i, e),
+            StmtWt::Declar(i, e)    => self.s_declar(i, e),
+            StmtWt::VarAss(i, e, d) => self.s_varass(i, e, *d),
+            StmtWt::Loooop(l)       => self.s_loooop(l),
+            _ => todo!(),
         }
     }
 
-    fn s_varass(&mut self, id: &Rc<DfStr>, ex: &ExprWt)
+    fn s_declar(&mut self, id: &Rc<DfStr>, ex: &ExprWt)
     {
         self.expr(ex);
-        self.curr.assign(id); // it will decide if declar or assign
+        self.curr.declar(id);
+    }
+
+    fn s_varass(&mut self, id: &Rc<DfStr>, ex: &ExprWt, de: usize)
+    {
+        self.expr(ex);
+        self.curr.slx(id, de);
     }
 
 /*    #[inline]
@@ -564,47 +659,42 @@ impl Compiler
         self.push_op(ImOp::POP);
     }*/
 
-/*    fn s_loopif(&mut self, lo: &Loop)
+    fn s_loooop(&mut self, lo: &LoopWt)
     {
-        self.curr.enter_scope();
-        self.lvv_loop(lo);
+        self.curr.init_scope();
+        self.preload_loop(lo);
         match lo {
-            Loop::Inf(b)       => self.s_inf_loop(b),
-            Loop::Cdt(p, e, b) => self.s_cdt_loop(p, e, b),
+            LoopWt::Inf(b)       => self.s_inf_loop(b),
+            LoopWt::Cdt(p, e, b) => self.s_cdt_loop(p, e, b),
         }
         self.curr.exit_scope();
     }
-*/
 
-/*    // assigns all loop's locals to Void
-    // so as not to enter & exit its scope at every
-    fn lvv_loop(&mut self, lo: &Loop)
+    // assigns all loop's locals to 0%N
+    // so as not to enter & exit its scope at every iter
+    fn preload_loop(&mut self, lo: &LoopWt)
     {
         let block = match lo {
-            Loop::Inf(b) |
-            Loop::Cdt(b, _, _) => b, // will check 2nd block later
+            LoopWt::Inf(b) |
+            LoopWt::Cdt(b, _, _) => b, // will check 2nd block later
         };
-        self.lvv_in_block(block);
-        if let Loop::Cdt(_, _, b) = lo {
-            self.lvv_in_block(b);
+        self.preload_block(block);
+        if let LoopWt::Cdt(_, _, b) = lo {
+            self.preload_block(b);
         }
-    }*/
+    }
 
     // helper
-/*    fn lvv_in_block(&mut self, block: &Block)
+    fn preload_block(&mut self, block: &BlockWt)
     {
         for s in block {
-            if let Stmt::Assign(v, _) = s {
-                if let Expr::Ident(i) = v {
-                    if !self.exists_var(i) { // is new locar var
-                        self.s_assign(v, &Expr::Const(Val::V));
-                    }
-                }
+            if let StmtWt::Declar(i, _) = s {
+                self.curr.declar_dummy(i);
             }
         }
-    }*/
+    }
 
-/*    fn s_inf_loop(&mut self, b: &Block)
+    fn s_inf_loop(&mut self, b: &BlockWt)
     {
         /*
         **  [b]<-+ (h)
@@ -613,16 +703,16 @@ impl Compiler
         */
         self.term_curr_bb(Term::NOP); // start b
         let h = self.curr_idx();
-        self.curr.start_loop(h);
+        self.curr.init_loop(h);
         self.no_env_block(b);
-        self.term_curr_bb(Term::JJX(h));
-        self.curr.end_loop(self.curr_idx());
-    }*/
+        self.term_curr_bb(Term::JMP(Jmp::JX, h));
+        self.curr.exit_loop(self.curr_idx());
+    }
 
-/*    fn s_cdt_loop(&mut self,
-        b0:   &Block,    // miȝt be empty
-        cond: &Expr,
-        b1:   &Block)
+    fn s_cdt_loop(&mut self,
+        b0:   &BlockWt,    // miȝt be empty
+        cond: &ExprWt,
+        b1:   &BlockWt)
     {
         /*
         **  [b0]<--+
@@ -634,16 +724,16 @@ impl Compiler
         */
         self.term_curr_bb(Term::NOP);
         let loop_start = self.curr_idx();
-        self.curr.start_loop(loop_start);
+        self.curr.init_loop(loop_start);
         self.no_env_block(b0);
         self.expr(cond);
         let branch = self.term_curr_bb(Term::PCH(true));
         self.no_env_block(b1);
-        self.term_curr_bb(Term::JJX(loop_start));
+        self.term_curr_bb(Term::JMP(Jmp::JX, loop_start));
         let outside = self.curr_idx();
-        self.curr.end_loop(outside);
-        self.curr.patch_jump(branch, Term::JFX(outside));
-    }*/
+        self.curr.exit_loop(outside);
+        self.curr.patch_jump(branch, Term::JMP(Jmp::YX(false), outside));
+    }
 
 /*    fn s_pccall(&mut self, proc: &Expr, args: &[Expr])
     {
@@ -681,10 +771,11 @@ impl Compiler
     {
         match &ex.e {
             ExprWte::Const(v)       => self.e_const(v),
-            ExprWte::Ident(i)       => self.e_ident(i),
+            ExprWte::Local(i, d)    => self.curr.llx(i, *d),
 //            ExprWte::Tcast(t, e)    => self.e_tcast(t, e),
             ExprWte::UniOp(e, o)    => self.e_uniop(e, o),
             ExprWte::BinOp(l, o, r) => self.e_binop(l, o, r),
+            ExprWte::CmpOp(f, v)    => self.e_cmpop(f, v),
             _ => todo!(),
 //            ExprWte::CmpOp(l, v)    => self.e_cmpop(l, v),
 /*            Expr::Array(a)       => self.e_array(a),
@@ -701,28 +792,11 @@ impl Compiler
         }
     }
 
-    // þis checks predefined consts
     fn e_const(&mut self, v: &Val)
     {
         // TODO: special cases like B(T), B(F), N([0..3])
-        let idx = self.push_const(v);
+        let idx = self.intern_ctn(v);
         self.push_op(ImOp::LKX(idx));
-    }
-
-    fn e_ident(&mut self, id: &Rc<DfStr>)
-    {
-        if id.as_bytes() == b"STD" {
-            panic!("STD");
-        }
-        if let Some(i) = self.resolve_local(id) {
-            self.push_op(ImOp::LLX(*i));
-            return;
-        }
-/*        if let Some(i) = self.resolve_upval(id) {
-            self.push_op(ImOp::LUV(i));
-            return;
-        }*/
-        panic!("could not resolve symbol {id}");
     }
 
 /*    fn e_tcast(&mut self, t: &Type, e: &Expr)
@@ -739,7 +813,7 @@ impl Compiler
     fn e_uniop(&mut self, e: &ExprWt, o: &UniOpWt)
     {
         self.expr(e);
-        self.push_uniop(*o);
+        self.push_op(ImOp::UNO(*o));
     }
 
     fn e_binop(&mut self, l: &ExprWt, o: &BinOpWt, r: &ExprWt)
@@ -750,7 +824,7 @@ impl Compiler
         }*/
         self.expr(l);
         self.expr(r);
-        self.push_binop(*o);
+        self.push_op(ImOp::BIO(*o));
     }
 
 /*    fn e_bin_sce(&mut self, l: &Expr, o: &BinOpcode, r: &Expr)
@@ -769,18 +843,18 @@ impl Compiler
         });
     }*/
 
-/*    fn e_cmpop(&mut self, l: &Expr, v: &[(BinOpcode, Expr)])
+    fn e_cmpop(&mut self, l: &ExprWt, v: &[(CmpOpWt, ExprWt)])
     {
         self.expr(l);
         match v.len() {
             0 => return,
             1 => { // normal cmpop
                 self.expr(&v[0].1);
-                self.push_binop(&v[0].0);
+                self.push_op(ImOp::CMP(v[0].0));
             },
             _ => todo!("multi cmpop"),
         }
-    }*/
+    }
 
 /*    fn e_array(&mut self, a: &[Expr])
     {

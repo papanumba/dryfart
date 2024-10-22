@@ -57,8 +57,8 @@ void disasm_instru(VmData *vmd, Norris *code, cbyte_p rp)
 static void disasm_ins_fast()
 {
     ptrdiff_t offset = ip - nor->cod;
-    printf("%04td ", offset);
     uint8_t instru = read_u8(&ip);
+    printf("%04td  (%02x) ", offset, instru);
 
     switch (instru) {
 

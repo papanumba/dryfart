@@ -90,6 +90,7 @@ impl TryFrom<ImOp> for u8
     fn try_from(imop: ImOp) -> Result<u8, ()>
     {
         match imop {
+            ImOp::DUM => Ok(Op::DUM as u8),
             ImOp::DUP => Ok(Op::DUP as u8),
             ImOp::SWP => Ok(Op::SWP as u8),
             ImOp::ROT => Ok(Op::ROT as u8),

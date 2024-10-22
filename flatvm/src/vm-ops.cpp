@@ -21,42 +21,32 @@ VM_OP(NOP,
 
 // load ---------------------
 
-/*#define OP_LXX(xx, val) \
-case OP_L ## xx: this->push(DfVal((val))); break;
-OP_LXX(BT, true)
-OP_LXX(BF, false)
-
-#define OP_LNX(n) OP_LXX(N ## n, (uint32_t)(n))
-OP_LNX(0)
-OP_LNX(1)
-OP_LNX(2)
-OP_LNX(3)
-#undef OP_LNX
-
-OP_LXX(M1, (int32_t)(-1))
-
-#define OP_LZX(z) OP_LXX(Z ## z, (int32_t)(z))
-OP_LZX(0)
-OP_LZX(1)
-OP_LZX(2)
-#undef OP_LZX
-
-#define OP_LRX(r) OP_LXX(R ## r, (float)(r))
-OP_LRX(0)
-OP_LRX(1)
-#undef OP_LRX*/
-
 VM_OP(LKS,
-    uint idx = READ_U8();
+    auto idx = READ_U8();
     this->push(this->dat->ctn[idx]);
 )
 
 VM_OP(LKL,
-    uint idx = READ_U16();
+    auto idx = READ_U16();
     this->push(this->dat->ctn[idx]);
 )
 
 // ariþmetic ------------------
+
+#define VM_UNIOP(name, op, t) \
+VM_OP(name,                   \
+    auto x = this->pop();     \
+    this->push(DfVal(op x.t));\
+)
+
+VM_UNIOP(NGZ, -, z)
+VM_UNIOP(NER, -, r)
+VM_UNIOP(INR, 1.0 /, r)
+VM_UNIOP(NOB, !, b)
+VM_UNIOP(NOC, ~, c)
+VM_UNIOP(NON, ~, n)
+
+#undef VM_UNIOP
 
 #define VM_BINOP(name, op, t) \
 VM_OP(name,                             \
@@ -65,11 +55,64 @@ VM_OP(name,                             \
     this->push(DfVal(lhs.t op rhs.t));  \
 )
 
+// NUM
+VM_BINOP(ADC, +, c)
 VM_BINOP(ADN, +, n)
+VM_BINOP(ADZ, +, z)
+VM_BINOP(ADR, +, r)
+VM_BINOP(SUZ, -, z)
+VM_BINOP(SUR, -, r)
+VM_BINOP(MUC, *, c)
 VM_BINOP(MUN, *, n)
-VM_BINOP(ANN, &, n)
+VM_BINOP(MUZ, *, z)
+VM_BINOP(MUR, *, r)
+VM_BINOP(DIN, /, n)
+VM_BINOP(DIR, /, r)
+
+// BIT
+#define VM_BITOP(T, t) \
+    VM_BINOP(AN##T, &, t) \
+    VM_BINOP(IO##T, |, t) \
+    VM_BINOP(XO##T, ^, t)
+
+VM_BITOP(B, b)
+VM_BITOP(C, c)
+VM_BITOP(N, n)
+
+#undef VM_BITOP
+
+// CMP
+#define VM_EQUOP(T, t) \
+    VM_BINOP(EQ ## T, ==, t) \
+    VM_BINOP(NE ## T, !=, t)
+
+VM_EQUOP(B, b)
+VM_EQUOP(C, c)
+VM_EQUOP(N, n)
+VM_EQUOP(Z, z)
+
+#undef VM_EQUOP
+
+#define VM_ORDOP(T, t) \
+    VM_BINOP(LT ## T, < , t) \
+    VM_BINOP(LE ## T, <=, t) \
+    VM_BINOP(GT ## T, > , t) \
+    VM_BINOP(GE ## T, >=, t)
+
+VM_ORDOP(C, c)
+VM_ORDOP(N, n)
+VM_ORDOP(Z, z)
+VM_ORDOP(R, r)
+
+#undef VM_ORDOP
 
 #undef VM_BINOP
+
+// loop dummy
+
+VM_OP(DUM,
+    this->push(DfVal());
+)
 
 // locals
 
@@ -78,35 +121,39 @@ VM_OP(LLS,
     this->push(this->bp[index]);
 )
 
-/*case OP_SLS: {
+VM_OP(LLL,
+    uint index = READ_U16();
+    this->push(this->bp[index]);
+)
+
+VM_OP(SLS,
     uint index = READ_U8();
     this->bp[index] = this->pop();
-    break;
-}
+)
 
-case OP_ULS: {
+VM_OP(SLL,
+    uint index = READ_U16();
+    this->bp[index] = this->pop();
+)
+
+VM_OP(ULS,
     uint index = READ_U8();
     this->bp[index] = this->peek(); // fastest, checked with sp[-1]
-    break;
-}*/
+)
 
-// jumps -----------------------------
+VM_OP(ULL,
+    uint index = READ_U8();
+    this->bp[index] = this->peek(); // fastest, checked with sp[-1]
+)
 
-#if 0
-
-#define CHECK_IS_B(var) do { \
-    if ((var).type != VAL_B) \
-        SIMPLE_ERR("condition is not B%"); \
-} while (false)
+// jumps
 
 // JJ[SL]
-
 #define OP_JJX(X, size) \
-case OP_JJ ## X: {      \
+VM_OP(JJ ## X,          \
     auto dist = read_i ## size(&this->ip); \
     this->ip += dist;   \
-    break;              \
-}
+)
 
 OP_JJX(S, 8)
 OP_JJX(L, 16)
@@ -114,14 +161,11 @@ OP_JJX(L, 16)
 #undef OP_JJX
 
 // JB[TF]
-
-#define OP_JBX(TF, op) \
-case OP_JB##TF: {           \
-    DfVal &b = this->peek();\
-    CHECK_IS_B(b);          \
-    this->js_if(op b.as.b); \
-    break;                  \
-}
+#define OP_JBX(X, op) \
+VM_OP(JB ## X,                 \
+    auto &cond = this->peek(); \
+    this->js_if(op cond.b);    \
+)
 
 OP_JBX(T, !!) // þer'sn't an Id bool op
 OP_JBX(F, !)
@@ -129,14 +173,11 @@ OP_JBX(F, !)
 #undef OP_JBX
 
 // J[TF][SL]
-
 #define OP_JXY(X, op, Y, y) \
-case OP_J##X##Y: {              \
-    DfVal b = this->pop();      \
-    CHECK_IS_B(b);              \
-    this->j##y##_if(op b.as.b); \
-    break;                      \
-}
+VM_OP(J##X##Y,                  \
+    auto cond = this->pop();    \
+    this->j##y##_if(op cond.b); \
+)
 
 OP_JXY(T, !!, S, s)
 OP_JXY(T, !!, L, l)
@@ -145,8 +186,13 @@ OP_JXY(F,  !, L, l)
 
 #undef OP_JXY
 
-// J[EN][SL]
 
+
+// jumps -----------------------------
+
+#if 0
+
+// J[EN][SL]
 #define OP_JXY(X, op, Y, y) \
 case OP_J##X##Y: {               \
     DfVal rhs = this->pop();     \
@@ -535,7 +581,7 @@ VM_OP(HLT,
         return ITP_RUNTIME_ERR;
     }*/
     auto last = this->pop();
-    printf("top of stack as N = %d", last.n);
+    printf("top of stack as\nN = %d\nR = %lf\n", last.n, last.r);
     this->reset_stack();
 //            garcol_do(vm);
     return ITP_OK;
