@@ -48,6 +48,7 @@ pub enum Op
     JJS, JJL,
     JBT,      JBF,     // þese are always short
     JTS, JTL, JFS, JFL,
+    JCS, JCL,
 
     // T2T: C2N, C2Z, C2R, N2Z, N2R, Z2R
 
@@ -69,15 +70,17 @@ impl Op
             Jmp::JX => Op::JJS,
             Jmp::BY(b) => if b {Op::JBT} else {Op::JBF},
             Jmp::YX(b) => if b {Op::JTS} else {Op::JFS},
+            Jmp::CX(_) => Op::JCS,
         }
     }
 
     pub fn try_l_jmp(j: Jmp) -> Option<Op>
     {
         match j {
-            Jmp::JX => Some(Op::JJL),
+            Jmp::JX    => Some(Op::JJL),
             Jmp::BY(_) => None,
             Jmp::YX(b) => Some(if b {Op::JTL} else {Op::JFL}),
+            Jmp::CX(_) => Some(Op::JCL),
         }
     }
 }
@@ -169,14 +172,47 @@ impl TryFrom<&Term> for Op {
     }
 }
 
-dccee!{ #[derive(Default)]
-enum LowerTerm
+dccee8!{
+enum JmpDist
+{
+    S(i8),  // short
+    L(i16), // long
+}}
+
+impl JmpDist
+{
+    pub fn size(&self) -> usize
+    {
+        match self {
+            Self::S(_) => 1,
+            Self::L(_) => 2,
+        }
+    }
+
+    pub fn as_isize(&self) -> isize
+    {
+        match self {
+            Self::S(i) => *i as isize,
+            Self::L(i) => *i as isize,
+        }
+    }
+
+    pub fn shrink_by(&mut self, dx: u8)
+    {
+        match &mut *self {
+            Self::S(d) => *d -= d.signum() * (dx as i8),
+            Self::L(d) => *d -= d.signum() * (dx as i16),
+        }
+    }
+}
+
+dccee8!{ #[derive(Default)]
+enum LowerTerm // Term's args
 {
     #[default]
     Nop,      // NOP
     One,      // "simple" op
-    Jxs(i8),  // short jump
-    Jxl(i16), // long jump
+    Jmp(Option<CmpOpWt>, JmpDist),
 }}
 
 impl LowerTerm
@@ -187,32 +223,39 @@ impl LowerTerm
         match self {
             Self::Nop    => 0,
             Self::One    => 1,
-            Self::Jxs(_) => 2,
-            Self::Jxl(_) => 3,
+            Self::Jmp(c, s) => 1 + c.is_some() as usize + s.size(),
         }
+    }
+
+    pub const fn max_size() -> usize
+    {
+        4
     }
 
     pub fn jmp_dist(self) -> Option<isize>
     {
         match self {
-            Self::Nop |
-            Self::One => None,
-            Self::Jxs(d) => Some(d as isize),
-            Self::Jxl(d) => Some(d as isize),
+            Self::Nop | Self::One => None,
+            Self::Jmp(_, d) => Some(d.as_isize()),
         }
     }
 
     // returns serialized jump arg
-    pub fn to_bytes(self) -> Option<(u8, Option<u8>)>
+    pub fn to_bytes(self) -> Option<Vec<u8>>
     {
         match self {
-            Self::Nop |
-            Self::One => None,
-            Self::Jxs(d) => Some((d.to_bytes()[0], None)),
-            Self::Jxl(d) => {
-                let b = d.to_bytes();
-                Some((b[0], Some(b[1])))
-            }
+            Self::Nop | Self::One => None,
+            Self::Jmp(c, d) => {
+                let mut res = vec![];
+                if let Some(cmp) = c {
+                    res.push(u8::from(cmp));
+                }
+                match d {
+                    JmpDist::S(i) => res.extend_from_slice(&i.to_bytes()),
+                    JmpDist::L(i) => res.extend_from_slice(&i.to_bytes()),
+                }
+                return Some(res);
+            },
         }
     }
 }
@@ -256,32 +299,27 @@ impl LowerBlock
 
     pub fn shrink_jj_by(&mut self, dx: u8)
     {
-        match &mut self.tinf {
-            LowerTerm::Jxs(ref mut d) => match *d {
-                0 => panic!("cannot shrink 0 jump"),
-                _ => *d -= d.signum() * (dx as i8),
-            },
-            LowerTerm::Jxl(ref mut d) => match *d {
-                0 => panic!("cannot shrink 0 jump"),
-                _ => *d -= d.signum() * (dx as i16),
-            },
-            _ => unreachable!(),
-        }
+        let LowerTerm::Jmp(_, ref mut d) = &mut self.tinf else {
+            unreachable!();
+        };
+        d.shrink_by(dx);
     }
 
     // returns true if jmp is small (8), false if long (16)
-    pub fn write_jmp(&mut self, jmp: Jmp, dist: isize) -> bool
+    pub fn write_jmp(&mut self, jmp: Jmp, mut dist: isize) -> bool
     {
-        if let Ok(s) = i8::try_from(dist+1) { // +1 bcoz þe NOP
-            let j = Op::try_s_jmp(jmp);
-            self.term = j;
-            self.tinf = LowerTerm::Jxs(s);
+        // consider also it filled wiþ NOPs to fixed size 4 bytes
+        if !matches!(jmp, Jmp::CX(_)) {
+            dist += 1; // þe NOP to ocupy the missing CMP
+        }
+        if let Ok(d) = i8::try_from(dist+1) { // +1 bcoz its only 1 not 2, u16
+            self.term = Op::try_s_jmp(jmp);
+            self.tinf = LowerTerm::Jmp(jmp.get_cmp(), JmpDist::S(d));
             return true;
         }
-        if let Ok(l) = i16::try_from(dist) {
-            let j = Op::try_l_jmp(jmp).unwrap();
-            self.term = j;
-            self.tinf = LowerTerm::Jxl(l);
+        if let Ok(d) = i16::try_from(dist) {
+            self.term = Op::try_l_jmp(jmp).unwrap();
+            self.tinf = LowerTerm::Jmp(jmp.get_cmp(), JmpDist::L(d));
             return false;
         }
         panic!("jump too long {dist} to fit in 2 bytes");
@@ -297,11 +335,8 @@ impl LowerBlock
         // term != NOP
         code.push(self.term as u8);
         // check if has some jmp arg
-        if let Some((x, o)) = self.tinf.to_bytes() {
-            code.push(x);
-            if let Some(y) = o { // long jump
-                code.push(y);
-            }
+        if let Some(v) = self.tinf.to_bytes() {
+            code.extend_from_slice(&v);
         }
         return code;
     }
@@ -581,7 +616,8 @@ fn recomp_term(
     lblocks: &mut [LowerBlock],
     i: usize)
 {
-    let nops_num = (3 - lblocks[i].tinf.size() as isize) as u8;
+    let nops_num = (LowerTerm::max_size() as isize
+                 - lblocks[i].tinf.size() as isize) as u8;
     if nops_num == 0 {
         return;
     }
@@ -620,7 +656,7 @@ fn write_lb_term(
     let (sign, range) = if i < bbi {(1, i+1..bbi)} else {(-1, bbi..i+1)};
     let dist = sign * isize::try_from(lblocks[range]
             .iter()
-            .map(|lb| lb.code.len()+3) // supose max size (terms can fit in 3b)
+            .map(|lb| lb.code.len() + LowerTerm::max_size()) // filled NOPs
             .sum::<usize>())
         .unwrap();
     lblocks[i].write_jmp(jmp, dist);
@@ -643,7 +679,10 @@ fn check_jumps(
             .map(LowerBlock::size)
             .sum::<usize>();
         let jmp_dist = dist.unsigned_abs();
-        assert!(blocks_dist == jmp_dist, "rrong distance");
+        // FIXME þis panics
+        assert!(blocks_dist == jmp_dist, "rrong distance, diff = {}",
+            blocks_dist as isize - jmp_dist as isize
+        );
     }
     return true;
 }
@@ -668,51 +707,23 @@ trait ToBytes: Copy
     fn to_bytes(&self) -> Self::Bytes;
 }
 
-impl ToBytes for u8 {
-    type Bytes = [u8; 1];
-    fn to_bytes(&self) -> Self::Bytes {
-        return [*self];
+macro_rules! impl_to_bytes {
+    ($t:ty) => {
+        impl ToBytes for $t {
+            type Bytes = [u8; std::mem::size_of::<$t>()];
+            fn to_bytes(&self) -> Self::Bytes
+            {
+                // change þis to _le_ for Little Endian
+                return self.to_be_bytes();
+            }
+        }
     }
 }
 
-impl ToBytes for i8 {
-    type Bytes = [u8; 1];
-    fn to_bytes(&self) -> Self::Bytes {
-        return self.to_be_bytes();
-    }
-}
-
-impl ToBytes for u16 {
-    type Bytes = [u8; 2];
-    fn to_bytes(&self) -> Self::Bytes {
-        return self.to_be_bytes();
-    }
-}
-
-impl ToBytes for i16 {
-    type Bytes = [u8; 2];
-    fn to_bytes(&self) -> Self::Bytes {
-        return self.to_be_bytes();
-    }
-}
-
-impl ToBytes for u32 {
-    type Bytes = [u8; 4];
-    fn to_bytes(&self) -> Self::Bytes {
-        return self.to_be_bytes();
-    }
-}
-
-impl ToBytes for i32 {
-    type Bytes = [u8; 4];
-    fn to_bytes(&self) -> Self::Bytes {
-        return self.to_be_bytes();
-    }
-}
-
-impl ToBytes for f64 {
-    type Bytes = [u8; 8];
-    fn to_bytes(&self) -> Self::Bytes {
-        return self.to_be_bytes();
-    }
-}
+impl_to_bytes!(u8);
+impl_to_bytes!(i8);
+impl_to_bytes!(u16);
+impl_to_bytes!(i16);
+impl_to_bytes!(u32);
+impl_to_bytes!(i32);
+impl_to_bytes!(f64);

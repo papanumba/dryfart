@@ -8,10 +8,10 @@ pub mod parsnip;
 pub mod asterix;
 pub mod semanal;
 pub mod intrep;
+pub mod optimus;
 pub mod genesis;
 /*pub mod tarzan;
-pub mod dflib;
-pub mod optimus;*/
+pub mod dflib;*/
 pub mod util;
 
 fn main()
@@ -40,7 +40,7 @@ pub fn parse_file(fname: &str)
         Err(e) => {eprintln!("{e}"); return;},
     };
     let mut ast = semanal::semanalize(ast);
-    dbg!(&ast);
+//    dbg!(&ast);
 /*    tarzan::exec_main(&ast);*/
 }
 
@@ -55,9 +55,10 @@ pub fn transfart(ifname: &str, opt: bool)
     };
     let mut ast = semanal::semanalize(ast);
     let mut cfg = intrep::Compiler::from_asterix(&ast);
-/*    if opt {
+    if opt {
         optimus::opt_bblocks(&mut cfg);
-    }*/
+    }
+//     dbg!(&cfg);
     let mut ofile = std::fs::File::create(&ofname)
         .expect("could not create file");
     match ofile.write_all(&genesis::comp_into_bytes(&cfg)) {

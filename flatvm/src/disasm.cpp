@@ -19,6 +19,7 @@ static void ctn_ins(uint);
 static void idf_ins(const char *, uint);
 static void num_ins(const char *, uint);
 static void jmp_ins(const char *, uint);
+static void jcx_ins(const char *, uint);
 
 
 void disasm_vmdata(VmData *vmd, const char *name)
@@ -66,6 +67,7 @@ static void disasm_ins_fast()
 #define CTN(XXX, size) case (uint8_t) Op::XXX: ctn_ins(      size); break;
 #define NUM(XXX, size) case (uint8_t) Op::XXX: num_ins(#XXX, size); break;
 #define JMP(XXX, size) case (uint8_t) Op::XXX: jmp_ins(#XXX, size); break;
+#define JCX(XXX, size) case (uint8_t) Op::XXX: jcx_ins(#XXX, size); break;
 
       ONE(NOP)
 
@@ -89,6 +91,7 @@ static void disasm_ins_fast()
       JMP(JJS, 1) JMP(JJL, 2)
       JMP(JBT, 1)             JMP(JBF, 1)
       JMP(JTS, 1) JMP(JTL, 2) JMP(JFS, 1) JMP(JFL, 2)
+      JCX(JCS, 1) JCX(JCL, 2)
 
       ONE(DUP)
       ONE(SWP)
@@ -180,4 +183,17 @@ static void jmp_ins(const char *name, uint argsize)
       default: panic("something went rrong in num_ins");
     }
     printf("%-8s %+4d\n", name, c);
+}
+
+static void jcx_ins(const char *name, uint argsize)
+{
+    printf("%-8s : ", name);
+    disasm_ins_fast(); // þe cmpop
+    int c;
+    switch (argsize) {
+      case 1: c = read_i8 (&ip); break;
+      case 2: c = read_i16(&ip); break;
+      default: panic("something went rrong in num_ins");
+    }
+    printf("%+4d\n", c);
 }

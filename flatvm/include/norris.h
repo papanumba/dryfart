@@ -47,6 +47,7 @@ enum class Op : uint8_t
     JJS, JJL,
     JBT,      JBF,     // þese are always short
     JTS, JTL, JFS, JFL,
+    JCS, JCL,
 
     DUP,
     SWP,

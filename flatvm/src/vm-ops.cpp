@@ -48,12 +48,18 @@ VM_UNIOP(NON, ~, n)
 
 #undef VM_UNIOP
 
-#define VM_BINOP(name, op, t) \
+// used in binops and jcx
+// stmt does sþ w/ res
+#define VM_BINOP_AUX(name, op, t, stmt) \
 VM_OP(name,                             \
     auto rhs = this->pop();             \
     auto lhs = this->pop();             \
-    this->push(DfVal(lhs.t op rhs.t));  \
+    auto res = lhs.t op rhs.t;          \
+    stmt \
 )
+
+#define VM_BINOP(name, op, t) \
+VM_BINOP_AUX(name, op, t, this->push(DfVal(res));)
 
 // NUM
 VM_BINOP(ADC, +, c)
@@ -186,11 +192,73 @@ OP_JXY(F,  !, L, l)
 
 #undef OP_JXY
 
+#define VM_EQUOP_AUX(T, t, stmt) \
+    VM_BINOP_AUX(EQ ## T, ==, t, stmt) \
+    VM_BINOP_AUX(NE ## T, !=, t, stmt)
+
+#define OP_JCX(X, x, size) \
+VM_OP(JC##X,                                        \
+    auto cmpop = READ_U8();                         \
+    switch (cmpop) {                                \
+        VM_EQUOP_AUX(B, b, this->j##x##_if(res);)   \
+        VM_EQUOP_AUX(C, c, this->j##x##_if(res);)   \
+        VM_EQUOP_AUX(N, n, this->j##x##_if(res);)   \
+        VM_EQUOP_AUX(Z, z, this->j##x##_if(res);)   \
+        default: panic("unknown CMP");              \
+    }                                               \
+)
+
+OP_JCX(S, s, 8)
+OP_JCX(L, l, 8)
+
+#undef VM_EQUOP
+
+#undef OP_JCX
+
+// stack stuff
+
+VM_OP(DUP,
+    this->push(DfVal(this->peek()));
+)
+
+VM_OP(SWP,
+    // Warning: unchecked
+    std::swap<DfVal>(this->sp[-1], this->sp[-2]);
+)
+
+VM_OP(ROT,
+    // Warning: unchecked
+    std::swap<DfVal>(this->sp[-1], this->sp[-2]);
+    std::swap<DfVal>(this->sp[-2], this->sp[-3]);
+)
+
+VM_OP(POP,
+    (void) this->pop();
+)
+
+VM_OP(HLT,
+#ifdef DEBUG
+    puts("VM HALTED");
+    //this->print_calls();
+#endif
+/*    if (this->callnum != 0) { // not halted at main
+        this->print_stack();
+        this->reset_stack();
+        return ITP_RUNTIME_ERR;
+    }*/
+    auto last = this->pop();
+    printf("top of stack as\nN = %d\nR = %lf\n", last.n, last.r);
+    this->reset_stack();
+//            garcol_do(vm);
+    return ITP_OK;
+)
 
 
-// jumps -----------------------------
+// final
+#undef VM_OP
 
-#if 0
+
+#if 0 // mega
 
 // J[EN][SL]
 #define OP_JXY(X, op, Y, y) \
@@ -548,41 +616,5 @@ case OP_RET: {
     break;
 }
 
-case OP_DUP:
-    this->push(DfVal(this->peek()));
-    break;
-
-case OP_SWP:
-    // unchecked
-    std::swap<DfVal>(this->sp[-1], this->sp[-2]);
-    break;
-
-case OP_ROT:
-    // unchecked
-    std::swap<DfVal>(this->sp[-1], this->sp[-2]);
-    std::swap<DfVal>(this->sp[-2], this->sp[-3]);
-    break;
-
-case OP_POP:
-    (void) this->pop();
-    break;
-
 
 #endif // mega
-
-VM_OP(HLT,
-#ifdef DEBUG
-    puts("VM HALTED");
-    //this->print_calls();
-#endif
-/*    if (this->callnum != 0) { // not halted at main
-        this->print_stack();
-        this->reset_stack();
-        return ITP_RUNTIME_ERR;
-    }*/
-    auto last = this->pop();
-    printf("top of stack as\nN = %d\nR = %lf\n", last.n, last.r);
-    this->reset_stack();
-//            garcol_do(vm);
-    return ITP_OK;
-)

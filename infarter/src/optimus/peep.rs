@@ -86,7 +86,7 @@ pub fn opt_one_bb(bb: &mut BasicBlock)
         },
     );
 
-    // L[NZ]1 ADD -> INC
+/*    // L[NZ]1 ADD -> INC
     peephole::<_, 2, 1>(
         bb,
         |w| if w.len() == 2 && w[1] == ImOp::ADD && (
@@ -107,7 +107,7 @@ pub fn opt_one_bb(bb: &mut BasicBlock)
     peephole::<_, 2, 0>(
         bb,
         |w| if w == [ImOp::NOT, ImOp::NOT] {Some([])} else {None},
-    );
+    );*/
 
     // TODO continue adding crap
 }

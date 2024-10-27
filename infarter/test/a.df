@@ -3,6 +3,6 @@ iR = 1.0.
 acc = 0.0.
 @ [[i ~= 1000000u]]
   i = i + 1u.
-  acc = acc + 1.0 / (iR * iR).
+  acc = acc + / (iR * iR).
   iR = iR + 1.0.
 .

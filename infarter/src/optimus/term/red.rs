@@ -8,24 +8,31 @@ pub fn red(bb: &mut BasicBlock, bbi: usize)
         return;
     }
     match bb.term {
-        Term::JJX(x) => jjx(bb, x, bbi),
-        Term::JTX(x) => jtx(bb, x),
-        Term::JFX(x) => jfx(bb, x),
-        Term::END    |
+        Term::JMP(j, tgt) => jmp(bb, bbi, j, tgt),
+//        Term::END    |
         Term::HLT => ignoring_terms(bb),
         _ => {}, // TODO eke
     }
 }
 
-fn jjx(bb: &mut BasicBlock, tgt: BbIdx, bbi: usize)
+fn jmp(bb: &mut BasicBlock, bbi: usize, jop: Jmp, tgt: BbIdx)
 {
-    // see if is a jump to the next block, no convert it to NOP
-    if tgt == bbi + 1 {
-        bb.term = Term::NOP;
+    match jop {
+        Jmp::JX    => jjx(bb, tgt, bbi),
+        Jmp::YX(b) => if b {todo!("jtx");} else {jfx(bb, tgt);},
+        _ => {},
     }
 }
 
-fn jtx(bb: &mut BasicBlock, x: BbIdx)
+fn jjx(bb: &mut BasicBlock, bbi: usize, tgt: BbIdx)
+{
+    // see if is a jump to the next block, no convert it to NOP
+/*    if tgt == bbi + 1 {
+        bb.term = Term::NOP;
+    }*/
+}
+
+/*fn jtx(bb: &mut BasicBlock, x: BbIdx)
 {
     let new_term = match bb.code.last().unwrap() {
         ImOp::LBX(b) => if *b {Term::JJX(x)} else {Term::NOP},
@@ -40,23 +47,18 @@ fn jtx(bb: &mut BasicBlock, x: BbIdx)
     };
     bb.code.pop();
     bb.term = new_term;
-}
+}*/
 
-fn jfx(bb: &mut BasicBlock, x: BbIdx)
+fn jfx(bb: &mut BasicBlock, tgt: BbIdx)
 {
     let new_term = match bb.code.last().unwrap() {
-        ImOp::LBX(b) => if *b {Term::NOP} else {Term::JJX(x)},
-        ImOp::NOT => Term::JTX(x),
-        ImOp::CEQ => Term::JNX(x),
-        ImOp::CNE => Term::JEX(x),
-        ImOp::CLT => Term::JGE(x),
-        ImOp::CLE => Term::JGT(x),
-        ImOp::CGT => Term::JLE(x),
-        ImOp::CGE => Term::JLT(x),
-        _ => return, // TODO: add oþers
+        ImOp::CMP(c) => Term::JMP(Jmp::CX(c.negated()), tgt),
+        _ => return, // do noþing
     };
     bb.code.pop();
     bb.term = new_term;
+//        ImOp::LBX(b) => if *b {Term::NOP} else {Term::JJX(x)},
+//        ImOp::NOT => Term::JYX(x),
 }
 
 fn ignoring_terms(bb: &mut BasicBlock)

@@ -161,6 +161,19 @@ dccee8!{
 pub enum OrdOp { Lt, Le, Gt, Ge }
 }
 
+impl OrdOp
+{
+    pub fn negated(&self) -> Self
+    {
+        match self {
+            Self::Lt => Self::Ge,
+            Self::Le => Self::Gt,
+            Self::Gt => Self::Le,
+            Self::Ge => Self::Lt,
+        }
+    }
+}
+
 dccee8!{
 pub enum CmpOp
 {
@@ -279,6 +292,17 @@ pub enum CmpOpWt
     Equ(EquOpWt),
     Ord(OrdOpWt),
 }}
+
+impl CmpOpWt
+{
+    pub fn negated(&self) -> Self
+    {
+        match self {
+            Self::Equ(x) => Self::Equ(EquOpWt(!x.0, x.1)),
+            Self::Ord(x) => Self::Ord(OrdOpWt(x.0.negated(), x.1)),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ExprWt

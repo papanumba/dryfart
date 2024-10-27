@@ -61,12 +61,24 @@ pub type BbIdx = usize; // in Cfg's BasicBlock vec
 //type    PagIdx = usize; // in bytecode pages for subroutines
 
 // jumps
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+dccee8!{
 pub enum Jmp
 {
     JX,       // unconditional
-    BY(bool), // BT & BF
+    BY(bool), // BT & BF, leaves B% on þe stack
     YX(bool), // TX & FX
+    CX(CmpOpWt), // cmp + jmp
+}}
+
+impl Jmp
+{
+    pub fn get_cmp(&self) -> Option<CmpOpWt>
+    {
+        match self {
+            Jmp::CX(c) => Some(*c),
+            _ => None,
+        }
+    }
 }
 
 // terminators
@@ -93,7 +105,7 @@ impl Term
         match self {
             Self::PCH(b) => *b,
             Self::NOP    => true,
-            Self::JMP(j, _) => matches!(j, Jmp::BY(_) | Jmp::YX(_)),
+            Self::JMP(j, _) => !matches!(j, Jmp::JX),
             _ => false,
         }
     }
