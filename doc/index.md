@@ -2,7 +2,7 @@
 
 Wellcome to the docs of the DryFart language.
 
-Before reading these documents, make sure you have good understanding about programming languages, paradigms and usual terms.
+Before reading these documents, make sure you have good understanding about programming languages, paradigms and related terminology.
 
 ## General description
 
