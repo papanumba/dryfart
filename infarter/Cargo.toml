@@ -15,7 +15,7 @@ strum_macros = "0.26.4"
 
 [profile.release]
 lto = true
-strip = true
+#strip = true
 #debug = false
 
 [lints.clippy]

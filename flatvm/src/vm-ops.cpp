@@ -31,6 +31,14 @@ VM_OP(LKL,
     this->push(this->dat->ctn[idx]);
 )
 
+VM_OP(LN1,
+    this->push(DfVal(1u));
+)
+
+VM_OP(LR1,
+    this->push(DfVal(1.0));
+)
+
 // ariþmetic ------------------
 
 #define VM_UNIOP(name, op, t) \
@@ -237,10 +245,6 @@ VM_OP(POP,
 )
 
 VM_OP(HLT,
-#ifdef DEBUG
-    puts("VM HALTED");
-    //this->print_calls();
-#endif
 /*    if (this->callnum != 0) { // not halted at main
         this->print_stack();
         this->reset_stack();

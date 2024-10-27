@@ -10,7 +10,7 @@ enum class Op : uint8_t
     NOP = 0,
 
     // CTN
-    LKS, LKL,
+    LKS, LKL, LN1, LR1,
 
     // UNO
                    NGZ, NER,

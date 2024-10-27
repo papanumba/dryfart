@@ -13,6 +13,8 @@ pub enum ImOp
 {
     // load/store
     LKX(CtnIdx),
+    LN1, LR1,
+
     LLX(LocIdx),
     SLX(LocIdx),
     ULX(LocIdx),
@@ -807,6 +809,16 @@ impl Compiler
     fn e_const(&mut self, v: &Val)
     {
         // TODO: special cases like B(T), B(F), N([0..3])
+        match v {
+            Val::N(1) => {self.push_op(ImOp::LN1); return;},
+            Val::R(r) => {
+                if (r - 1.0).abs() < f64::EPSILON {
+                    self.push_op(ImOp::LR1);
+                    return;
+                }
+            }
+            _ => {}, // below
+        }
         let idx = self.intern_ctn(v);
         self.push_op(ImOp::LKX(idx));
     }

@@ -73,6 +73,8 @@ static void disasm_ins_fast()
 
       CTN(LKS, 1)
       CTN(LKL, 2)
+      ONE(LN1) ONE(LR1)
+
 
       ONE(NGZ) ONE(NER) ONE(INR) ONE(NOB) ONE(NOC) ONE(NON)
 

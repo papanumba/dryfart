@@ -24,6 +24,7 @@ pub enum Op
 
     // LKX
     LKS, LKL,
+    LN1, LR1,
 
     // some of þe following do not have all explicitly, but leave space to be
     // prepare þe base index for each type of op, þen add the op as u8
@@ -93,6 +94,8 @@ impl TryFrom<ImOp> for u8
     fn try_from(imop: ImOp) -> Result<u8, ()>
     {
         match imop {
+            ImOp::LN1 => Ok(Op::LN1 as u8),
+            ImOp::LR1 => Ok(Op::LR1 as u8),
             ImOp::DUM => Ok(Op::DUM as u8),
             ImOp::DUP => Ok(Op::DUP as u8),
             ImOp::SWP => Ok(Op::SWP as u8),
