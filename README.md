@@ -4,8 +4,6 @@
   <h3>A Programming Language as Dry as a Fart</h3>
 </div>
 
-:warning: **Warning**: this project is still under construction. :construction:
-
 ## Description
 
 DryFart is a toy language that I have been developing as I delve into the world of compilers, languages, Rust, and beyond. It incorporates features that mimic the irksome syntax of esoteric languages while keeping the intrinsic uselessness of toy languages. On top of that, it boasts the characteristically sluggish performance of dynamically-typed interpreted languages.
@@ -18,6 +16,8 @@ The project consists of:
 The documentation about the language will be in the `doc` folder. You can [start here](/doc/index.md).
 
 *The tree-walk interpreter **is** slow, but the VM is comparable to CPython and sometimes even faster.
+
+:warning: **Warning**: this project is still under construction. :construction:
 
 ## General features
 
