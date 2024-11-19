@@ -183,55 +183,41 @@ where T: Eq + std::fmt::Debug
     // returns þe index where `e` has been put
     pub fn add(&mut self, e: T) -> usize
     {
-        for (i, x) in self.set.iter().enumerate() {
-            if x == &e {
-                return i;
-            }
+        if let Some(i) = self.index_of(&e) {
+            return i;
         }
         let len = self.set.len();
         self.set.push(e);
         return len;
     }
 
-    // O(n)
+/*    // O(n)
     pub fn has(&self, e: &T) -> bool
     {
-        for x in &self.set {
-            if x == e {
-                return true;
-            }
-        }
-        return false;
-    }
+        return self.set.iter().find(|&x| x == e).is_some();
+    }*/
 
-    // O(n)
+/*    // O(n)
     // returns true if `e` wasn't in þe set
     pub fn remove(&mut self, e: &T) -> bool
     {
-        for (i, x) in self.set.iter().enumerate() {
-            if x == e {
-                self.set.remove(i);
-                return true;
-            }
+        let pos = self.set.iter().position(|x| x == e);
+        if let Some(i) = pos {
+            self.set.remove(i);
         }
-        return false;
-    }
+        return pos.is_some();
+    }*/
 
-    // O(1)
+/*    // O(1)
     pub fn truncate(&mut self, newlen: usize)
     {
         self.set.truncate(newlen);
-    }
+    }*/
 
     // O(n)
     pub fn index_of(&self, e: &T) -> Option<usize>
     {
-        for (i, x) in self.set.iter().enumerate() {
-            if x == e {
-                return Some(i);
-            }
-        }
-        return None;
+        return self.set.iter().position(|x| x == e);
     }
 
     #[inline]
@@ -296,11 +282,9 @@ where K: Eq + std::fmt::Debug,
     // O(n)
     pub fn set(&mut self, k: K, v: V) -> usize
     {
-        for (i, (ki, _)) in self.map.iter().enumerate() {
-            if ki == &k {
-                self.map[i] = (k, v);
-                return i;
-            }
+        if let Some(i) = self.map.iter().position(|pair| pair.0 == k) {
+            self.map[i] = (k, v);
+            return i;
         }
         let len = self.map.len();
         self.map.push((k, v));
@@ -310,24 +294,16 @@ where K: Eq + std::fmt::Debug,
     // O(n)
     pub fn has(&self, k: &K) -> bool
     {
-        // TODO: functional style
-        for p in &self.map {
-            if &p.0 == k {
-                return true;
-            }
-        }
-        return false;
+        return self.get(k).is_some();
     }
 
     // O(n)
     pub fn get(&self, k: &K) -> Option<&V>
     {
-        for (q, v) in &self.map {
-            if q == k {
-                return Some(v);
-            }
-        }
-        return None;
+        return self.map
+            .iter()
+            .find(|pair| &pair.0 == k)
+            .map(|pair| &pair.1);
     }
 
     // O(1)
@@ -338,8 +314,9 @@ where K: Eq + std::fmt::Debug,
 
     // O(n)
     // replaces (old_k, _) for (new_k, new_v), if found
-    pub fn replace(&mut self, old_k: &K, new_k: K, new_v: V)
+/*    pub fn replace(&mut self, old_k: &K, new_k: K, new_v: V)
     {
+//        if let Some(old_pair) = self TODO
         for (k, v) in &mut self.map {
             if k == old_k {
                 *k = new_k;
@@ -347,7 +324,7 @@ where K: Eq + std::fmt::Debug,
                 return;
             }
         }
-    }
+    }*/
 
     #[inline]
     pub fn as_slice(&self) -> &[(K, V)]
