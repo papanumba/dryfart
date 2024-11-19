@@ -5,6 +5,7 @@ use std::{
     mem,
     collections::{HashSet, HashMap}
 };
+use strum_macros::EnumCount;
 use crate::{util::*, asterix::*};
 
 // Intermediate Opcodes
@@ -27,10 +28,7 @@ pub enum ImOp
     CMP(CmpOpWt),
 
     // cast
-/*    C2N,
-    N2Z,
-    Z2R,
-    N2R,*/
+    X2X(TypCast),
 
     // stack stuff
     DUM,  // … ]      -> … X]   dummy
@@ -53,6 +51,12 @@ impl ImOp
         }
     }
 }
+
+dccee8!{ #[derive(EnumCount)]
+pub enum TypCast
+{
+    N2R,
+}}
 
 // Addressing modes
 type    CtnIdx = usize; // in constant pool
@@ -181,6 +185,8 @@ impl Scope
         self.locsiz -= 1;
     }
 
+    /*  TODO: dummies not declared correctly
+    */
     pub fn declar(&mut self, id: &Rc<DfStr>)
     {
         // check if previusly declared as dummy
@@ -790,6 +796,7 @@ impl Compiler
             ExprWte::UniOp(e, o)    => self.e_uniop(e, o),
             ExprWte::BinOp(l, o, r) => self.e_binop(l, o, r),
             ExprWte::CmpOp(f, v)    => self.e_cmpop(f, v),
+            ExprWte::Tcast(e, t)    => self.e_tcast(e, t),
             _ => todo!(),
 //            ExprWte::CmpOp(l, v)    => self.e_cmpop(l, v),
 /*            Expr::Array(a)       => self.e_array(a),
@@ -822,17 +829,6 @@ impl Compiler
         let idx = self.intern_ctn(v);
         self.push_op(ImOp::LKX(idx));
     }
-
-/*    fn e_tcast(&mut self, t: &Type, e: &Expr)
-    {
-        self.expr(e);
-        match t {
-            Type::Z => self.push_op(ImOp::CAZ),
-            Type::R => self.push_op(ImOp::CAR),
-            Type::N => self.push_op(ImOp::CAN),
-            _ => todo!(),
-        }
-    }*/
 
     fn e_uniop(&mut self, e: &ExprWt, o: &UniOpWt)
     {
@@ -878,6 +874,16 @@ impl Compiler
             },
             _ => todo!("multi cmpop"),
         }
+    }
+
+    fn e_tcast(&mut self, e: &ExprWt, t: &Type)
+    {
+        self.expr(e);
+        let tc = match (&e.t, t) {
+            (Type::N, Type::R) => TypCast::N2R,
+            _ => panic!("incompatible type cast"),
+        };
+        self.push_op(ImOp::X2X(tc));
     }
 
 /*    fn e_array(&mut self, a: &[Expr])

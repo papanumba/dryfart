@@ -198,6 +198,9 @@ impl SemAnal
 
     fn e_binop(&mut self, l: Expr, o: BinOp, r: Expr) -> ExprWt
     {
+        if o == BinOp::Typ {
+            return self.e_tcast(l, r);
+        }
         let l_wt = self.p_expr(l);
         let r_wt = self.p_expr(r);
         let (o_wt, t) = binop_types(&l_wt.t, &o, &r_wt.t);
@@ -205,6 +208,19 @@ impl SemAnal
             e: ExprWte::BinOp(Box::new(l_wt), o_wt, Box::new(r_wt)),
             t: t,
         };
+    }
+
+    fn e_tcast(&mut self, ex: Expr, ty: Expr) -> ExprWt
+    {
+        let ex_wt = self.p_expr(ex);
+        let typ = match ty {
+            Expr::Ident(i) => match i.as_bytes() {
+                b"R" => Type::R,
+                _ => todo!(),
+            }
+            _ => panic!(),
+        };
+        return ExprWt {e:ExprWte::Tcast(Box::new(ex_wt), typ), t:typ};
     }
 
     fn e_cmpop(&mut self, f: Expr, v: Vec<(CmpOp, Expr)>) -> ExprWt
@@ -314,7 +330,9 @@ fn cmpop_types(t: &Type, o: &CmpOp) -> CmpOpWt
         CmpOp::Equ(b) => CmpOpWt::Equ(EquOpWt(*b, t.try_into()
             .expect(&format!("{t} is cannot be Equals compared"))
         )),
-        _ => todo!(),
+        CmpOp::Ord(o) => CmpOpWt::Ord(OrdOpWt(*o, t.try_into()
+            .expect(&format!("{t} is cannot be Order compared"))
+        )),
     }
 }
 
@@ -328,6 +346,21 @@ impl TryFrom<&Type> for EquTyp
             Type::C => Ok(Self::C),
             Type::N => Ok(Self::N),
             Type::Z => Ok(Self::Z),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<&Type> for OrdTyp
+{
+    type Error = ();
+    fn try_from(t: &Type) -> Result<Self, ()>
+    {
+        match t {
+            Type::C => Ok(Self::C),
+            Type::N => Ok(Self::N),
+            Type::Z => Ok(Self::Z),
+            Type::R => Ok(Self::R),
             _ => Err(()),
         }
     }

@@ -86,6 +86,9 @@ static void disasm_ins_fast()
       ONE(LTC) ONE(LEC) ONE(GTC) ONE(GEC) ONE(LTN) ONE(LEN) ONE(GTN) ONE(GEN)
       ONE(LTZ) ONE(LEZ) ONE(GTZ) ONE(GEZ) ONE(LTR) ONE(LER) ONE(GTR) ONE(GER)
 
+      ONE(N2R)
+      ONE(DUM)
+
       NUM(LLS, 1) NUM(LLL, 2)
       NUM(SLS, 1) NUM(SLL, 2)
       NUM(ULS, 1) NUM(ULL, 2)

@@ -479,25 +479,10 @@ impl<'src> Nip<'src>
         return Ok(me);
     }
 
-    rite_uniop_expr!(inv_expr,  not_expr,  Slash, Inv);
-    rite_uniop_expr!(not_expr,     nucle,  Tilde, Not);
+    rite_uniop_expr!(inv_expr,  not_expr,   Slash, Inv);
+    rite_uniop_expr!(not_expr, cast_expr,   Tilde, Not);
 //    left_binop_expr!(idx_expr,     nucle, Uscore, Idx);
-
-/*    fn cast_expr(&mut self) -> StrRes<Expr>
-    {
-        let Some(t) = self.peek() else {
-            return eof_err!("type%, ident or literal");
-        };
-        if t.0.typ() != TokTyp::PrimType {
-            return self.fn_acc_ex();
-        }
-        self.advance(); // þe primtype
-        let casted = self.cast_expr()?;
-        return Ok(Expr::Tcast(
-            t.0.as_primtype().unwrap().into(),
-            Box::new(casted)
-        ));
-    }*/
+    left_binop_expr!(cast_expr,    nucle, Percent, Typ);
 
 /*    fn fn_acc_ex(&mut self) -> StrRes<Expr>
     {

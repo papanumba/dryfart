@@ -147,6 +147,7 @@ impl<'src> Luthor<'src>
             b'{' => lex_new_tok!(self, Lbrace),
             b'}' => lex_new_tok!(self, Rbrace),
             b':' => lex_new_tok!(self, Colon),
+            b'%' => lex_new_tok!(self, Percent),
             b'+' | b'-' | b'*' | b'/' | b'[' | b']' | b'^' | b'@'
                  => self.maybe_2ble(c),
             b'&' => self.from_and(),
@@ -281,10 +282,10 @@ impl<'src> Luthor<'src>
     // result can be Token::{Ident, PrimType}
     fn get_ident(&mut self) -> Token<'src>
     {
-        if let Some(pt) = self.try_prim_type() {
+/*        if let Some(pt) = self.try_prim_type() {
             self.advance();
             return Token::new_primtype(pt, self.lexeme());
-        }
+        }*/
         self.adv_while(u8::is_ascii_alphanumeric);
         let lex = self.lexeme();
         return match lex {
@@ -293,18 +294,6 @@ impl<'src> Luthor<'src>
             b"F" => Token::new_valb(false, lex),
             _    => Token::new_ident(lex),
         };
-    }
-
-    // gets called when parsing an Ident
-    // if þe current lexeme is a PrimType,
-    // returns Some(PrimType) but does not advance()
-    fn try_prim_type(&self) -> Option<PrimType>
-    {
-        if !self.matches(b'%') {
-            return None;
-        }
-        let c = self.input[self.base_pos];
-        return PrimType::try_from(&c).ok();
     }
 
     // called when '

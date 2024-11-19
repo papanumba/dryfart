@@ -138,7 +138,7 @@ pub enum UniOp { Neg, Inv, Not }
 }
 
 dccee8!{
-pub enum BinOp { Add, Sub, Mul, Div, Mod, And, Ior, Xor }
+pub enum BinOp { Add, Sub, Mul, Div, Mod, And, Ior, Xor, Typ }
 }
 
 macro_rules! is_sth_fn {
@@ -319,6 +319,7 @@ pub enum ExprWte
     BinOp(Box<ExprWt>, BinOpWt, Box<ExprWt>),
     UniOp(Box<ExprWt>, UniOpWt),
     CmpOp(Box<ExprWt>, Vec<(CmpOpWt, ExprWt)>),
+    Tcast(Box<ExprWt>, Type),
 }
 
 #[derive(Debug, Clone)]

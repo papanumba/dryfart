@@ -122,6 +122,11 @@ VM_ORDOP(R, r)
 
 #undef VM_BINOP
 
+VM_OP(N2R,
+    auto x = this->pop();
+    this->push(DfVal((double) x.n));
+)
+
 // loop dummy
 
 VM_OP(DUM,
@@ -204,6 +209,12 @@ OP_JXY(F,  !, L, l)
     VM_BINOP_AUX(EQ ## T, ==, t, stmt) \
     VM_BINOP_AUX(NE ## T, !=, t, stmt)
 
+#define VM_ORDOP_AUX(T, t, stmt) \
+    VM_BINOP_AUX(LT ## T, < , t, stmt) \
+    VM_BINOP_AUX(LE ## T, <=, t, stmt) \
+    VM_BINOP_AUX(GT ## T, > , t, stmt) \
+    VM_BINOP_AUX(GE ## T, >=, t, stmt)
+
 #define OP_JCX(X, x, size) \
 VM_OP(JC##X,                                        \
     auto cmpop = READ_U8();                         \
@@ -212,6 +223,10 @@ VM_OP(JC##X,                                        \
         VM_EQUOP_AUX(C, c, this->j##x##_if(res);)   \
         VM_EQUOP_AUX(N, n, this->j##x##_if(res);)   \
         VM_EQUOP_AUX(Z, z, this->j##x##_if(res);)   \
+        VM_ORDOP_AUX(C, c, this->j##x##_if(res);)   \
+        VM_ORDOP_AUX(N, n, this->j##x##_if(res);)   \
+        VM_ORDOP_AUX(Z, z, this->j##x##_if(res);)   \
+        VM_ORDOP_AUX(R, r, this->j##x##_if(res);)   \
         default: panic("unknown CMP");              \
     }                                               \
 )

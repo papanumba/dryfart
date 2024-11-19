@@ -103,6 +103,8 @@ ItpRes VirMac::_run()
         uint8_t ins;
 #ifdef DEBUG
 //        this->print_stack();
+        printf("stack size: %d\n",
+            (int)(ptrdiff_t) (this->sp - this->stack));
         disasm_instru(this->dat, this->nor, this->ip);
 #endif /* DEBUG */
         switch (ins = READ_BYTE()) {

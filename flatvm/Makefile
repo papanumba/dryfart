@@ -1,6 +1,6 @@
 CC = clang
 CXX = clang++
-CPPFLAGS = -Iinclude #-Idf-lib -DSAFE
+CPPFLAGS = -Iinclude #-DSAFE -Idf-lib
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
 LDFLAGS = #-L. -ldf-lib # -Wl,-rpath=.
 CXXNOWARN := -Wno-unused-private-field -Wno-unused-parameter

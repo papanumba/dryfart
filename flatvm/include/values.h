@@ -46,7 +46,7 @@ union DfVal
   public:
 
     // ctors
-    DfVal() : n(0) {}
+    DfVal() : r(0.0) {}
 #define BASURA(typ, m) DfVal(typ x) : m(x) {}
     BASURA(bool,     b)
     BASURA(uint8_t,  c)

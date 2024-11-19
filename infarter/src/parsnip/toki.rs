@@ -130,14 +130,14 @@ impl<'src> Token<'src>
         return Self {typ:TokTyp::ValC, val: TokVal{ValC:c}, lex:s};
     }
 
-    pub fn new_primtype(pt: PrimType, s: &'src [u8]) -> Self
+/*    pub fn new_primtype(pt: PrimType, s: &'src [u8]) -> Self
     {
         return Self {
             typ: TokTyp::PrimType,
             val: TokVal{PrimType: pt},
             lex: s,
         };
-    }
+    }*/
 
     parse_fn!(parse_valn, u32, ValN);
     parse_fn!(parse_valz, i32, ValZ);
@@ -200,7 +200,7 @@ impl<'src> Token<'src>
     acc_fn!(as_valr,     ValR,     f64);
     acc_fn!(as_string,   String,   &'src [u8]);
     acc_fn!(as_ident,    Ident,    &'src [u8]);
-    acc_fn!(as_primtype, PrimType, PrimType);
+//    acc_fn!(as_primtype, PrimType, PrimType);
     acc_fn!(as_rect,     RecT,     u32);
     acc_fn!(as_comment,  Comment,  &'src [u8]);
     //acc_fn!(as_unknown,  Unknown,  u8); // unused
@@ -251,6 +251,7 @@ pub enum TokTyp
     Hash,
     Bang,
     AtSign,
+    Percent,
     Lparen,
     Rparen,
     LsqBra,
@@ -321,7 +322,7 @@ pub union TokVal<'src>
     ValR:     f64,
     String:   &'src [u8],
     Ident:    &'src [u8],
-    PrimType: PrimType,
+//    PrimType: PrimType,
     RecT:     u32,          // þe level $@N
     Comment:  &'src [u8],
     Unknown:  u8,           // u8 as char

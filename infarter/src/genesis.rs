@@ -38,7 +38,8 @@ pub enum Op
     // CMP
     EQU = (Op::BIO as u8 + BinOpWt::COUNT as u8) as isize,
     ORD = (Op::EQU as u8 + EquTyp::COUNT as u8 * 2) as isize, // 2 is EQ|NE
-    DUM = (Op::ORD as u8 + OrdTyp::COUNT as u8 * 4) as isize, // 4 is [LG][TE]
+    T2T = (Op::ORD as u8 + OrdTyp::COUNT as u8 * 4) as isize, // 4 is [LG][TE]
+    DUM = (Op::T2T as u8 + TypCast::COUNT as u8) as isize,
 
     // LOC
     LLS, LLL,
@@ -50,8 +51,6 @@ pub enum Op
     JBT,      JBF,     // þese are always short
     JTS, JTL, JFS, JFL,
     JCS, JCL,
-
-    // T2T: C2N, C2Z, C2R, N2Z, N2R, Z2R
 
     // stack ops
 //    RET = 0xF0,
@@ -104,6 +103,7 @@ impl TryFrom<ImOp> for u8
             ImOp::UNO(u) => Ok(u8::from(u)),
             ImOp::BIO(u) => Ok(u8::from(u)),
             ImOp::CMP(u) => Ok(u8::from(u)),
+            ImOp::X2X(c) => Ok(u8::from(c)),
             _ => Err(()),
         }
     }
@@ -149,6 +149,12 @@ impl From<OrdOpWt> for u8 {
     fn from(x: OrdOpWt) -> u8 {
         // x.1 is þe type & x.0 is þe OrdOp (LE, etc)
         Op::ORD as u8 + x.1 as u8 * 4 + x.0 as u8
+    }
+}
+
+impl From<TypCast> for u8 {
+    fn from(x: TypCast) -> u8 {
+        Op::T2T as u8 + x as u8
     }
 }
 
