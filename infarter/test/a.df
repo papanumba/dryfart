@@ -2,7 +2,7 @@ i = 1u.
 iR = 1.0.
 acc = 0.0.
 @ [[i < 1000000u]]
-  iR = i %R .
+  iR = i %Z %R.
   acc = acc + / (iR * iR).
   i = i + 1u.
 `  iR = iR + 1.0.

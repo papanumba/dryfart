@@ -55,7 +55,11 @@ impl ImOp
 dccee8!{ #[derive(EnumCount)]
 pub enum TypCast
 {
+    C2N,
+    C2Z,
+    N2Z,
     N2R,
+    Z2R,
 }}
 
 // Addressing modes
@@ -880,7 +884,9 @@ impl Compiler
     {
         self.expr(e);
         let tc = match (&e.t, t) {
+            (Type::N, Type::Z) => TypCast::N2Z,
             (Type::N, Type::R) => TypCast::N2R,
+            (Type::Z, Type::R) => TypCast::Z2R,
             _ => panic!("incompatible type cast"),
         };
         self.push_op(ImOp::X2X(tc));

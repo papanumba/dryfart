@@ -122,9 +122,29 @@ VM_ORDOP(R, r)
 
 #undef VM_BINOP
 
+VM_OP(C2N,
+    auto x = this->pop();
+    this->push(DfVal((uint32_t) x.c));
+)
+
+VM_OP(C2Z,
+    auto x = this->pop();
+    this->push(DfVal((int32_t) x.c));
+)
+
+VM_OP(N2Z,
+    auto x = this->pop();
+    this->push(DfVal((int32_t) x.n));
+)
+
 VM_OP(N2R,
     auto x = this->pop();
     this->push(DfVal((double) x.n));
+)
+
+VM_OP(Z2R,
+    auto x = this->pop();
+    this->push(DfVal((double) x.z));
 )
 
 // loop dummy

@@ -215,6 +215,8 @@ impl SemAnal
         let ex_wt = self.p_expr(ex);
         let typ = match ty {
             Expr::Ident(i) => match i.as_bytes() {
+                b"N" => Type::N,
+                b"Z" => Type::Z,
                 b"R" => Type::R,
                 _ => todo!(),
             }

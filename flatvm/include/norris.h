@@ -38,7 +38,9 @@ enum class Op : uint8_t
     LTZ, LEZ, GTZ, GEZ,
     LTR, LER, GTR, GER,
 
-    N2R,
+    C2N, C2Z,
+         N2Z, N2R,
+              Z2R,
 
     DUM, // dummy
 
