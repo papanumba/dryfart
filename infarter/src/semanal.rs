@@ -32,22 +32,6 @@ struct SemAnal
 
 impl SemAnal
 {
-/*    fn get_idf_typ(&self, i: &Rc<DfStr>) -> Option<&Type>
-    {
-        match self.curr.get(i) {
-            Some(t) => Some((0, t)),
-            None => self.envs
-                .iter()              // from top
-                .find(|e| e.has(i))?
-                .get(i),
-        }
-    }*/
-
-/*    fn exists_idf(&self, i: &Rc<DfStr>) -> bool
-    {
-        return self.curr.has(i);
-    }*/
-
     fn init_scope(&mut self)
     {
         self.envs.push(mem::take(&mut self.curr));
@@ -97,6 +81,7 @@ impl SemAnal
     {
         /* On var shadowing:
         ** If `i` exists in self.curr, it overwrites `i` & its type.
+        ** If it has different type, it's considered a Declar.
         ** If `i` exists in some prev env wiþ a different type,
         ** `i` is declared in self.curr, & þe prev `i` gets shadowed.
         ** If `i` exists & is of þe same type, it's a normal assign to `i`.
@@ -105,10 +90,15 @@ impl SemAnal
         ** but þer's an `i` of diff type closer, þe 1st one is ignored,
         ** so `i` gets declared as a new var.
         */
-        if self.curr.has(&i) {
-            // normal assign, overwriting type
-            self.curr.set(i.clone(), e.t.clone());
-            return StmtWt::VarAss(i, e, 0); // assign to current level (0)
+        if let Some(t) = self.curr.get(&i) {
+            // normal assign if same type
+            if t == &e.t {
+                return StmtWt::VarAss(i, e, 0); // assign to current level (0)
+            } else {
+                // update type
+                self.curr.set(i.clone(), e.t.clone());
+                return StmtWt::Declar(i, e);
+            }
         }
         // now let's see if it exists in a parent scope
         for (depth, env) in self.envs.iter().enumerate() {

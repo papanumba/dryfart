@@ -12,6 +12,8 @@ pub mod optimus;
 pub mod genesis;
 /*pub mod tarzan;
 pub mod dflib;*/
+pub mod ssa_ir;
+pub mod cgen;
 pub mod util;
 
 fn main()
@@ -24,6 +26,7 @@ fn main()
         match argv[1].as_str() {
             "t"  => transfart(&argv[2], false),
             "to" => transfart(&argv[2], true),
+            "c"  => df2c(&argv[2]),
             _ => panic!("unknown option {}", argv[1]),
         }
     } else {
@@ -66,6 +69,31 @@ pub fn transfart(ifname: &str, opt: bool)
             if opt {" optimized"} else {""},
             ofname,
         ),
+        Err(e) => eprintln!("Could not write to binary file because:\n {e}"),
+    }
+}
+
+pub fn df2c(ifname: &str)
+{
+    let taco: String = read_file_to_string(ifname);
+    let mut ofname: String = ifname.to_owned();
+    ofname.push('c');
+    let mut ast = match parsnip::parse(taco) {
+        Ok(b) => b,
+        Err(e) => {eprintln!("{e}"); return;},
+    };
+    let mut ast = semanal::semanalize(ast);
+    let ir = ssa_ir::Gen::from_block(&ast);
+    dbg!(&ir);
+    let c_code = cgen::into_c(&ir);
+    println!("{}", &c_code);
+    // sample.df -> sample.c
+    let mut ofname = String::from(&ifname[..ifname.len()-3]);
+    ofname.push_str(".c");
+    let mut ofile = std::fs::File::create(&ofname)
+        .expect("could not create file");
+    match ofile.write_all(c_code.as_bytes()) {
+        Ok(()) => println!("Successfully transfarted {ifname} to {ofname}"),
         Err(e) => eprintln!("Could not write to binary file because:\n {e}"),
     }
 }
