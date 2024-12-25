@@ -9,17 +9,21 @@ use crate::{
     asterix::*
 };
 
-pub type TmpIdx = u16;
-pub type CtnIdx = u16;
+pub type TmpIdx = u16; // for t0, t1, etc. variables
+pub type CtnIdx = u16; // for constants in the pool
+pub type LabIdx = u16; // for labels L0, L1
 
 #[derive(Debug, Clone, Copy)]
 pub enum Tac // 3 adress code
 {
-                                          // MEANING           PSEUDOCODE
-    CTN(TmpIdx, CtnIdx),                  // assign constant   T#0 = CTN[#1]
-    CPY(TmpIdx, TmpIdx),                  // copy (var rename) T#0 = T#1
-    UNO(TmpIdx, TmpIdx, UniOpWt),         // Unary op          T#0 = op T#1
-    BIO(TmpIdx, TmpIdx, BinOpWt, TmpIdx), // Binary op         T#0 = T#1 op T#2
+                                          // MEANING    PSEUDOCODE
+    CTN(TmpIdx, CtnIdx),                  // constant   T#0 = CTN[#1]
+    CPY(TmpIdx, TmpIdx),                  // copy       T#0 = T#1
+    UNO(TmpIdx, TmpIdx, UniOpWt),         // Unary op   T#0 = op T#1
+    BIO(TmpIdx, TmpIdx, BinOpWt, TmpIdx), // Binary op  T#0 = T#1 op T#2
+    LAB(LabIdx),                          // Label      L#0:
+    JMP(LabIdx),                          // Jump       goto L#0;
+    JIF(LabIdx, TmpIdx, bool),            // Jump If #2 if (t#1==#2) goto L#0;
 }
 
 pub type Idf2TmpIdx = std::collections::HashMap<Rc<DfStr>, u16>;
@@ -68,6 +72,7 @@ pub struct Gen // 3AC generator
     pub tmp: Vec<Type>,           // type of each tmp
     pub out: Vec<Tac>,            // 3AC output
     pub loc: Locals,              // locals: Name -> t Idx
+    pub lab: u16,                 // label counter
 }
 
 impl Gen
@@ -90,14 +95,27 @@ impl Gen
         return self.ctn.add(v) as u16;
     }
 
+    fn push_new_label(&mut self) -> LabIdx
+    {
+        let li = self.lab;
+        self.out.push(Tac::LAB(li));
+        self.lab += 1;
+        return li;
+    }
+
     /* all grammar functions */
+
+    fn no_env_block(&mut self, b: &BlockWt)
+    {
+        for s in b {
+            self.stmt(s);
+        }
+    }
 
     fn block(&mut self, b: &BlockWt)
     {
         self.loc.init_scope();
-        for s in b {
-            self.stmt(s);
-        }
+        self.no_env_block(b);
         self.loc.exit_scope();
     }
 
@@ -106,6 +124,7 @@ impl Gen
         match s {
             StmtWt::Declar(i, e)    => self.s_declar(i, e),
             StmtWt::VarAss(i, e, d) => self.s_varass(i, e, *d),
+            StmtWt::Loooop(l)       => self.s_loooop(l),
             _ => todo!(),
         }
     }
@@ -121,6 +140,39 @@ impl Gen
         let t1 = self.expr(e);
         let t0 = self.loc.get(i, d);
         self.out.push(Tac::CPY(t0, t1));
+    }
+
+    fn s_loooop(&mut self, l: &LoopWt)
+    {
+        match l {
+            LoopWt::Inf(b)       => self.loop_inf(b),
+            LoopWt::Cdt(b, e, c) => self.loop_cdt(b, e, c),
+        }
+    }
+
+    fn loop_inf(&mut self, b: &BlockWt)
+    {
+        let start_li = self.push_new_label();
+        self.block(b);
+        self.out.push(Tac::JMP(start_li));
+    }
+
+    fn loop_cdt(&mut self, b0: &BlockWt, cd: &ExprWt, b1: &BlockWt)
+    {
+        self.loc.init_scope();
+        let start_li = self.push_new_label();
+        self.no_env_block(b0);
+        let cd_ti = self.expr(cd);
+        let patch_i = self.out.len(); // index of þe JIF to backpatch
+        self.out.push(Tac::JIF(0, cd_ti, false));
+        self.no_env_block(b1);
+        self.out.push(Tac::JMP(start_li));
+        let end_li = self.push_new_label();
+        // patch (this if will always work
+        if let Tac::JIF(ref mut li,..) = &mut self.out[patch_i] {
+            *li = end_li;
+        }
+        self.loc.exit_scope();
     }
 
     // returns þe T# hwér its val has bēn stórd

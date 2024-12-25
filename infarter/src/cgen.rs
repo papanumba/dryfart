@@ -1,5 +1,6 @@
 /* cgen.rs */
 
+use num_enum::TryFromPrimitive;
 use crate::{
     asterix::*,
     ssa_ir::*,
@@ -11,10 +12,7 @@ pub fn into_c(g: &Gen) -> String
     res.push_str("#include <stdint.h>\n");
     res.push_str("\nint main(void)\n{\n");
     // declare'em all at begin
-    for (i, t) in g.tmp.iter().enumerate() {
-        res.push_str(types_convert(&g.tmp[i]));
-        res.push_str(&format!(" t{i};\n"));
-    }
+    res.push_str(&declar_vars(&g.tmp));
     for c in &g.out {
         match c {
             Tac::CTN(a, ci) => {
@@ -39,6 +37,16 @@ pub fn into_c(g: &Gen) -> String
                 };
                 res.push_str(&s);
             },
+            Tac::LAB(i) => {
+                res.push_str(&format!("L{i}:\n"));
+            },
+            Tac::JMP(i) => {
+                res.push_str(&format!("goto L{i};\n"));
+            },
+            Tac::JIF(li, ti, b) => {
+                res.push_str(&format!("if ({}t{}) goto L{};\n",
+                    if *b {""} else {"!"}, ti, li));
+            },
             _ => todo!(),
         }
     }
@@ -47,6 +55,32 @@ pub fn into_c(g: &Gen) -> String
 }
 
 // private types
+
+// groups t indexes by type e.g. [B,N,B] -> {B:[0,2], N:[1]}
+fn declar_vars(tmp: &[Type]) -> String
+{
+    // group by type
+    let mut groups = std::collections::HashMap::<u8, Vec<u16>>::new();
+    for (i, t) in tmp.iter().enumerate() {
+        let t = *t as u8;
+        if !groups.contains_key(&t) {
+            groups.insert(t, vec![]);
+        }
+        let g = groups.get_mut(&t).unwrap().push(i as u16);
+    }
+    // to string
+    let mut res = String::new();
+    for (typ, grp) in groups.iter() {
+        res.push_str(types_convert(&Type::try_from_primitive(*typ).unwrap()));
+        res.push(' ');
+        for idx in grp {
+            res.push_str(&format!("t{idx},"));
+        }
+        res.pop(); // last comma ','
+        res.push_str(";\n");
+    }
+    return res;
+}
 
 fn types_convert(t: &Type) -> &'static str
 {

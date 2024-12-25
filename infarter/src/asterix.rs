@@ -3,10 +3,11 @@
 use std::{rc::Rc, cell::RefCell, fmt};
 use strum::EnumCount;
 use strum_macros::EnumCount;
+use num_enum::TryFromPrimitive;
 use crate::{util, /*dflib,*/ util::{MutRc, DfStr}};
 
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive)]
 pub enum Type
 {
     B = b'B', // bool
