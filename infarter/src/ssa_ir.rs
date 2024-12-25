@@ -13,6 +13,13 @@ pub type TmpIdx = u16; // for t0, t1, etc. variables
 pub type CtnIdx = u16; // for constants in the pool
 pub type LabIdx = u16; // for labels L0, L1
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum TacBinOp
+{
+    Cmp(CmpOpWt),
+    Bin(BinOpWt),
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Tac // 3 adress code
 {
@@ -20,7 +27,7 @@ pub enum Tac // 3 adress code
     CTN(TmpIdx, CtnIdx),                  // constant   T#0 = CTN[#1]
     CPY(TmpIdx, TmpIdx),                  // copy       T#0 = T#1
     UNO(TmpIdx, TmpIdx, UniOpWt),         // Unary op   T#0 = op T#1
-    BIO(TmpIdx, TmpIdx, BinOpWt, TmpIdx), // Binary op  T#0 = T#1 op T#2
+    BIO(TmpIdx, TmpIdx, TacBinOp, TmpIdx),// Binary op  T#0 = T#1 op T#2
     LAB(LabIdx),                          // Label      L#0:
     JMP(LabIdx),                          // Jump       goto L#0;
     JIF(LabIdx, TmpIdx, bool),            // Jump If #2 if (t#1==#2) goto L#0;
@@ -179,10 +186,11 @@ impl Gen
     fn expr(&mut self, e: &ExprWt) -> TmpIdx
     {
         match &e.e {
-            ExprWte::Const(v)    => self.e_const(v),
-            ExprWte::Local(i, d) => self.e_local(i, *d),
-            ExprWte::UniOp(e, o) => self.e_uniop(e, o, e.t.clone()),
+            ExprWte::Const(v)       => self.e_const(v),
+            ExprWte::Local(i, d)    => self.e_local(i, *d),
+            ExprWte::UniOp(e, o)    => self.e_uniop(e, o, e.t.clone()),
             ExprWte::BinOp(l, o, r) => self.e_binop(l, o, r, e.t.clone()),
+            ExprWte::CmpOp(f, o)    => self.e_cmpop(f, o),
             _ => todo!(),
         }
     }
@@ -221,8 +229,27 @@ impl Gen
         let t1 = self.expr(l);
         let t2 = self.expr(r);
         let t0 = self.curr_ti();
-        self.out.push(Tac::BIO(t0, t1, *o, t2));
+        let op = TacBinOp::Bin(*o);
+        self.out.push(Tac::BIO(t0, t1, op, t2));
         self.tmp.push(typ);
         return t0;
+    }
+
+    fn e_cmpop(&mut self, first: &ExprWt, others: &[(CmpOpWt, ExprWt)]) -> TmpIdx
+    {
+        let first_ti = self.expr(first);
+        let len_others = others.len();
+        if len_others == 0 {
+            return first_ti;
+        }
+        if len_others == 1 {
+            let second_ti = self.expr(&others[0].1);
+            let res_ti = self.curr_ti();
+            let op = TacBinOp::Cmp(others[0].0);
+            self.out.push(Tac::BIO(res_ti, first_ti, op, second_ti));
+            self.tmp.push(Type::B);
+            return res_ti;
+        }
+        todo!("multi cmp");
     }
 }

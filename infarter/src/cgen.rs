@@ -28,12 +28,13 @@ pub fn into_c(g: &Gen) -> String
                     ta, uniop2c(op), tb));
             },
             Tac::BIO(ta, tb, op, tc) => {
-                let s = if *op == BinOpWt::MOZ { // mod, not C's rem %
+                let s = if *op == TacBinOp::Bin(BinOpWt::MOZ) {
+                    // mod, not C's rem %
                     let b = tb;
                     let c = tc;
                     format!("t{ta} = (t{b}%t{c}+t{c})%t{c};\n")
                 } else {
-                    format!("t{} = t{} {} t{};\n", ta, tb, binop2c(op), tc)
+                    format!("t{} = t{} {} t{};\n", ta, tb, tacbinop2c(op), tc)
                 };
                 res.push_str(&s);
             },
@@ -116,6 +117,14 @@ fn uniop2c(op: &UniOpWt) -> &'static str
     }
 }
 
+fn tacbinop2c(op: &TacBinOp) -> &'static str
+{
+    match op {
+        TacBinOp::Bin(b) => binop2c(b),
+        TacBinOp::Cmp(b) => cmpop2c(b),
+    }
+}
+
 fn binop2c(op: &BinOpWt) -> &'static str
 {
     match op {
@@ -128,5 +137,18 @@ fn binop2c(op: &BinOpWt) -> &'static str
         BinOpWt::ANB | BinOpWt::ANC | BinOpWt::ANN => "&",
         BinOpWt::IOB | BinOpWt::IOC | BinOpWt::ION => "|",
         BinOpWt::XOB | BinOpWt::XOC | BinOpWt::XON => "^",
+    }
+}
+
+fn cmpop2c(op: &CmpOpWt) -> &'static str
+{
+    match op {
+        CmpOpWt::Equ(EquOpWt(b, _)) => if *b {"=="} else {"!="}, // TODO what for == in bools
+        CmpOpWt::Ord(OrdOpWt(o, _)) => match o {
+            OrdOp::Lt => "<",
+            OrdOp::Le => "<=",
+            OrdOp::Gt => ">",
+            OrdOp::Ge => ">=",
+        },
     }
 }
