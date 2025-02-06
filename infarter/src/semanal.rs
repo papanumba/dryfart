@@ -13,25 +13,35 @@ use crate::{
 
 /* semantic analysis: type check & ident resolv (incl. upvals) */
 
-pub fn semanalize(b: Block) -> BlockWt
+pub fn semanalize(p: Prog) -> ProgWt
 {
-    let mut a = SemAnal::default();
-    return a.p_block(b);
+    return SemAnal::semanalize(p);
 }
 
 // private stuff:
 
-type Idf2Typ = util::VecMap<Rc<DfStr>, Type>;
+type Idf2Typ = util::VecMap<IdfIdx, Type>;
 
 #[derive(Default)]
 struct SemAnal
 {
+    idfs: Vec<DfStr>,
     envs: util::Stack<Idf2Typ>, // all parent Envs (for declared vars)
     curr: Idf2Typ, // innermost Env
 }
 
 impl SemAnal
 {
+    pub fn semanalize(mut p: Prog) -> ProgWt
+    {
+        let mut sa = Self::default();
+        sa.idfs = std::mem::take(&mut p.idents);
+        let b = sa.p_block(p.main);
+        return ProgWt{idents:sa.idfs, main:b};
+    }
+
+    // private stuff
+
     fn init_scope(&mut self)
     {
         self.envs.push(mem::take(&mut self.curr));
@@ -77,7 +87,7 @@ impl SemAnal
         }
     }
 
-    fn p_s_varass(&mut self, i: Rc<DfStr>, e: ExprWt) -> StmtWt
+    fn p_s_varass(&mut self, i: IdfIdx, e: ExprWt) -> StmtWt
     {
         /* On var shadowing:
         ** If `i` exists in self.curr, it overwrites `i` & its type.
@@ -96,7 +106,7 @@ impl SemAnal
                 return StmtWt::VarAss(i, e, 0); // assign to current level (0)
             } else {
                 // update type
-                self.curr.set(i.clone(), e.t.clone());
+                self.curr.set(i, e.t.clone());
                 return StmtWt::Declar(i, e);
             }
         }
@@ -107,13 +117,13 @@ impl SemAnal
                 if it == &e.t {
                     return StmtWt::VarAss(i, e, depth+1); // +1 adding curr
                 } else {
-                    self.curr.set(i.clone(), e.t.clone());
+                    self.curr.set(i, e.t.clone());
                     return StmtWt::Declar(i, e);
                 }
             }
         }
         // declar
-        self.curr.set(i.clone(), e.t.clone());
+        self.curr.set(i, e.t.clone());
         return StmtWt::Declar(i, e);
     }
 
@@ -165,7 +175,7 @@ impl SemAnal
         return ExprWt{e:ExprWte::Const(c), t:t};
     }
 
-    fn e_ident(&mut self, i: Rc<DfStr>) -> ExprWt
+    fn e_ident(&mut self, i: IdfIdx) -> ExprWt
     {
         if let Some(t) = self.curr.get(&i) {
             return ExprWt {e:ExprWte::Local(i, 0), t:*t};
@@ -204,7 +214,7 @@ impl SemAnal
     {
         let ex_wt = self.p_expr(ex);
         let typ = match ty {
-            Expr::Ident(i) => match i.as_bytes() {
+            Expr::Ident(i) => match self.idfs[i].as_bytes() {
                 b"N" => Type::N,
                 b"Z" => Type::Z,
                 b"R" => Type::R,

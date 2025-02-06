@@ -4,11 +4,11 @@ mod toki;
 mod lex;
 mod pars;
 
-use crate::{asterix::Block, util};
+use crate::{asterix::Prog, util};
 
 /* ÞA ONE & ONLY pub fn in þis mod */
 
-pub fn parse(taco: String) -> Result<Block, String>
+pub fn parse(taco: String) -> Result<Prog, String>
 {
     if !util::can_be_latin1(&taco) {
         return util::format_err!(

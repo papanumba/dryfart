@@ -6,6 +6,8 @@ use strum_macros::EnumCount;
 use num_enum::TryFromPrimitive;
 use crate::{util, /*dflib,*/ util::{MutRc, DfStr}};
 
+pub type IdfIdx = usize;
+
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive)]
 pub enum Type
@@ -211,7 +213,7 @@ pub enum Expr
 {
 //    DfLib,
     Const(Val),
-    Ident(Rc<DfStr>),
+    Ident(IdfIdx),
 //    Tcast(Type, Box<Expr>),
     BinOp(Box<Expr>, BinOp, Box<Expr>),
     UniOp(Box<Expr>, UniOp),
@@ -244,7 +246,14 @@ pub enum Stmt
 
 pub type Block = Vec<Stmt>;
 
-// TODO: move this to semanal
+#[derive(Debug, Clone)]
+pub struct Prog
+{
+    pub idents: Vec<DfStr>,
+    pub main: Block,
+}
+
+// TODO: move all after this to semanal
 // AST wiþ types, after SemAnal
 
 dccee8!{ #[derive(EnumCount)]
@@ -316,7 +325,7 @@ pub struct ExprWt
 pub enum ExprWte
 {
     Const(Val),
-    Local(Rc<DfStr>, usize), // last is depþ of scopes
+    Local(IdfIdx, usize), // last is depþ of scopes
     BinOp(Box<ExprWt>, BinOpWt, Box<ExprWt>),
     UniOp(Box<ExprWt>, UniOpWt),
     CmpOp(Box<ExprWt>, Vec<(CmpOpWt, ExprWt)>),
@@ -333,9 +342,16 @@ pub enum LoopWt
 #[derive(Debug, Clone)]
 pub enum StmtWt
 {
-    Declar(Rc<DfStr>, ExprWt),
-    VarAss(Rc<DfStr>, ExprWt, usize), // last is depth of scopes, see semanal
+    Declar(IdfIdx, ExprWt),
+    VarAss(IdfIdx, ExprWt, usize), // last is depth of scopes, see semanal
     Loooop(LoopWt),
 }
 
 pub type BlockWt = Vec<StmtWt>;
+
+#[derive(Debug, Clone)]
+pub struct ProgWt
+{
+    pub idents: Vec<DfStr>,
+    pub main: BlockWt,
+}

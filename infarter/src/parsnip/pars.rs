@@ -2,7 +2,7 @@
 
 use std::{rc::Rc, cell::RefCell};
 use super::toki::{Token, LnToken, TokTyp, PrimType};
-use crate::{asterix::*, util, util::{StrRes, DfStr}};
+use crate::{asterix::*, util, util::{StrRes, DfStr, ArraySet}};
 
 // TODO: make a custom Result for parsnip
 
@@ -76,29 +76,36 @@ pub struct Nip<'src>
 {
     cursor: usize,
     tokens: Vec<LnToken<'src>>,
+    idents: ArraySet<DfStr>,
 }
 
 impl<'src> Nip<'src>
 {
     fn from_tokens(t: Vec<LnToken<'src>>) -> Self
     {
-        Self {cursor: 0, tokens: t}
+        Self {cursor: 0, tokens: t, idents: ArraySet::default()}
     }
 
-    pub fn parse(t: Vec<LnToken<'src>>) -> StrRes<Block>
+    pub fn parse(t: Vec<LnToken<'src>>) -> StrRes<Prog>
     {
         let mut prs = Self::from_tokens(t);
         // parse "main" block
         let res = prs.block()?;
         // check correctly ended
         if prs.is_at_end() {
-            Ok(res)
+            Ok(Prog{idents:prs.idents.to_vec(), main:res})
         } else {
             exp_err!("EOF", prs.peek().unwrap())
         }
     }
 
     /* PRIVATE STUFF */
+
+    // adds a idf to this AST ident pool, returns its ID
+    fn intern_idf(&mut self, s: &[u8]) -> usize
+    {
+        return self.idents.add_clone(s);
+    }
 
     fn peek(&self) -> Option<LnToken<'src>>
     {
@@ -548,9 +555,8 @@ impl<'src> Nip<'src>
             TokTyp::Ident => {
                 self.advance();
                 let id = tok.0.as_ident().unwrap();
-                return Ok(Expr::Ident(Rc::new(
-                    id.try_into().unwrap()
-                )));
+                let idf_idx = self.intern_idf(id);
+                return Ok(Expr::Ident(idf_idx));
             },
             // literals
             TokTyp::ValB => Ok(self.valb(tok.0.as_valb().unwrap())),

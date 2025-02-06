@@ -7,9 +7,9 @@ use std::io::Write;
 pub mod parsnip;
 pub mod asterix;
 pub mod semanal;
-pub mod intrep;
-pub mod optimus;
-pub mod genesis;
+//pub mod intrep;
+//pub mod optimus;
+//pub mod genesis;
 /*pub mod tarzan;
 pub mod dflib;*/
 pub mod ssa_ir;
@@ -49,7 +49,7 @@ pub fn parse_file(fname: &str)
 
 pub fn transfart(ifname: &str, opt: bool)
 {
-    let taco: String = read_file_to_string(ifname);
+/*    let taco: String = read_file_to_string(ifname);
     let mut ofname: String = ifname.to_owned();
     ofname.push('c');
     let mut ast = match parsnip::parse(taco) {
@@ -70,7 +70,7 @@ pub fn transfart(ifname: &str, opt: bool)
             ofname,
         ),
         Err(e) => eprintln!("Could not write to binary file because:\n {e}"),
-    }
+    }*/
 }
 
 pub fn df2c(ifname: &str)
@@ -83,7 +83,7 @@ pub fn df2c(ifname: &str)
         Err(e) => {eprintln!("{e}"); return;},
     };
     let mut ast = semanal::semanalize(ast);
-    let ir = ssa_ir::Gen::from_block(&ast);
+    let ir = ssa_ir::Gen::from_prog(&ast);
     dbg!(&ir);
     let c_code = cgen::into_c(&ir);
     println!("{}", &c_code);

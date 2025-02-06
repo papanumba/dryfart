@@ -33,7 +33,7 @@ pub enum Tac // 3 adress code
     JIF(LabIdx, TmpIdx, bool),            // Jump If #2 if (t#1==#2) goto L#0;
 }
 
-pub type Idf2TmpIdx = std::collections::HashMap<Rc<DfStr>, u16>;
+pub type Idf2TmpIdx = std::collections::HashMap<IdfIdx, u16>;
 
 #[derive(Debug, Default)]
 pub struct Locals
@@ -54,7 +54,7 @@ impl Locals
         self.cur = self.pre.pop().unwrap();
     }
 
-    pub fn set(&mut self, id: &Rc<DfStr>, dp: usize, ti: TmpIdx)
+    pub fn set(&mut self, id: &IdfIdx, dp: usize, ti: TmpIdx)
     {
         let id = id.clone();
         match dp {
@@ -63,7 +63,7 @@ impl Locals
         };
     }
 
-    pub fn get(&self, id: &Rc<DfStr>, dp: usize) -> TmpIdx
+    pub fn get(&self, id: &IdfIdx, dp: usize) -> TmpIdx
     {
         match dp {
             0 => *self.cur.get(id).unwrap(),
@@ -84,10 +84,10 @@ pub struct Gen // 3AC generator
 
 impl Gen
 {
-    pub fn from_block(b: &BlockWt) -> Self
+    pub fn from_prog(p: &ProgWt) -> Self
     {
         let mut s = Self::default();
-        s.block(b);
+        s.block(&p.main);
         return s;
     }
 
@@ -136,13 +136,13 @@ impl Gen
         }
     }
 
-    fn s_declar(&mut self, i: &Rc<DfStr>, e: &ExprWt)
+    fn s_declar(&mut self, i: &IdfIdx, e: &ExprWt)
     {
         let ti = self.expr(e); // get þe T# in which e is stored
         self.loc.set(i, 0, ti); // þe link of its name (i) to its T# (ti)
     }
 
-    fn s_varass(&mut self, i: &Rc<DfStr>, e: &ExprWt, d: usize)
+    fn s_varass(&mut self, i: &IdfIdx, e: &ExprWt, d: usize)
     {
         let t1 = self.expr(e);
         let t0 = self.loc.get(i, d);
@@ -204,7 +204,7 @@ impl Gen
         return ti;
     }
 
-    fn e_local(&mut self, i: &Rc<DfStr>, d: usize) -> TmpIdx
+    fn e_local(&mut self, i: &IdfIdx, d: usize) -> TmpIdx
     {
         // get þe T# where it was assigned
         return self.loc.get(i, d);

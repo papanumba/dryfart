@@ -156,18 +156,18 @@ impl BasicBlock
     }
 }
 
-type Idf2LocIdx = HashMap<Rc<DfStr>, LocIdx>;
+type Idf2LocIdx = HashMap<IdfIdx, LocIdx>;
 
 #[derive(Debug, Default)]
 pub struct Scope
 {
-    pub locsiz: usize,      // size of þe stack, (incl. all its parents)
-    locals: Idf2LocIdx, // local vars & þeir index on þe stack
-    dummis: HashSet<Rc<DfStr>>, // loop variables preloaded, as phantom
-                                    // stored in self.locals as "$name",
-                                    // and here as "name"
-                                    // þey actually don't exists in locals,
-                                    // but serve for locsiz
+    pub locsiz: usize,       // size of þe stack, (incl. all its parents)
+    locals: Idf2LocIdx,      // local vars & þeir index on þe stack
+    dummis: HashSet<IdfIdx>, // loop variables preloaded, as phantom
+                             // stored in self.locals as "$name",
+                             // and here as "name"
+                             // þey actually don't exists in locals,
+                             // but serve for locsiz
 }
 
 impl Scope
@@ -191,7 +191,7 @@ impl Scope
 
     /*  TODO: dummies not declared correctly
     */
-    pub fn declar(&mut self, id: &Rc<DfStr>)
+    pub fn declar(&mut self, id: &IdfIdx)
     {
         // check if previusly declared as dummy
         if self.dummis.contains(id) {
@@ -199,19 +199,19 @@ impl Scope
             self.dummis.remove(id);
         } else {
             // normal declar
-            self.locals.insert(id.clone(), self.locsiz);
+            self.locals.insert(*id, self.locsiz);
             self.incloc();
         }
     }
 
-    pub fn declar_dummy(&mut self, id: &Rc<DfStr>)
+    pub fn declar_dummy(&mut self, id: &IdfIdx)
     {
         assert!(!self.dummis.contains(id));
         self.declar(id);
-        self.dummis.insert(id.clone());
+        self.dummis.insert(*id);
     }
 
-    pub fn resolve_var(&self, id: &Rc<DfStr>) -> Option<&LocIdx>
+    pub fn resolve_var(&self, id: &IdfIdx) -> Option<&LocIdx>
     {
         let li = self.locals.get(id)?;
         if self.dummis.contains(id) { // => it's not yet a var
@@ -240,7 +240,7 @@ pub struct SubrEnv // subroutine environment compiler
 
 impl SubrEnv
 {
-    pub fn get_loc_idx(&self, id: &Rc<DfStr>, de: usize) -> &LocIdx
+    pub fn get_loc_idx(&self, id: &IdfIdx, de: usize) -> &LocIdx
     {
         return match de {
             0 => &self.s_curr,
@@ -278,23 +278,23 @@ impl SubrEnv
         return self.blocks.len();
     }
 
-    fn declar(&mut self, id: &Rc<DfStr>)
+    fn declar(&mut self, id: &IdfIdx)
     {
         self.s_curr.declar(id);
     }
 
-    fn declar_dummy(&mut self, id: &Rc<DfStr>)
+    fn declar_dummy(&mut self, id: &IdfIdx)
     {
         self.push_op(ImOp::DUM);
         self.s_curr.declar_dummy(id);
     }
 
-    fn slx(&mut self, id: &Rc<DfStr>, de: usize)
+    fn slx(&mut self, id: &IdfIdx, de: usize)
     {
         self.push_op(ImOp::SLX(*self.get_loc_idx(id, de)));
     }
 
-    fn llx(&mut self, id: &Rc<DfStr>, de: usize)
+    fn llx(&mut self, id: &IdfIdx, de: usize)
     {
         self.push_op(ImOp::LLX(*self.get_loc_idx(id, de)));
     }
@@ -361,8 +361,8 @@ pub struct Page
 #[derive(Debug)]
 pub struct Compiler
 {
-    pub consts:  ArraySet<Val>,       // constant pool
-    pub idents:  ArraySet<Rc<DfStr>>, // identifier pool
+    pub consts:  ArraySet<Val>,    // constant pool
+    pub idents:  ArraySet<IdfIdx>, // identifier pool
 //    pub subrs:   Vec<Page>,
     pub curr: SubrEnv,
 }
@@ -498,13 +498,13 @@ impl Compiler
         }
     }
 
-    fn s_declar(&mut self, id: &Rc<DfStr>, ex: &ExprWt)
+    fn s_declar(&mut self, id: &IdfIdx, ex: &ExprWt)
     {
         self.expr(ex);
         self.curr.declar(id);
     }
 
-    fn s_varass(&mut self, id: &Rc<DfStr>, ex: &ExprWt, de: usize)
+    fn s_varass(&mut self, id: &IdfIdx, ex: &ExprWt, de: usize)
     {
         self.expr(ex);
         self.curr.slx(id, de);

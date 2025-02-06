@@ -63,6 +63,22 @@ impl PartialEq for DfStr
 
 impl Eq for DfStr {}
 
+impl PartialEq<&[u8]> for DfStr
+{
+    fn eq(&self, other: &&[u8]) -> bool
+    {
+        return self.s == *other;
+    }
+}
+
+impl PartialEq<DfStr> for &[u8]
+{
+    fn eq(&self, other: &DfStr) -> bool
+    {
+        return *self == other.s;
+    }
+}
+
 pub fn can_be_latin1(s: &str) -> bool
 {
     let b = s.as_bytes();
@@ -84,6 +100,7 @@ pub fn can_be_latin1(s: &str) -> bool
     return true;
 }
 
+// UTF-8 to Latin-1 (8-bit)
 impl TryFrom<String> for DfStr
 {
     type Error = (); // only error is non Latin-1 String
@@ -185,10 +202,25 @@ where T: Eq + std::fmt::Debug
     {
         if let Some(i) = self.index_of(&e) {
             return i;
+        } else {
+            let len = self.set.len();
+            self.set.push(e);
+            return len;
         }
-        let len = self.set.len();
-        self.set.push(e);
-        return len;
+    }
+
+    // Similar but optimized for not needing to construct a new <T>
+    // if self already contains an element Eq to e
+    pub fn add_clone<S>(&mut self, e: S) -> usize
+    where S: PartialEq<T> + Into<T>, T: PartialEq<S>
+    {
+        if let Some(i) = self.index_of(&e) {
+            return i;
+        } else {
+            let len = self.set.len();
+            self.set.push(e.into());
+            return len;
+        }
     }
 
 /*    // O(n)
@@ -215,7 +247,8 @@ where T: Eq + std::fmt::Debug
     }*/
 
     // O(n)
-    pub fn index_of(&self, e: &T) -> Option<usize>
+    pub fn index_of<S>(&self, e: &S) -> Option<usize>
+    where S: PartialEq<T>, T: PartialEq<S>
     {
         return self.set.iter().position(|x| x == e);
     }
