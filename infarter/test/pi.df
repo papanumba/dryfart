@@ -1,0 +1,12 @@
+pi = 0.0.
+isEven = T.
+kR = 1.0.
+k = 1u. @[[k < 1000u]]
+  term = / (2.0 * kR - 1.0).
+  [isEven => term = -term.]
+  pi = pi + term.
+  isEven = ~isEven.
+  kR = kR + 1.0.
+  k = k + 1u.
+.
+pi = 4.0 * pi.

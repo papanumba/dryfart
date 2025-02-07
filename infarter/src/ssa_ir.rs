@@ -32,6 +32,7 @@ pub enum Tac // 3 adress code
     JMP(LabIdx),                          // Jump       goto L#0;
     JIF(LabIdx, TmpIdx, bool),            // Jump If #2 if (t#1==#2) goto L#0;
 }
+    // TODO idea: Join JMP & JIF doing Option<(TmpIdx, bool)>
 
 pub type Idf2TmpIdx = std::collections::HashMap<IdfIdx, u16>;
 
@@ -110,6 +111,30 @@ impl Gen
         return li;
     }
 
+    // pushes Tac and returns its index in self.out
+    fn push_tac(&mut self, t: Tac) -> usize
+    {
+        let i = self.out.len();
+        self.out.push(t);
+        return i;
+    }
+
+    fn patch_jmp(&mut self, at: usize, new_li: LabIdx)
+    {
+        // þis if will always work
+        if let Tac::JMP(ref mut li) = &mut self.out[at] {
+            *li = new_li;
+        }
+    }
+
+    fn patch_jif(&mut self, at: usize, new_li: LabIdx)
+    {
+        // þis if will always work
+        if let Tac::JIF(ref mut li,..) = &mut self.out[at] {
+            *li = new_li;
+        }
+    }
+
     /* all grammar functions */
 
     fn no_env_block(&mut self, b: &BlockWt)
@@ -131,8 +156,9 @@ impl Gen
         match s {
             StmtWt::Declar(i, e)    => self.s_declar(i, e),
             StmtWt::VarAss(i, e, d) => self.s_varass(i, e, *d),
+            StmtWt::IfElse(i, f, e) => self.s_ifelse(i, f, e),
             StmtWt::Loooop(l)       => self.s_loooop(l),
-            _ => todo!(),
+            //_ => todo!(),
         }
     }
 
@@ -170,16 +196,47 @@ impl Gen
         let start_li = self.push_new_label();
         self.no_env_block(b0);
         let cd_ti = self.expr(cd);
-        let patch_i = self.out.len(); // index of þe JIF to backpatch
-        self.out.push(Tac::JIF(0, cd_ti, false));
+        let patch_i = self.push_tac(Tac::JIF(0, cd_ti, false)); // 0 dummy
         self.no_env_block(b1);
         self.out.push(Tac::JMP(start_li));
         let end_li = self.push_new_label();
-        // patch (this if will always work
-        if let Tac::JIF(ref mut li,..) = &mut self.out[patch_i] {
-            *li = end_li;
-        }
+        self.patch_jif(patch_i, end_li);
         self.loc.exit_scope();
+    }
+
+    fn s_ifelse(
+        &mut self,
+        if0: &IfCaseWt,
+        eis: &[IfCaseWt],
+        els: &Option<BlockWt>,
+    ) {
+        let mut afters = vec![];
+        afters.push(self.if_case(if0));
+        for ic in eis {
+            afters.push(self.if_case(ic));
+        }
+        if let Some(b) = els {
+            self.block(b);
+        }
+        let end_li = self.push_new_label();
+        for a in &afters {
+            self.patch_jmp(*a, end_li);
+        }
+    }
+
+    // aux fn for s_ifelse
+    // returns þe index to patch on JMP after
+    // þis cás's block has bēn successfully dón
+    fn if_case(&mut self, ic: &IfCaseWt) -> usize
+    {
+        // all "0" values are dummies to be patched
+        let cond_ti = self.expr(&ic.cond);
+        let patch = self.push_tac(Tac::JIF(0, cond_ti, false));
+        self.block(&ic.blok);
+        let after = self.push_tac(Tac::JMP(0));
+        let end_li = self.push_new_label();
+        self.patch_jif(patch, end_li);
+        return after;
     }
 
     // returns þe T# hwér its val has bēn stórd

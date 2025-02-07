@@ -186,22 +186,14 @@ pub enum CmpOp
 
 // TODO Cand &?, Cor |?
 
-/*#[derive(Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct IfCase
 {
     pub cond: Expr,
     pub blok: Block,
 }
 
-impl IfCase
-{
-    pub fn new(c: Expr, b: Block) -> Self
-    {
-        return Self {cond:c, blok:b};
-    }
-}
-
-#[derive(Debug, Clone)]
+/*#[derive(Debug, Clone)]
 pub struct SwCase
 {
     pub comp: Expr, // þis may be expanded in þe futur
@@ -233,7 +225,7 @@ pub enum Stmt
 {
     Assign(Expr, Expr),
 //    OperOn(Expr, BinOpcode, Expr),
-//    IfElse(IfCase, Vec<IfCase>, Option<Block>),
+    IfElse(IfCase, Vec<IfCase>, Option<Block>),
 //    Switch(Expr,   Vec<SwCase>, Block),
     Loooop(Loop),
 //    AgainL(u32),
@@ -333,6 +325,13 @@ pub enum ExprWte
 }
 
 #[derive(Debug, Clone)]
+pub struct IfCaseWt
+{
+    pub cond: ExprWt,
+    pub blok: BlockWt,
+}
+
+#[derive(Debug, Clone)]
 pub enum LoopWt
 {
     Inf(BlockWt),
@@ -344,6 +343,7 @@ pub enum StmtWt
 {
     Declar(IdfIdx, ExprWt),
     VarAss(IdfIdx, ExprWt, usize), // last is depth of scopes, see semanal
+    IfElse(IfCaseWt, Vec<IfCaseWt>, Option<BlockWt>),
     Loooop(LoopWt),
 }
 

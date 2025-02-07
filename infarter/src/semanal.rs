@@ -74,6 +74,7 @@ impl SemAnal
     {
         match s {
             Stmt::Assign(a, e) => self.p_s_assign(a, e),
+            Stmt::IfElse(i, f, e) => self.p_s_ifelse(i, f, e),
             Stmt::Loooop(l) => self.p_s_loooop(l),
         }
     }
@@ -154,6 +155,33 @@ impl SemAnal
         let b1_wt = self.no_env_block(b1);
         self.exit_scope();
         return LoopWt::Cdt(b0_wt, cd_wt, b1_wt);
+    }
+
+    fn p_s_ifelse(
+        &mut self,
+        if0: IfCase,
+        eis: Vec<IfCase>,
+        els: Option<Block>
+    ) -> StmtWt
+    {
+        let if0_wt = self.p_ifcase(if0);
+        let eis_wt = eis
+            .into_iter()
+            .map(|ic| self.p_ifcase(ic))
+            .collect::<Vec<_>>();
+        let els_wt = els.map(|b| self.p_block(b));
+        return StmtWt::IfElse(if0_wt, eis_wt, els_wt);
+    }
+
+    fn p_ifcase(&mut self, cas: IfCase) -> IfCaseWt
+    {
+        let IfCase {cond:c, blok:b} = cas;
+        let c_wt = self.p_expr(c);
+        if c_wt.t != Type::B {
+            panic!("condition is not B%");
+        }
+        let b_wt = self.p_block(b);
+        return IfCaseWt{cond:c_wt, blok:b_wt};
     }
 
     fn p_expr(&mut self, e: Expr) -> ExprWt

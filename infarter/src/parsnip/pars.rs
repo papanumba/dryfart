@@ -150,12 +150,22 @@ impl<'src> Nip<'src>
     #[inline]
     fn exp_adv(&mut self, t: TokTyp) -> StrRes<()>
     {
-        if self.matches(t) {
-            self.advance();
+        if self.try_adv(t) {
             Ok(())
         } else {
             exp_err!(format!("{:?}", t), self.peek().unwrap())
         }
+    }
+
+    // advance if next token is the expected
+    // returns if successfully advanced
+    fn try_adv(&mut self, t: TokTyp) -> bool
+    {
+        let m = self.matches(t);
+        if m {
+            self.advance();
+        }
+        return m;
     }
 
     #[allow(dead_code)] // debug only
@@ -184,7 +194,7 @@ impl<'src> Nip<'src>
     {
         let t = self.peek()?;
         match t.0.typ() {
-//            TokTyp::LsqBra  => Some(self.branch_stmt()),
+            TokTyp::LsqBra  => Some(self.branch_stmt()),
             TokTyp::AtSign  => Some(self.loop_stmt()),
 //            TokTyp::AtSign2 => Some(self.again_break_stmt(true)),
 //            TokTyp::DotAt   => Some(self.again_break_stmt(false)),
@@ -248,10 +258,10 @@ impl<'src> Nip<'src>
         return Ok(Stmt::OperOn(lhs, binop, ex));
     }*/
 
-/*    // called when [
+    // called when [
     fn branch_stmt(&mut self) -> StrRes<Stmt>
     {
-        const MSG: &str = "=> or :";
+        const MSG: &str = "=>"; // Change to "=> or :" when adding switch stmt
         self.advance(); // [
         // Expr, þen see if If or Switch
         let e1 = self.expr()?;
@@ -261,20 +271,19 @@ impl<'src> Nip<'src>
         // return
         match t.0.typ() {
             TokTyp::Then  => self.if_stmt(e1),
-            TokTyp::Colon => self.sw_stmt(e1),
+            //TokTyp::Colon => self.sw_stmt(e1),
             _ => exp_err!(MSG, t),
         }
-    }*/
+    }
 
-/*    // called when parsed [ Expr =>
+    // called when parsed [ Expr =>
     fn if_stmt(&mut self, cond: Expr) -> StrRes<Stmt>
     {
         // end parsing þe 1st (mandatory) case
         let if_block = self.block()?;
-        let if0 = IfCase::new(cond, if_block);
+        let if0 = IfCase{cond:cond, blok:if_block};
         // check if end
-        if self.matches(TokTyp::RsqBra) {
-            self.advance(); // ]
+        if self.try_adv(TokTyp::RsqBra) {
             return Ok(Stmt::IfElse(if0, vec![], None));
         }
         // loop until matching a "]" xor "| =>" (else case)
@@ -284,29 +293,27 @@ impl<'src> Nip<'src>
             let Some(tok) = self.peek() else {
                 return eof_err!(MSG);
             };
-            let tt0 = tok.0.typ();
-            if tt0 == TokTyp::RsqBra {
-                self.advance(); // ]
+            if self.try_adv(TokTyp::RsqBra) { // END
                 return Ok(Stmt::IfElse(if0, elseifs, None));
             }
-            // now must be an Elseif or an Else
-            if tt0 != TokTyp::Vbar {
+            // now must be an Elseif or an Else, so "|"
+            if tok.0.typ() != TokTyp::Vbar {
                 return exp_err!(MSG, tok);
             }
             self.advance(); // |
-            if self.matches(TokTyp::Then) { // Else
-                self.advance(); // =>
+            // see if Else "| =>" case
+            if self.try_adv(TokTyp::Then) {
                 let eb = self.block()?;
                 self.exp_adv(TokTyp::RsqBra)?;
                 return Ok(Stmt::IfElse(if0, elseifs, Some(eb)));
             }
-            // now must be an Elseif
+            // now must be an Elseif "| Expr => Block"
             let cond = self.expr()?;
             self.exp_adv(TokTyp::Then)?;
             let blok = self.block()?;
-            elseifs.push(IfCase::new(cond, blok));
+            elseifs.push(IfCase{cond:cond, blok:blok});
         }
-    }*/
+    }
 
 /*    // called when parsed [ Expr :
     fn sw_stmt(&mut self, matchee: Expr) -> StrRes<Stmt>
@@ -580,8 +587,7 @@ impl<'src> Nip<'src>
     fn comma_ex(&mut self, end: TokTyp) -> StrRes<Vec<Expr>>
     {
         // check empty
-        if self.matches(end) {
-            self.advance(); // end
+        if self.try_adv(end) {
             return Ok(vec![]);
         }
         let comma_or_end = format!(", or {end:?}");
@@ -592,12 +598,11 @@ impl<'src> Nip<'src>
             let Some(tok) = self.peek() else {
                 return eof_err!(comma_or_end);
             };
-            let tt = tok.0.typ();
-            if tt == end {
+            if self.try_adv(end) {
                 self.advance(); // consume end
                 return Ok(exs);
             }
-            if tt != TokTyp::Comma {
+            if tok.0.typ() != TokTyp::Comma {
                 return exp_err!(comma_or_end, tok);
             }
             self.advance();
