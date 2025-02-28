@@ -9,8 +9,8 @@ use crate::{util, /*dflib,*/ util::{MutRc, DfStr}};
 pub type IdfIdx = usize;
 
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive)]
-pub enum Type
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, TryFromPrimitive)]
+pub enum FundTy
 {
     B = b'B', // bool
     C = b'C', // char
@@ -19,7 +19,7 @@ pub enum Type
     R = b'R', // real
 }
 
-impl Type
+impl FundTy
 {
     pub fn is_num(&self) -> bool
     {
@@ -38,16 +38,55 @@ impl Type
     }
 }
 
+impl fmt::Display for FundTy
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
+        write!(f, "{}", char::from(*self as u8))
+    }
+}
+
+impl From<FundTy> for Type
+{
+    fn from(ft: FundTy) -> Type
+    {
+        return Type::Fund(ft);
+    }
+}
+
+pub struct SubrTy
+{
+    arg: Vec<Type>,
+    ret: Option<Type>, // Some => func, None => proc
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Type
+{
+    Fund(    FundTy),
+//    Subr(Box<SubrTy>),
+    Arrr(Box<Type>),
+}
+
+impl Type
+{
+    // aux fn
+    pub fn is_b(&self) -> bool
+    {
+        return *self == Type::Fund(FundTy::B);
+    }
+}
+
 impl std::convert::From<&Val> for Type
 {
     fn from(v: &Val) -> Self
     {
         match v {
-            Val::B(_) => Type::B,
-            Val::C(_) => Type::C,
-            Val::N(_) => Type::N,
-            Val::Z(_) => Type::Z,
-            Val::R(_) => Type::R,
+            Val::B(_) => Type::Fund(FundTy::B),
+            Val::C(_) => Type::Fund(FundTy::C),
+            Val::N(_) => Type::Fund(FundTy::N),
+            Val::Z(_) => Type::Fund(FundTy::Z),
+            Val::R(_) => Type::Fund(FundTy::R),
         }
     }
 }
@@ -56,7 +95,10 @@ impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
     {
-        write!(f, "{}%", char::from(*self as u8))
+        match self {
+            Self::Fund(t) => write!(f, "{t}"),
+            Self::Arrr(t) => write!(f, "_{}", *t),
+        }
     }
 }
 
@@ -70,6 +112,7 @@ pub enum Val
     N(u32),
     Z(i32),
     R(f64),
+    // TODO: to incl refs
 }
 
 impl Val
@@ -211,6 +254,7 @@ pub enum Expr
     UniOp(Box<Expr>, UniOp),
     CmpOp(Box<Expr>, Vec<(CmpOp, Expr)>),
 //    IfExp(Vec<(Expr, Expr)>, Box<Expr>),
+    Array(Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]
@@ -322,6 +366,7 @@ pub enum ExprWte
     UniOp(Box<ExprWt>, UniOpWt),
     CmpOp(Box<ExprWt>, Vec<(CmpOpWt, ExprWt)>),
     Tcast(Box<ExprWt>, Type),
+    Array(Vec<ExprWt>),
 }
 
 #[derive(Debug, Clone)]

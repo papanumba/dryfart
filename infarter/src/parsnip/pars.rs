@@ -1,7 +1,7 @@
 /* parsnip/pars.rs */
 
 use std::{rc::Rc, cell::RefCell};
-use super::toki::{Token, LnToken, TokTyp, PrimType};
+use super::toki::{Token, LnToken, TokTyp};
 use crate::{asterix::*, util, util::{StrRes, DfStr, ArraySet}};
 
 // TODO: make a custom Result for parsnip
@@ -540,6 +540,7 @@ impl<'src> Nip<'src>
             return eof_err!(MSG);
         };
         match tok.0.typ() {
+            TokTyp::Uscore =>     self.arrlit(),
 //            TokTyp::Hash => self.func(tok.1),
 //            TokTyp::BsLsb => self.if_expr(),
 //            TokTyp::BsHash => self.short_fn(tok.1),
@@ -551,9 +552,8 @@ impl<'src> Nip<'src>
             TokTyp::RecP => {
                 self.advance();
                 Ok(Expr::RecPc)
-            },
-            TokTyp::Uscore =>     self.arrlit(),
-            TokTyp::Dollar =>     self.tbllit(),
+            },*/
+/*            TokTyp::Dollar =>     self.tbllit(),
             TokTyp::RecT => {
                 self.advance();
                 Ok(Expr::RecsT(tok.0.as_rect().unwrap()))
@@ -599,7 +599,6 @@ impl<'src> Nip<'src>
                 return eof_err!(comma_or_end);
             };
             if self.try_adv(end) {
-                self.advance(); // consume end
                 return Ok(exs);
             }
             if tok.0.typ() != TokTyp::Comma {
@@ -618,7 +617,7 @@ impl<'src> Nip<'src>
         return Ok(e);
     }
 
-/*    // called when _
+    // called when _
     fn arrlit(&mut self) -> StrRes<Expr>
     {
         self.advance(); // _
@@ -626,7 +625,7 @@ impl<'src> Nip<'src>
         return Ok(Expr::Array(arr_e));
     }
 
-    // called when $
+/*    // called when $
     fn tbllit(&mut self) -> StrRes<Expr>
     {
         const MSG: &str = "Ident or ;";
@@ -788,20 +787,6 @@ impl<'src> Nip<'src>
         self.advance();
         return Ok(Expr::Const(Val::from_array(a)));
     }*/
-}
-
-impl From<PrimType> for Type
-{
-    fn from(pt: PrimType) -> Type
-    {
-        match pt {
-            PrimType::B => Type::B,
-            PrimType::C => Type::C,
-            PrimType::N => Type::N,
-            PrimType::Z => Type::Z,
-            PrimType::R => Type::R,
-        }
-    }
 }
 
 impl TryFrom<TokTyp> for CmpOp

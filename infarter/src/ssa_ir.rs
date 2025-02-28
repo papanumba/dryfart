@@ -31,6 +31,11 @@ pub enum Tac // 3 adress code
     LAB(LabIdx),                          // Label      L#0:
     JMP(LabIdx),                          // Jump       goto L#0;
     JIF(LabIdx, TmpIdx, bool),            // Jump If #2 if (t#1==#2) goto L#0;
+    // array stuff
+    ANW(TmpIdx),                          // New        T#0 = new_array()
+    AGE(TmpIdx, TmpIdx, TmpIdx),          // Get Elem   T#0 = T#1[T#2]
+    ASE(TmpIdx, TmpIdx, TmpIdx),          // Set Elem   T#0[T#1] = T#2
+    APE(TmpIdx, TmpIdx),                  // PushElem   T#0.push(T#1)
 }
     // TODO idea: Join JMP & JIF doing Option<(TmpIdx, bool)>
 
@@ -248,6 +253,7 @@ impl Gen
             ExprWte::UniOp(e, o)    => self.e_uniop(e, o, e.t.clone()),
             ExprWte::BinOp(l, o, r) => self.e_binop(l, o, r, e.t.clone()),
             ExprWte::CmpOp(f, o)    => self.e_cmpop(f, o),
+            ExprWte::Array(a)       => self.e_array(a),
             _ => todo!(),
         }
     }
@@ -304,9 +310,25 @@ impl Gen
             let res_ti = self.curr_ti();
             let op = TacBinOp::Cmp(others[0].0);
             self.out.push(Tac::BIO(res_ti, first_ti, op, second_ti));
-            self.tmp.push(Type::B);
+            self.tmp.push(Type::Fund(FundTy::B));
             return res_ti;
         }
         todo!("multi cmp");
+    }
+
+    fn e_array(&mut self, arr: &[ExprWt]) -> TmpIdx
+    {
+        // alloc
+        let arr_ti = self.curr_ti();
+        self.out.push(Tac::ANW(arr_ti));
+        self.tmp.push(Type::Arrr(Box::new(arr[0].t.clone())));
+            // non empty & type checked array
+        // push each element
+        for elem in arr {
+            let elem_ti = self.expr(elem);
+            self.out.push(Tac::APE(arr_ti, elem_ti));
+        }
+        // end
+        return arr_ti;
     }
 }

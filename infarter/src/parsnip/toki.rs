@@ -3,29 +3,6 @@
 use num_enum;
 use crate::util;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[derive(num_enum::TryFromPrimitive)]
-#[repr(u8)]
-pub enum PrimType {
-    B = b'B',
-    C = b'C',
-    N = b'N',
-    Z = b'Z',
-    R = b'R',
-}
-
-impl TryFrom<&u8> for PrimType
-{
-    type Error = String;
-    fn try_from(b: &u8) -> Result<Self, Self::Error>
-    {
-        match Self::try_from(*b) {
-            Ok(x) => Ok(x),
-            _ => util::format_err!("{}% is not a dftype", char::from(*b)),
-        }
-    }
-}
-
 pub type LnToken<'a> = (Token<'a>, usize);
 
 #[derive(Copy, Clone)]
@@ -300,7 +277,7 @@ pub enum TokTyp
     String,
     // ??
     Ident,
-    PrimType, // "[BCNZR]%"
+//    PrimType, // "[BCNZR]%"
     RecT,   // $@\d*
     RecF,   // #@
     RecP,   // !@

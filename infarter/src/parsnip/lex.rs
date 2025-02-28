@@ -1,6 +1,6 @@
 /* parsnip/lex.rs */
 
-use super::toki::{new_tok, Token, LnToken, TokTyp, PrimType};
+use super::toki::{new_tok, Token, LnToken, TokTyp};
 use crate::{asterix, asterix::Val, util};
 
 macro_rules! if_next {

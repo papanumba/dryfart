@@ -42,7 +42,7 @@ pub fn parse_file(fname: &str)
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},
     };
-    let mut ast = semanal::semanalize(ast);
+//    let mut ast = semanal::semanalize(ast);
 //    dbg!(&ast);
 /*    tarzan::exec_main(&ast);*/
 }

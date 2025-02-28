@@ -10,7 +10,11 @@ pub fn into_c(g: &Gen) -> String
 {
     let mut res = String::new();
     res.push_str("#include <stdint.h>\n");
-    res.push_str("\nint main(void)\n{\n");
+    res.push_str("#include \"dfc/mem.h\"\n");
+    res.push_str("#include \"dfc/arr.h\"\n");
+    res.push_str("\n");
+    res.push_str("int main(void)\n{\n");
+    res.push_str("dfc_mem_init();\n");
     // declare'em all at begin
     res.push_str(&declar_vars(&g.tmp));
     for c in &g.out {
@@ -48,10 +52,27 @@ pub fn into_c(g: &Gen) -> String
                 res.push_str(&format!("if ({}t{}) goto L{};\n",
                     if *b {""} else {"!"}, ti, li));
             },
+            Tac::ANW(ti) => {
+                res.push_str(&format!(
+                    "{{ /* array new */\n\
+                        t{ti} = dfc_mem_new(DFC_OBJ_TYPE_ARR);\n\
+                        dfc_arr_init(dfc_obj_ref_as_ptr(t{ti}));\n\
+                     }}\n"
+                ));
+            },
+            Tac::APE(arr_ti, elem_ti) => res.push_str(&format!(
+                "{{ /* array push */\n\
+                    struct DfcArr *aux = dfc_obj_ref_as_ptr(t{arr_ti});\n\
+                    dfc_arr_push(aux, {0}, t{elem_ti});\n\
+                 }}\n",
+                type2c(&g.tmp[*elem_ti as usize])
+            )),
             _ => todo!(),
         }
     }
-    res.push_str("\nreturn 0;\n}");
+    res.push_str("dfc_mem_exit();\n");
+    res.push_str("return 0;\n");
+    res.push_str("}");
     return res;
 }
 
@@ -61,18 +82,17 @@ pub fn into_c(g: &Gen) -> String
 fn declar_vars(tmp: &[Type]) -> String
 {
     // group by type
-    let mut groups = std::collections::HashMap::<u8, Vec<u16>>::new();
+    let mut groups = std::collections::HashMap::<Type, Vec<u16>>::new();
     for (i, t) in tmp.iter().enumerate() {
-        let t = *t as u8;
         if !groups.contains_key(&t) {
-            groups.insert(t, vec![]);
+            groups.insert(t.clone(), vec![]);
         }
         let g = groups.get_mut(&t).unwrap().push(i as u16);
     }
     // to string
     let mut res = String::new();
     for (typ, grp) in groups.iter() {
-        res.push_str(types_convert(&Type::try_from_primitive(*typ).unwrap()));
+        res.push_str(type2c(typ));
         res.push(' ');
         for idx in grp {
             res.push_str(&format!("t{idx},"));
@@ -83,14 +103,22 @@ fn declar_vars(tmp: &[Type]) -> String
     return res;
 }
 
-fn types_convert(t: &Type) -> &'static str
+fn type2c(t: &Type) -> &'static str
 {
     match t {
-        Type::B => "int",
-        Type::C => "uint8_t",
-        Type::N => "uint32_t",
-        Type::Z => "int32_t",
-        Type::R => "double",
+        Type::Fund(x) => fundty2c(x),
+        Type::Arrr(_) => "DfcObjRef",
+    }
+}
+
+fn fundty2c(t: &FundTy) -> &'static str
+{
+    match t {
+        FundTy::B => "int",
+        FundTy::C => "uint8_t",
+        FundTy::N => "uint32_t",
+        FundTy::Z => "int32_t",
+        FundTy::R => "double",
     }
 }
 

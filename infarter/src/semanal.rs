@@ -149,7 +149,7 @@ impl SemAnal
         self.init_scope();
         let b0_wt = self.no_env_block(b0);
         let cd_wt = self.p_expr(cd);
-        if cd_wt.t != Type::B {
+        if !cd_wt.t.is_b() {
             panic!("condition in loop is not B%");
         }
         let b1_wt = self.no_env_block(b1);
@@ -177,8 +177,8 @@ impl SemAnal
     {
         let IfCase {cond:c, blok:b} = cas;
         let c_wt = self.p_expr(c);
-        if c_wt.t != Type::B {
-            panic!("condition is not B%");
+        if !c_wt.t.is_b() {
+            panic!("condition is not B");
         }
         let b_wt = self.p_block(b);
         return IfCaseWt{cond:c_wt, blok:b_wt};
@@ -192,6 +192,7 @@ impl SemAnal
             Expr::UniOp(e, o)    => self.e_uniop(*e, o),
             Expr::BinOp(l, o, r) => self.e_binop(*l, o, *r),
             Expr::CmpOp(f, v)    => self.e_cmpop(*f, v),
+            Expr::Array(a)       => self.e_array(a),
             _ => todo!(),
         }
     }
@@ -206,11 +207,11 @@ impl SemAnal
     fn e_ident(&mut self, i: IdfIdx) -> ExprWt
     {
         if let Some(t) = self.curr.get(&i) {
-            return ExprWt {e:ExprWte::Local(i, 0), t:*t};
+            return ExprWt {e:ExprWte::Local(i, 0), t:t.clone()};
         }
         for (dep, env) in self.envs.iter().enumerate() {
             if let Some(t) = env.get(&i) {
-                return ExprWt {e:ExprWte::Local(i, dep+1), t:*t};
+                return ExprWt {e:ExprWte::Local(i, dep+1), t:t.clone()};
             }
         }
         // FUTURE: resolve also upval
@@ -220,8 +221,9 @@ impl SemAnal
     fn e_uniop(&mut self, e: Expr, o: UniOp) -> ExprWt
     {
         let e_wt = self.p_expr(e);
-        let (o_wt, t) = uniop_types(&e_wt.t, &o);
-        return ExprWt {e:ExprWte::UniOp(Box::new(e_wt), o_wt), t:t};
+        let Type::Fund(e_ft) = &e_wt.t else {todo!("uniop overload");};
+        let (o_wt, t) = uniop_types(e_ft, &o);
+        return ExprWt {e:ExprWte::UniOp(Box::new(e_wt), o_wt), t:Type::Fund(t)};
     }
 
     fn e_binop(&mut self, l: Expr, o: BinOp, r: Expr) -> ExprWt
@@ -231,26 +233,28 @@ impl SemAnal
         }
         let l_wt = self.p_expr(l);
         let r_wt = self.p_expr(r);
-        let (o_wt, t) = binop_types(&l_wt.t, &o, &r_wt.t);
+        let Type::Fund(l_ft) = &l_wt.t else {todo!("binop overload");};
+        let Type::Fund(r_ft) = &r_wt.t else {todo!("binop overload");};
+        let (o_wt, t) = binop_types(l_ft, &o, r_ft);
         return ExprWt {
             e: ExprWte::BinOp(Box::new(l_wt), o_wt, Box::new(r_wt)),
-            t: t,
+            t: t.into(),
         };
     }
 
     fn e_tcast(&mut self, ex: Expr, ty: Expr) -> ExprWt
     {
         let ex_wt = self.p_expr(ex);
-        let typ = match ty {
+        let typ: Type = match ty {
             Expr::Ident(i) => match self.idfs[i].as_bytes() {
-                b"N" => Type::N,
-                b"Z" => Type::Z,
-                b"R" => Type::R,
+                b"N" => FundTy::N.into(),
+                b"Z" => FundTy::Z.into(),
+                b"R" => FundTy::R.into(),
                 _ => todo!(),
             }
             _ => panic!(),
         };
-        return ExprWt {e:ExprWte::Tcast(Box::new(ex_wt), typ), t:typ};
+        return ExprWt {e:ExprWte::Tcast(Box::new(ex_wt), typ.clone()), t:typ};
     }
 
     fn e_cmpop(&mut self, f: Expr, v: Vec<(CmpOp, Expr)>) -> ExprWt
@@ -267,16 +271,37 @@ impl SemAnal
         if &f_wt.t != &g_wt.t {
             panic!("cannot use {:?} with different types", &o);
         }
-        let o_wt = cmpop_types(&f_wt.t, &o);
+        let Type::Fund(f_ft) = &f_wt.t else {todo!("<=>= overload");};
+        let o_wt = cmpop_types(f_ft, &o);
         return ExprWt{
             e:ExprWte::CmpOp(Box::new(f_wt), vec![(o_wt, g_wt)]),
-            t:Type::B
+            t:FundTy::B.into(),
         };
+    }
+
+    fn e_array(&mut self, a: Vec<Expr>) -> ExprWt
+    {
+        if a.is_empty() {
+            todo!("empty arrays");
+        }
+        let mut a_type = None;
+        let mut a_wt = vec![];
+        for x in a {
+            let x_wt = self.p_expr(x);
+            if let Some(t) = &a_type {
+                if t != &x_wt.t {
+                    panic!("different type elements in array");
+                }
+            } else { // 0st elem defines þe whole arr
+                a_type = Some(x_wt.t.clone());
+            }
+            a_wt.push(x_wt);
+        }
+        return ExprWt{e:ExprWte::Array(a_wt), t:a_type.unwrap()};
     }
 }
 
-
-fn binop_types(lt: &Type, op: &BinOp, rt: &Type) -> (BinOpWt, Type)
+fn binop_types(lt: &FundTy, op: &BinOp, rt: &FundTy) -> (BinOpWt, FundTy)
 {
     // BEWARE OF ÞE NASTY MACRO!
     macro_rules! binop {
@@ -284,8 +309,8 @@ fn binop_types(lt: &Type, op: &BinOp, rt: &Type) -> (BinOpWt, Type)
             $($ltt:ident, $rtt:ident => $resop:ident, $resty:ident,)+;)+) => {
             match $opexpr {
                 $(BinOp::$op => match ($lt, $rt) {
-                    $((Type::$ltt, Type::$rtt) =>
-                        return (BinOpWt::$resop, Type::$resty),)+
+                    $((FundTy::$ltt, FundTy::$rtt) =>
+                        return (BinOpWt::$resop, FundTy::$resty),)+
                     _ => {},
                 },)+
                 _ => {},
@@ -330,23 +355,23 @@ fn binop_types(lt: &Type, op: &BinOp, rt: &Type) -> (BinOpWt, Type)
     panic!("Unknown operation: {lt} {op:?} {rt}");
 }
 
-fn uniop_types(t: &Type, o: &UniOp) -> (UniOpWt, Type)
+fn uniop_types(t: &FundTy, o: &UniOp) -> (UniOpWt, FundTy)
 {
     // no nasty macro since þer'r too few of þem
     match o {
         UniOp::Neg => match t {
-            Type::Z => return (UniOpWt::NEZ, Type::Z),
-            Type::R => return (UniOpWt::NER, Type::R),
+            FundTy::Z => return (UniOpWt::NEZ, FundTy::Z),
+            FundTy::R => return (UniOpWt::NER, FundTy::R),
             _ => {}
         },
         UniOp::Inv => match t {
-            Type::R => return (UniOpWt::INR, Type::R),
+            FundTy::R => return (UniOpWt::INR, FundTy::R),
             _ => {}
         },
         UniOp::Not => match t {
-            Type::B => return (UniOpWt::NOB, Type::B),
-            Type::C => return (UniOpWt::NOC, Type::C),
-            Type::N => return (UniOpWt::NON, Type::N),
+            FundTy::B => return (UniOpWt::NOB, FundTy::B),
+            FundTy::C => return (UniOpWt::NOC, FundTy::C),
+            FundTy::N => return (UniOpWt::NON, FundTy::N),
             _ => {}
         },
     }
@@ -354,7 +379,7 @@ fn uniop_types(t: &Type, o: &UniOp) -> (UniOpWt, Type)
     panic!("unknown op: {o:?} {t}");
 }
 
-fn cmpop_types(t: &Type, o: &CmpOp) -> CmpOpWt
+fn cmpop_types(t: &FundTy, o: &CmpOp) -> CmpOpWt
 {
     match o {
         CmpOp::Equ(b) => CmpOpWt::Equ(EquOpWt(*b, t.try_into()
@@ -366,31 +391,31 @@ fn cmpop_types(t: &Type, o: &CmpOp) -> CmpOpWt
     }
 }
 
-impl TryFrom<&Type> for EquTyp
+impl TryFrom<&FundTy> for EquTyp
 {
     type Error = ();
-    fn try_from(t: &Type) -> Result<Self, ()>
+    fn try_from(t: &FundTy) -> Result<Self, ()>
     {
         match t {
-            Type::B => Ok(Self::B),
-            Type::C => Ok(Self::C),
-            Type::N => Ok(Self::N),
-            Type::Z => Ok(Self::Z),
+            FundTy::B => Ok(Self::B),
+            FundTy::C => Ok(Self::C),
+            FundTy::N => Ok(Self::N),
+            FundTy::Z => Ok(Self::Z),
             _ => Err(()),
         }
     }
 }
 
-impl TryFrom<&Type> for OrdTyp
+impl TryFrom<&FundTy> for OrdTyp
 {
     type Error = ();
-    fn try_from(t: &Type) -> Result<Self, ()>
+    fn try_from(t: &FundTy) -> Result<Self, ()>
     {
         match t {
-            Type::C => Ok(Self::C),
-            Type::N => Ok(Self::N),
-            Type::Z => Ok(Self::Z),
-            Type::R => Ok(Self::R),
+            FundTy::C => Ok(Self::C),
+            FundTy::N => Ok(Self::N),
+            FundTy::Z => Ok(Self::Z),
+            FundTy::R => Ok(Self::R),
             _ => Err(()),
         }
     }
