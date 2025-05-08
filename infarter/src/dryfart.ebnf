@@ -1,0 +1,110 @@
+// kinda EBNF, þis is not parsable, only for docs
+// strings with r"" are regex terminals
+
+// mega brain moment: generics in EBNF
+// this is used for things like comma separated list, etc.
+// Warning: also accepts trailing separator
+// wanring: at least 1 item
+List<Item, Sep> = Item (Sep Item)* Sep?;
+
+Block   = Stmt*;
+
+Stmt    = Assign
+        | OperOn
+        | IfElse
+        | Switch
+        | Loop
+        | Again
+        | Break
+        | PcCall
+        | PcRec
+        | RetFn
+        | RetPc;
+
+Assign = Expr "=" Expr ".";
+
+OperOn = Expr "=@" BinOp Expr ".";
+
+IfElse = "[" Expr "=>" Block    // if
+       ( "|" Expr "=>" Block )* // else-if
+       ( "|"      "=>" Block )? // else
+         "]";
+
+Switch = "[" Expr "="
+       ( "|" Expr "=>" Block )* // case, FUTURE: List<Expr, ",">
+         "|"      "=>" Block    // Default block
+         "]";
+
+// loop stuff
+Loop = "@" Block ("@[" Expr "]" Block)? ".";
+Again = "@@" (N|Z)? ".";
+Break = ".@" (N|Z)? ".";
+
+// returns
+RetFn = ".#" Expr ".";
+RetPc = ".!" ".";
+
+PcCall = Expr "!" List<Expr, ",">? ".";
+
+// compact recursive procedure call, equivalent to !@ ! ... .
+PcRec = "@!" List<Expr, ",">? ".";
+
+//    Precedence
+//    ----------
+//    #; // future $
+//    _
+//    %
+//    / - ~ (unary)
+//    * / \
+//    + -
+//    MAYBE: << >>
+//    &
+//    ^
+//    |
+//    == ~= < <= > >=
+//    &?
+//    |?
+
+<Expr>    ::= <COrExpr>
+<COrExpr> ::= <CAndExpr> ("||" <CAndExpr>)*
+<CAndExpr> ::= <CmpExpr> ("&&" <CmpExpr>)*
+<CmpExpr> ::= <AddExpr> (<CmpOp> <AddExpr>)*
+<CmpOp>   ::= r"([=~<>]=|<|>)"
+<AddExpr> ::= <AddTerm> (("+" | "-") <AddTerm>)*
+<NegExpr> ::= "-"* <MulExpr>
+<MulExpr> ::= <MulTerm> (("*" | "/" | "\\") <MulTerm>)*
+<InvExpr> ::= "/"* <NotExpr>
+<NotExpr> ::= "~"* <IdxExpr>
+<IdxExpr> ::= <CastExpr> ("_" <CastExpr>)*
+<CastExpr> ::= <PrimType>* <AccExpr>
+
+FnArgs = "#" List<Expr, ",">? ";"
+
+// function definition, kinda lambda
+FnExpr  =  "#" SubrName Pars ";" "%" Type  Block ".";
+ShortFn = "\#" SubrName Pars ";" "%" Type Expr ".";
+FnRecRef = "#@";
+FnRecCall = "@#" List<Expr, ","> ";";
+
+PcExpr = "!" (String "="?)? Pars "." Block "."
+PcRecRef = "!@"
+
+SubrName = (String "="?)?
+Pars = List<Ident "%" Type, ",">?
+
+Nucle = FnExpr | ShortFn | FnRecRef | FnRecCall
+    | Parented | Literal | Ident | //IfExpr> /*| "@" /* recurs */
+
+Parented = "(" Expr ")"
+Ident = r"[A-Za-z][A-Za-z0-9]*"
+
+//<IfExpr>  ::= "\[" (<Expr> "=>" <Expr> ";")+ <Expr> "]"
+
+Literal = B | C | N | Z | R | String | ArrLit | TblLit
+String  ::= "'[^']*'" // see implementation, for esc chars
+B = r"[01]B"
+N = r"[0-9]+[Nn]"
+Z = r"[0-9]+"
+R = r"[0-9]+\.[0-9]+"
+ArrLit = "_" List<Expr, Comma> ";"
+//<TblLit>  ::= "$" (<Ident> "=" <Expr> ".")* ";"
