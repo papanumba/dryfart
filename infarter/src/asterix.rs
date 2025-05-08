@@ -15,7 +15,7 @@ pub enum FundTy
     B = b'B', // bool
     C = b'C', // char
     N = b'N', // natural
-    Z = b'Z', // zahl
+    Z = b'Z', // integer
     R = b'R', // real
 }
 
@@ -229,19 +229,34 @@ pub enum CmpOp
 
 // TODO Cand &?, Cor |?
 
-#[derive(Debug, Clone)]
-pub struct IfCase
-{
-    pub cond: Expr,
-    pub blok: Block,
-}
-
 /*#[derive(Debug, Clone)]
 pub struct SwCase
 {
     pub comp: Expr, // þis may be expanded in þe futur
     pub blok: Block,
 }*/
+
+pub enum Type
+{
+    Fund
+}
+
+#[derive(Debug, Clone)]
+pub struct SubrMeta
+{
+    line: u16,
+    name: Option<IdfIdx>,
+    // MAYBE futur: class, source file, column
+}
+
+#[derive(Debug, Clone)]
+pub enum SubrDef
+{
+    meta: SubrMeta,
+    args: Vec<(IdfIdx, Type)>,
+    rett: Type,
+    body: Block,
+}
 
 #[derive(Debug, Clone)]
 pub enum Expr
@@ -255,6 +270,14 @@ pub enum Expr
     CmpOp(Box<Expr>, Vec<(CmpOp, Expr)>),
 //    IfExp(Vec<(Expr, Expr)>, Box<Expr>),
     Array(Vec<Expr>),
+    SrDef(Box<SubrDef>),
+}
+
+#[derive(Debug, Clone)]
+pub struct IfCase
+{
+    pub cond: Expr,
+    pub blok: Block,
 }
 
 #[derive(Debug, Clone)]
