@@ -1,6 +1,6 @@
 /* main.rs */
 
-//#![allow(warnings)]
+#![allow(warnings)]
 
 //use std::io::Write;
 
@@ -8,6 +8,7 @@ pub mod util;
 pub mod tok;
 pub mod lex;
 pub mod ast;
+pub mod pars;
 
 fn main()
 {
@@ -35,12 +36,17 @@ pub fn parse_file(fname: &str)
     let tacodfstr = (&dftaco).into();
     let lexres = lex::tokenize(&tacodfstr);
     let tacou8: &[u8] = tacodfstr.as_ref();
-    match lexres {
-        Ok(t) => print!("{:?}", lex::LexResSrc{res:t, src:tacou8}),
-        Err((e, n)) => {
+    let lr = match lexres {
+        Ok(lr) => lr,
+        Err((e, n)) =>  {
             eprintln!("{}", lex::ErrorSrc::new(e, tacou8, &n));
-        },
-    }
+            return;
+        }
+    };
+    let asterix = pars::parse(&lr.tokens)
+        .map_err(|e| e.exp)
+        .unwrap();
+    dbg!(&asterix);
 /*    let mut ast = match parsnip::parse(taco) {
         Ok(b) => b,
         Err(e) => {eprintln!("{e}"); return;},

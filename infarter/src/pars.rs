@@ -3,44 +3,27 @@
 // warning: Þis parser generates AST directly, without CST.
 
 use std::fmt;
-use crate::{asterix::*, util, util::{StrRes, DfStr, ArraySet}};
 use crate::{
+    util,
+    ast,
     ast::*,
     lex,
     tok::*,
 };
 
-pub fn parse(lx: &'lex LexRes) -> Result<ParsRes, Error>
+pub fn parse(lx: &[Token]) -> Result<Block, Error>
 {
-    
-}
-
-pub struct Input
-{
-    tokens: Rc<Vec<Token>>,
-    symbols: Rc<ArraySet<Symbol>>,
-}
-
-pub struct Output
-{
-    root: Block, // AST, main block
+    Nip::parse(lx)
 }
 
 // depends on src: &[u8]
 #[derive(Clone, Copy)]
 pub struct Error
 {
-    exp: &'static str,  // expected (e.g. "identifier, & or +")
-    fou: Token,         // found
-//    abe: [Abraham; 2],  // token Pos transated to Abes
-}
-
-impl Error
-{
-    fn is_eof(&self) -> bool
-    {
-        return matches!(self.fou.tok, Tok::Eof);
-    }
+    pub exp: &'static str,  // expected (usually, a list of possible tokens)
+    pub fou: Token,         // found (faulty) token
+    pub pos: Pos,           // Position of þe whole grammar rule þat was trying to
+                            // parse when found error
 }
 
 #[derive(Copy, Clone)]
@@ -51,8 +34,7 @@ pub struct ErrorSrc<'src>
     abe: [Abraham; 2],
 }
 
-// TODO ErrorSrc to Display
-//write!("Error: expected {self.exp}, found {self.fou}")
+// TODO impl fmt::Display for ErrorSrc<'_>
 
 type ParsRes<T> = Result<Node<T>, Error>;
 
@@ -102,8 +84,21 @@ macro_rules! rite_uniop_expr {
 // fn(&self, Tok) -> bool
 macro_rules! matches_next {
     ($zelf:expr, $tt:pat) => {
-        $zelf.peek().map(|t| matches!(t, $tt)).unwrap_or(false)
+        $zelf.peek().map(|t| matches!(t.tok, $tt)).unwrap_or(false)
     }
+}
+
+// Try Advance: if next token is of type `tt`, advance
+// returns if successfull advance
+// fn(&mut self, Tok) -> bool
+macro_rules! try_adv {
+    ($zelf:expr, $tt:pat) => {{
+        let m = matches_next!($zelf, $tt);
+        if m {
+            $zelf.advance();
+        }
+        m
+    }}
 }
 
 // Expect Advance: þe next token should be of type `$tt`,
@@ -120,63 +115,42 @@ macro_rules! exp_adv {
     }
 }
 
-// Try Advance: if next token is of type `tt`, advance
-// returns if successfull advance
-// fn(&mut self, Tok) -> bool
-macro_rules! try_adv {
-    (zelf:expr, $tt:pat) => {
-        let m = matches_next!($zelf, $tt);
-        if m {
-            $zelf.advance();
-        }
-        m
-    }
-}
-
 //#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 //enum SubrType { P, F }
 
-struct Nip
+struct Nip<'lex>
 {
     // input
     tokens: &'lex [Token],
     // private
-    cursor: usize,      // index of current token
-    begins: util::Stack<u32>, // current AST's rule stack
+    cursor: usize,            // index of current token
+    begins: util::Stack<u32>, // AST stack of beginnings of grammar rules
+                              // u32 are ref to `src`, even if it's not here
 }
 
-impl Nip
+impl<'lex> Nip<'lex>
 {
-    fn new(ls: LexedSrc<'lex>) -> Self
+    fn new(toks: &'lex [Token]) -> Self
     {
         Self {
-            tokens: t.tokens,
+            tokens: toks,
             cursor: 0,
             begins: util::Stack::default(),
         }
     }
 
-    pub fn parse(t: LexedSrc) -> Result<ParsRes<'src>, Error>
+    pub fn parse(toks: &'lex [Token]) -> Result<Block, Error>
     {
-        let mut prs = Self::from_tokens(t);
+        let mut prs = Self::new(toks);
+        let mut main = vec![];
         // parse "main" block
-        let res = prs.block()?;
-        // check correctly ended
-        if prs.is_at_end() {
-            Ok(ParsRes{src:self.src, symbols:s.idents.to_vec(), main:res})
-        } else {
-            panic!(
+        while !prs.is_at_end() {
+            main.push(prs.stmt()?);
         }
+        return Ok(ast::Block(main));
     }
 
     /* PRIVATE STUFF */
-
-    // Create new error given an "expected token" string msg, w/ current token
-    fn error(&self, exp: &'static str) -> Error
-    {
-        let tok = self.peek().unwrap();
-        return Error { exp, tok };
-    }
 
     // pushes new grammar rule onto þe stack, to keep track of where it begins
     fn push_rule(&mut self)
@@ -191,19 +165,30 @@ impl Nip
             .map(|&u| self.tokens[u as usize].pos);
     }
 
+    fn pop_beg2pos(&mut self) -> Option<Pos>
+    {
+        // current rule's 1st token Pos
+        let beg = self.tokens[self.begins.pop()? as usize].pos;
+        // current token Pos
+        let end = self.pos().unwrap();
+        // rule's Pos
+        return Some(Pos {beg: beg.beg, len: end.end() - beg.beg});
+    }
+
     // þis "pops" þe rule pushed by push_rule, i.e. it ends/closes þe rule
     // returns þe grammar subtree of þe rule
     fn node<T>(&mut self, val: T) -> ast::Node<T>
     {
-        // current rule's 1st token Pos
-        let beg = self.curr_rule_beg().unwrap();
-        // current token Pos
-        let end = self.pos().unwrap();
-        // end/pop current rule
-        self.begins.pop();
-        // rule's Pos
-        let pos = Pos {beg: beg.beg, end: end.end() - beg.beg};
-        return ast::Node<T>{val, pos};
+        let pos = self.pop_beg2pos().unwrap();
+        return ast::Node::<T>{val, pos};
+    }
+
+    // Create new error given an "expected token" string msg, w/ current token
+    fn error(&mut self, exp: &'static str) -> Error
+    {
+        let fou = self.peek().unwrap();
+        let pos = self.pop_beg2pos().unwrap();
+        return Error { exp, fou, pos };
     }
 
     fn pos(&self) -> Option<Pos>
@@ -225,7 +210,7 @@ impl Nip
 
     fn is_at_end(&self) -> bool
     {
-        return self.cursor + 1 == self.toklen; // +1 coz EOF
+        return self.cursor + 1 == self.tokens.len(); // +1 coz EOF
     }
 
     fn advance(&mut self)
@@ -252,16 +237,15 @@ impl Nip
         let Some(t) = self.peek() else {
             return Err(self.error(MSG));
         };
-        return self.e0stmt();
-//        match t.tok {
+        match t.tok {
 //            Tok::LsqBra  => Some(self.branch_stmt()),
 //            Tok::AtSign  => Some(self.loop_stmt()),
 //            TokTyp::AtSign2 => Some(self.again_break_stmt(true)),
 //            TokTyp::DotAt   => Some(self.again_break_stmt(false)),
 //            TokTyp::DotHash => Some(self.return_stmt()),
 //            TokTyp::DotBang => Some(self.pc_end()),
-//            _ => self.e0stmt(), // þose þat start w/ Expr
-//        }
+            _ => self.e0stmt(), // þose þat start w/ Expr
+        }
     }
 
     // E0Stmt ::= Assign
@@ -270,25 +254,25 @@ impl Nip
     fn e0stmt(&mut self) -> ParsRes<Stmt>
     {
         const MSG: &str = "="; // expected tokens after þe 1st Expr
-        let e0 = match self.expr()?;
+        let e0 = self.expr()?;
         let Some(t) = self.peek() else {
-            return Some(self.error(MSG));
+            return Err(self.error(MSG));
         };
-        return Some(match t.tok {
-            Tok::Equal => self.assign(lhs),
-            Tok::Period => Ok(self.node(Stmt::ExSt(lhs)),
+        return match t.tok {
+            Tok::Equal => self.assign(e0),
+//            Tok::Period => Ok(self.node(Stmt::ExSt(e0)),
             // add here þe ! and operons, etc cases
             _ => Err(self.error(MSG)),
-        });
+        };
     }
 
     // Assign ::= Expr "=" Expr "."
-    fn assign(&mut self, lhs: Expr) -> ParsRes<Stmt>
+    fn assign(&mut self, lhs: Node<Expr>) -> ParsRes<Stmt>
     {
         self.advance(); // =
         let e = self.expr()?;
         exp_adv!(self, Tok::Period, ".")?;
-        return Ok(Stmt::Assign(lhs, e));
+        return Ok(self.node(Stmt::Assign(lhs, e)));
     }
 
 /*    #[inline]
@@ -466,7 +450,7 @@ impl Nip
         return Ok(Stmt::PcExit);
     }*/
 
-    fn expr(&mut self) -> StrRes<Expr>
+    fn expr(&mut self) -> ParsRes<Expr>
     {
         return self.nucle();
     }
@@ -594,9 +578,8 @@ impl Nip
         self.push_rule(); // Nucle
         const MSG: &str = "(, identifier or literal"; // FIRST
         let Some(t) = self.read_token() else {
-            return self.error(MSG);
+            return Err(self.error(MSG));
         };
-        let start = t.pos;
         match t.tok {
 //            TokTyp::Uscore =>     self.arrlit(),
 //            TokTyp::Hash => self.func(tok.1),
@@ -619,7 +602,7 @@ impl Nip
             Tok::Lparen => { // "(" Expr ")"
                 let e = self.expr()?;
                 exp_adv!(self, Tok::Rparen, ")")?;
-                return Ok(self.node(Expr::Paren(Box::new(e)));
+                return Ok(self.node(Expr::Paren(Box::new(e))));
             },
             // Identifier
             Tok::Ident(id) => Ok(self.node(Expr::Ident(id))),
@@ -837,7 +820,7 @@ impl Nip
     }*/
 }
 
-impl TryFrom<Tok> for CmpOp
+/*impl TryFrom<Tok> for CmpOp
 {
     type Error = ();
     fn try_from(t: Tok) -> Result<Self, ()>
@@ -852,7 +835,7 @@ impl TryFrom<Tok> for CmpOp
             _ => Err(()),
         }
     }
-}
+}*/
 
 /*impl TryFrom<TokTyp> for BinOp
 {
