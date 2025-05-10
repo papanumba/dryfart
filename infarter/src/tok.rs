@@ -42,6 +42,16 @@ impl Pos
     {
         return self.beg + self.len;
     }
+
+    // s = source
+    // n = newlines (see lex)
+    pub fn to_abe2(&self, s: &[u8], n: &[u32]) -> [Abraham; 2]
+    {
+        return [
+            Abraham::from_idx(self.beg  , s, n),
+            Abraham::from_idx(self.end(), s, n),
+        ];
+    }
 }
 
 // store a position Line and Column numbers

@@ -43,9 +43,13 @@ pub fn parse_file(fname: &str)
             return;
         }
     };
-    let asterix = pars::parse(&lr.tokens)
-        .map_err(|e| e.exp)
-        .unwrap();
+    let asterix = match pars::parse(&lr.tokens) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("{}", pars::ErrorSrc::new(e, tacou8, &lr.newlines));
+            return;
+        },
+    };
     dbg!(&asterix);
 /*    let mut ast = match parsnip::parse(taco) {
         Ok(b) => b,

@@ -36,7 +36,7 @@ impl fmt::Debug for LexResSrc<'_>
         for t in &self.res.tokens {
             writeln!(f, "{} at {}",
                 TokenSrc{src:self.src, tok:*t},
-                Abraham::from_idx(t.pos.beg, self.src, &self.res.newlines),
+                t.pos.to_abe2(self.src, &self.res.newlines)[0],
             )?;
         }
         Ok(())

@@ -31,10 +31,38 @@ pub struct ErrorSrc<'src>
 {
     err: Error,
     src: &'src [u8],
-    abe: [Abraham; 2],
+    rab: [Abraham; 2], // rule Abe (from `err.pos`)
+    tab: [Abraham; 2], // token Abe (from `err.fou.pos`)
+}
+
+impl<'src> ErrorSrc<'src>
+{
+    pub fn new(err: Error, src: &'src [u8], nls: &[u32]) -> Self
+    {
+        Self { err, src,
+            rab: err  .  pos.to_abe2(src, nls),
+            tab: err.fou.pos.to_abe2(src, nls),
+        }
+    }
 }
 
 // TODO impl fmt::Display for ErrorSrc<'_>
+
+impl fmt::Display for ErrorSrc<'_>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
+        write!(f, "SYNTAX ERROR: at {}:\nexpected {}, found '{}'\n",
+            self.tab[0],
+            self.err.exp,
+            util::DfStr::from(&self.src[
+                self.err.fou.pos.beg   as usize
+                ..
+                self.err.fou.pos.end() as usize
+            ]),
+        )
+    }
+}
 
 type ParsRes<T> = Result<Node<T>, Error>;
 

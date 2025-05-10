@@ -111,9 +111,8 @@ impl BinOp
 //    is_sth_fn!(is_sce, Cand, Cor);
 }
 
-dccee8!{
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum OrdOp { Lt, Le, Gt, Ge }
-}
 
 impl OrdOp
 {
